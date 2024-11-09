@@ -16,7 +16,7 @@ Vocalysis is our cutting-edge, AI-powered mental health assessment bot that prov
 
 ### Getting Started
 
-To start using Vocalysis, simply visit our website at [cittaa.com](https://www.cittaa.in) and sign up for an account. Once you've completed the registration process, you can begin interacting with Vocalysis and exploring its features.
+To start using Vocalysis, simply visit our website at [cittaa.in](https://www.cittaa.in) and sign up for an account. Once you've completed the registration process, you can begin interacting with Vocalysis and exploring its features.
 
 ### Contributing
 
@@ -31,7 +31,7 @@ At Cittaa, our mission is to revolutionize mental health care by leveraging cutt
 We'd love to hear from you! If you have any questions, feedback, or partnership inquiries, please don't hesitate to reach out to us:
 
 - 📧 Email: support@cittaa.in
-- 🐦 Twitter: [@cittaahealth](https://x.com/cittaa9)
+- 🐦 Twitter: [@cittaa](https://x.com/cittaa9)
 - 💼 LinkedIn: [Cittaa Health Services Private Limited](https://www.linkedin.com/company/cittaa-the-powerofmind)
 
 Thank you for your interest in Cittaa and Vocalysis. Together, let's create a world where mental health is prioritized and supported. 💙
