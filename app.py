@@ -1,12 +1,11 @@
 import streamlit as st
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import io
 from datetime import datetime
 from fpdf import FPDF
 import tempfile
 import os
+import random
 
 st.set_page_config(
     page_title="Vocalysis - Mental Health Voice Analysis",
@@ -15,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-np.random.seed(42)
+random.seed(42)
 
 def calculate_mental_health_score(probabilities, confidence):
     """Calculate 0-100 mental health score from probabilities and confidence"""
@@ -347,27 +346,27 @@ def generate_demo_results(demo_type):
     }
     
     if demo_type == 'normal':
-        probabilities = np.array([0.85, 0.05, 0.05, 0.05])  # High normal probability
+        probabilities = [0.85, 0.05, 0.05, 0.05]  # High normal probability
         confidence = 0.9
     elif demo_type == 'anxiety':
-        probabilities = np.array([0.2, 0.7, 0.05, 0.05])    # High anxiety probability
-        features['speech_rate'] = 5.0                       # Faster speech rate
-        features['pitch_std'] = 30.0                        # Higher pitch variability
-        features['jitter_mean'] = 0.04                      # Higher vocal jitter
+        probabilities = [0.2, 0.7, 0.05, 0.05]    # High anxiety probability
+        features['speech_rate'] = 5.0             # Faster speech rate
+        features['pitch_std'] = 30.0              # Higher pitch variability
+        features['jitter_mean'] = 0.04            # Higher vocal jitter
         confidence = 0.85
     elif demo_type == 'depression':
-        probabilities = np.array([0.15, 0.05, 0.75, 0.05])  # High depression probability
-        features['speech_rate'] = 2.0                       # Slower speech rate
-        features['pitch_std'] = 10.0                        # Lower pitch variability
-        features['rms_mean'] = 0.2                          # Lower voice energy
+        probabilities = [0.15, 0.05, 0.75, 0.05]  # High depression probability
+        features['speech_rate'] = 2.0             # Slower speech rate
+        features['pitch_std'] = 10.0              # Lower pitch variability
+        features['rms_mean'] = 0.2                # Lower voice energy
         confidence = 0.88
     elif demo_type == 'stress':
-        probabilities = np.array([0.1, 0.15, 0.05, 0.7])    # High stress probability
-        features['jitter_mean'] = 0.035                     # Higher vocal jitter
-        features['hnr'] = 8.0                               # Lower harmonic-to-noise ratio
+        probabilities = [0.1, 0.15, 0.05, 0.7]    # High stress probability
+        features['jitter_mean'] = 0.035           # Higher vocal jitter
+        features['hnr'] = 8.0                     # Lower harmonic-to-noise ratio
         confidence = 0.82
     else:
-        probabilities = np.array([0.85, 0.05, 0.05, 0.05])
+        probabilities = [0.85, 0.05, 0.05, 0.05]
         confidence = 0.9
     
     mental_health_score = calculate_mental_health_score(probabilities, confidence)
