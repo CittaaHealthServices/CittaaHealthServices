@@ -18,6 +18,16 @@ Vocalysis is our cutting-edge, AI-powered mental health assessment bot that prov
 
 To start using Vocalysis, simply visit our website at [cittaa.in](https://www.cittaa.in) and sign up for an account. Once you've completed the registration process, you can begin interacting with Vocalysis and exploring its features.
 
+## Live Demo
+
+A live demo of the Vocalysis system is available at: [https://vocalysis-demo.streamlit.app](https://vocalysis-demo.streamlit.app)
+
+For investor testing, you can use the following demo links:
+- [Normal Mental Health State](https://vocalysis-demo.streamlit.app/?demo=normal)
+- [Anxiety Indicators](https://vocalysis-demo.streamlit.app/?demo=anxiety)
+- [Depression Indicators](https://vocalysis-demo.streamlit.app/?demo=depression)
+- [Stress Indicators](https://vocalysis-demo.streamlit.app/?demo=stress)
+
 ### Contributing
 
 We welcome contributions from the open-source community to help us improve Vocalysis and make mental health care more accessible. If you're interested in contributing, please check out our [Contributing Guidelines](CONTRIBUTING.md) for more information on how to get started.
