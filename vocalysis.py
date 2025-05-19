@@ -10,6 +10,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import cm  # Add explicit import for colormap module
 import librosa
 import librosa.display
 import torch
