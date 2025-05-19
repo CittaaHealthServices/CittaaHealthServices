@@ -505,11 +505,11 @@ def display_results(results):
     
     st.header("Clinical Interpretations")
     for interp in results['interpretations']:
-        st.write(f"• {interp}")
+        st.write(f"- {interp}")
     
     st.header("Recommendations")
     for rec in results['recommendations']:
-        st.write(f"• {rec}")
+        st.write(f"- {rec}")
     
     pdf_bytes = results['pdf_report']
     
