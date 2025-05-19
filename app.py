@@ -284,7 +284,7 @@ def generate_pdf_report(features, probabilities, confidence, mental_health_score
     pdf.set_font('Arial', '', 10)
     
     for interpretation in interpretations:
-        pdf.multi_cell(0, 5, f'• {interpretation}')
+        pdf.multi_cell(0, 5, f'- {interpretation}')
     
     pdf.ln(5)
     
@@ -293,7 +293,7 @@ def generate_pdf_report(features, probabilities, confidence, mental_health_score
     pdf.set_font('Arial', '', 10)
     
     for recommendation in recommendations:
-        pdf.multi_cell(0, 5, f'• {recommendation}')
+        pdf.multi_cell(0, 5, f'- {recommendation}')
     
     pdf.ln(5)
     
