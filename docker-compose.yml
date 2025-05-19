@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./model:/app/model
+    environment:
+      - DB_TYPE=postgresql
+      - DB_CONNECTION_STRING=postgresql://vocalysis:vocalysis_password@db/vocalysis
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=vocalysis
+      - POSTGRES_PASSWORD=vocalysis_password
+      - POSTGRES_DB=vocalysis
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:

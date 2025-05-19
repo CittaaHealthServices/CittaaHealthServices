@@ -310,7 +310,9 @@ def generate_pdf_report(features, probabilities, confidence, mental_health_score
         if feature in features:
             pdf.cell(0, 10, f'{feature}: {features[feature]:.4f}', 0, 1)
     
-    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    pdf_bytes = pdf.output(dest='S')
+    if isinstance(pdf_bytes, str):
+        pdf_bytes = pdf_bytes.encode('latin1')
     
     return pdf_bytes
 
@@ -520,20 +522,10 @@ def display_results(results):
     )
 
 def main():
-    if 'client_details' not in st.session_state:
-        st.session_state.client_details = {
-            "name": "",
-            "age": "",
-            "gender": "",
-            "email": "",
-            "phone": "",
-            "medical_history": "",
-            "current_medications": "",
-            "assessment_reason": ""
-        }
+    """Main application function"""
+    st.title("Vocalysis - Mental Health Voice Analysis")
     
-    if 'demo_mode' not in st.session_state:
-        st.session_state.demo_mode = True
+    st.sidebar.title("Options")
     
     if 'analysis_complete' not in st.session_state:
         st.session_state.analysis_complete = False
@@ -541,47 +533,68 @@ def main():
     if 'results' not in st.session_state:
         st.session_state.results = None
     
-    params = st.experimental_get_query_params()
-    if 'demo' in params:
-        demo_type = params['demo'][0]
-        if st.session_state.results is None or 'demo_type' not in st.session_state or st.session_state.demo_type != demo_type:
-            st.session_state.results = generate_demo_results(demo_type)
-            st.session_state.analysis_complete = True
-            st.session_state.demo_type = demo_type
+    if 'demo_type' not in st.session_state:
+        st.session_state.demo_type = None
     
-    st.sidebar.image("https://raw.githubusercontent.com/CittaaHealthServices/CittaaHealthServices/main/assets/logo.png", width=200)
-    st.sidebar.title("Vocalysis")
-    st.sidebar.write("Advanced Voice Analysis System for Mental Health Assessment")
+    model_type = st.sidebar.selectbox(
+        "Select Model Architecture",
+        ["ensemble", "mlp", "cnn", "rnn", "attention"],
+        index=0,
+        help="Choose the neural network architecture to use for analysis"
+    )
     
-    st.header("Vocalysis Demo Mode for Investors")
-    st.write("Select a pre-generated demo to see how Vocalysis analyzes different mental health states.")
+    use_secure_storage = st.sidebar.checkbox(
+        "Use Secure Storage",
+        value=True,
+        help="Enable secure storage for voice data and analysis results"
+    )
+    
+    st.sidebar.markdown("## Demo Mode")
+    st.sidebar.markdown("Try a pre-recorded demo:")
     
     demo_options = {
-        "normal": "Normal Mental Health State",
-        "anxiety": "Anxiety Indicators",
-        "depression": "Depression Indicators",
-        "stress": "Stress Indicators"
+        "Normal": "normal",
+        "Anxiety": "anxiety",
+        "Depression": "depression",
+        "Stress": "stress"
     }
     
-    selected_demo = st.selectbox("Select a demo scenario:", 
-                               list(demo_options.keys()),
-                               format_func=lambda x: demo_options[x])
+    selected_demo = st.sidebar.selectbox("Select Demo", list(demo_options.keys()))
     
-    if st.button("Show Demo Results"):
-        st.session_state.results = generate_demo_results(selected_demo)
-        st.session_state.analysis_complete = True
-        st.session_state.demo_type = selected_demo
-        st.experimental_rerun()
+    if st.sidebar.button("Run Demo"):
+        with st.spinner("Analyzing demo voice sample..."):
+            st.session_state.results = generate_demo_results(demo_options[selected_demo])
+            st.session_state.analysis_complete = True
+            st.session_state.demo_type = demo_options[selected_demo]
+            st.rerun()
+    
+    st.markdown("## Upload Voice Recording")
+    st.markdown("Upload a voice recording for mental health analysis:")
+    
+    uploaded_file = st.file_uploader("Choose an audio file", type=["wav", "mp3", "ogg"])
+    
+    if uploaded_file is not None and st.button("Analyze Voice"):
+        with st.spinner("Analyzing voice recording..."):
+            try:
+                audio_bytes = uploaded_file.read()
+                
+                from vocalysis_clean import run_vocalysis_analysis
+                
+                results = run_vocalysis_analysis(
+                    audio_data=audio_bytes,
+                    model_type=model_type,
+                    use_secure_storage=use_secure_storage
+                )
+                
+                st.session_state.results = results
+                st.session_state.analysis_complete = True
+                st.session_state.demo_type = None
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error analyzing voice recording: {str(e)}")
     
     if st.session_state.analysis_complete and st.session_state.results:
         display_results(st.session_state.results)
-    
-    st.markdown("### Shareable Demo Links")
-    st.write("Share these links with investors to demonstrate Vocalysis:")
-    
-    base_url = "https://vocalysis-demo.streamlit.app/?demo="
-    for demo, description in demo_options.items():
-        st.markdown(f"[{description}]({base_url}{demo})")
     
     st.markdown("---")
     st.markdown("### About Vocalysis")
@@ -590,7 +603,7 @@ def main():
         The system extracts audio features from voice recordings and uses machine learning to classify mental states 
         (Normal, Anxiety, Depression, Stress) with confidence scores.
         
-        This demo is for educational and research purposes only. It is not intended to provide medical diagnosis 
+        This system is for educational and research purposes only. It is not intended to provide medical diagnosis 
         or replace professional mental health evaluation.
     """)
 
