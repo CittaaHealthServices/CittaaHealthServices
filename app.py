@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import cm  # Add explicit import for colormap module
 import io
 from datetime import datetime
 from fpdf import FPDF
@@ -535,7 +536,6 @@ def main():
             st.session_state.audio_data = audio_data
             st.rerun()
     
-    st.experimental_set_query_params(streamlit_audio_data_callback=handle_audio_data)
     
     if 'analysis_complete' not in st.session_state:
         st.session_state.analysis_complete = False
