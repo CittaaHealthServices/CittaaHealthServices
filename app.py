@@ -595,10 +595,13 @@ def main():
             else:
                 with st.spinner("Analyzing voice recording..."):
                     try:
+                        from audio_converter import convert_audio_to_wav_if_needed
+                        converted_audio = convert_audio_to_wav_if_needed(audio_data, "recording.wav")
+                        
                         from vocalysis_clean import run_vocalysis_analysis
                         
                         results = run_vocalysis_analysis(
-                            audio_data=audio_data,
+                            audio_data=converted_audio,
                             model_type=model_type,
                             use_secure_storage=use_secure_storage
                         )
@@ -620,10 +623,13 @@ def main():
             try:
                 audio_bytes = uploaded_file.read()
                 
+                from audio_converter import convert_audio_to_wav_if_needed
+                converted_audio = convert_audio_to_wav_if_needed(audio_bytes, uploaded_file.name)
+                
                 from vocalysis_clean import run_vocalysis_analysis
                 
                 results = run_vocalysis_analysis(
-                    audio_data=audio_bytes,
+                    audio_data=converted_audio,
                     model_type=model_type,
                     use_secure_storage=use_secure_storage
                 )
