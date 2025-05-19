@@ -1,8 +1,33 @@
-# Core dependencies for Streamlit Cloud deployment
-streamlit>=1.10.0,<1.12.0
+# Core dependencies for VM deployment
 numpy>=1.19.0,<1.22.0
 pandas>=1.3.0,<1.4.0
 matplotlib>=3.4.0,<3.5.0
 
+# Audio processing
+librosa>=0.8.0
+soundfile>=0.10.3
+pydub>=0.25.1
+
+# Machine learning
+torch>=1.9.0
+scikit-learn>=1.0.0
+scipy>=1.7.0
+
 # PDF generation
 fpdf==1.7.2
+
+# Data visualization
+seaborn>=0.11.0
+plotly>=5.1.0
+
+# Web interface (optional)
+streamlit>=1.10.0
+
+# Database
+psycopg2-binary>=2.9.1
+
+# Security
+cryptography>=3.4.0
+
+# Testing
+pytest>=6.2.5

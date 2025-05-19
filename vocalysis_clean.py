@@ -18,7 +18,7 @@ import torchaudio
 import soundfile as sf
 import IPython.display as ipd
 from ipywidgets import widgets, Button, HBox, VBox, Layout
-from IPython.display import display, clear_output, HTML
+from IPython.display import display, clear_output
 import time
 import random
 import warnings
@@ -535,14 +535,15 @@ class FeatureExtractor:
         
         mean_values = normalized_df.mean().values
         
-        angles = np.linspace(0, 2*np.pi, len(selected_features), endpoint=False).tolist()
+        angles = np.linspace(0, 2*np.pi, len(selected_features), endpoint=False)
         mean_values = np.concatenate((mean_values, [mean_values[0]]))
         angles = np.concatenate((angles, [angles[0]]))
         
         fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(polar=True))
         ax.plot(angles, mean_values, 'o-', linewidth=2)
         ax.fill(angles, mean_values, alpha=0.25)
-        ax.set_thetagrids(np.degrees(angles[:-1]), selected_features)
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(selected_features)
         ax.set_ylim(0, 1)
         ax.grid(True)
         plt.title('Voice Feature Analysis', size=15)
@@ -1216,18 +1217,23 @@ def generate_pdf_report(features, probabilities, confidence, mental_health_score
         if feature in features:
             pdf.cell(0, 10, f'{feature}: {features[feature]:.4f}', 0, 1)
     
-    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    pdf_bytes = pdf.output(dest='S')
+    if isinstance(pdf_bytes, str):
+        pdf_bytes = pdf_bytes.encode('latin1')
     
     return pdf_bytes
 
 
-def run_vocalysis_analysis(audio_data=None, file_path=None):
+def run_vocalysis_analysis(audio_data=None, file_path=None, model_type='ensemble', use_secure_storage=True, storage_config=None):
     """Run the complete Vocalysis analysis pipeline
     
     Args:
         audio_data (bytes, optional): Audio data as bytes
         file_path (str, optional): Path to audio file
-    
+        model_type (str): Type of model to use ('mlp', 'cnn', 'rnn', 'attention', 'ensemble')
+        use_secure_storage (bool): Whether to use secure storage
+        storage_config (dict, optional): Configuration for secure storage
+        
     Returns:
         dict: Analysis results
     """
@@ -1246,11 +1252,39 @@ def run_vocalysis_analysis(audio_data=None, file_path=None):
     
     # Extract features
     features_df = feature_extractor.extract_features_batch(segments)
-    
     avg_features = features_df.mean().to_dict()
     
-    X_synth, y_synth = generate_synthetic_data(num_samples=1000, num_features=len(avg_features))
+    voice_data_id = None
+    if use_secure_storage:
+        try:
+            from secure_storage import SecureStorage
+            
+            if storage_config is None:
+                storage_config = {
+                    'storage_type': 'sqlite',
+                    'connection_string': None,
+                    'encryption_key': None
+                }
+            
+            storage = SecureStorage(**storage_config)
+            
+            if audio_data is not None:
+                voice_data_id = storage.store_voice_data(
+                    audio_data,
+                    metadata={'features': avg_features, 'timestamp': datetime.now().isoformat()}
+                )
+            elif file_path is not None:
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                voice_data_id = storage.store_voice_data(
+                    file_data,
+                    metadata={'features': avg_features, 'timestamp': datetime.now().isoformat()}
+                )
+        except Exception as e:
+            print(f"Warning: Failed to store voice data securely: {e}")
     
+    # Generate synthetic data for model training
+    X_synth, y_synth = generate_synthetic_data(num_samples=1000, num_features=len(avg_features))
     X_train, X_test, y_train, y_test = train_test_split(X_synth, y_synth, test_size=0.2, random_state=42)
     
     train_dataset = MentalHealthDataset(X_train, y_train)
@@ -1259,11 +1293,42 @@ def run_vocalysis_analysis(audio_data=None, file_path=None):
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     
-    model = MentalHealthModel(input_dim=len(avg_features), hidden_dims=[128, 64], num_classes=4)
-    model, history = train_model(model, train_loader, test_loader, num_epochs=20, device=device)
+    input_dim = len(avg_features)
     
+    if model_type == 'mlp':
+        model = MentalHealthModel(input_dim=input_dim, hidden_dims=[128, 64], num_classes=4)
+    elif model_type == 'cnn':
+        model = CNNMentalHealthModel(input_dim=input_dim, num_classes=4)
+    elif model_type == 'rnn':
+        model = RNNMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_layers=2, num_classes=4)
+    elif model_type == 'attention':
+        model = AttentionMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_classes=4)
+    elif model_type == 'ensemble':
+        # Create an ensemble of all model types
+        models = [
+            MentalHealthModel(input_dim=input_dim, hidden_dims=[128, 64], num_classes=4),
+            CNNMentalHealthModel(input_dim=input_dim, num_classes=4),
+            RNNMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_layers=2, num_classes=4),
+            AttentionMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_classes=4)
+        ]
+        
+        trained_models = []
+        for i, m in enumerate(models):
+            print(f"Training model {i+1}/{len(models)}...")
+            trained_model, _ = train_model(m, train_loader, test_loader, num_epochs=20, device=device)
+            trained_models.append(trained_model)
+        
+        model = EnsembleMentalHealthModel(trained_models)
+    else:
+        return {'error': f"Unknown model type: {model_type}"}
+    
+    if model_type != 'ensemble':
+        model, history = train_model(model, train_loader, test_loader, num_epochs=20, device=device)
+    
+    # Evaluate the model
     eval_results = evaluate_model(model, test_loader, device=device)
     
+    # Make predictions on the actual voice features
     features_tensor = torch.FloatTensor(features_df.values).to(device)
     
     model.eval()
@@ -1276,10 +1341,9 @@ def run_vocalysis_analysis(audio_data=None, file_path=None):
     # Calculate mental health score
     mental_health_score = calculate_mental_health_score(avg_probs, avg_conf)
     
+    # Generate interpretations and recommendations
     interpretations = interpret_features(avg_features)
-    
     scale_mappings = map_to_psychology_scales(avg_probs, mental_health_score)
-    
     recommendations = generate_recommendations(avg_probs, mental_health_score, scale_mappings)
     
     pdf_report = generate_pdf_report(
@@ -1287,16 +1351,34 @@ def run_vocalysis_analysis(audio_data=None, file_path=None):
         interpretations, scale_mappings, recommendations
     )
     
-    return {
+    results = {
         'features': avg_features,
-        'probabilities': avg_probs,
+        'probabilities': avg_probs.tolist() if hasattr(avg_probs, 'tolist') else avg_probs,
         'confidence': avg_conf,
         'mental_health_score': mental_health_score,
         'interpretations': interpretations,
         'scale_mappings': scale_mappings,
         'recommendations': recommendations,
-        'pdf_report': pdf_report
+        'pdf_report': pdf_report,
+        'model_type': model_type,
+        'evaluation': eval_results
     }
+    
+    if use_secure_storage and voice_data_id is not None:
+        try:
+            results_id = storage.store_analysis_results(voice_data_id, {
+                'probabilities': results['probabilities'],
+                'confidence': avg_conf,
+                'mental_health_score': mental_health_score,
+                'scale_mappings': scale_mappings,
+                'timestamp': datetime.now().isoformat()
+            })
+            results['results_id'] = results_id
+            results['voice_data_id'] = voice_data_id
+        except Exception as e:
+            print(f"Warning: Failed to store analysis results securely: {e}")
+    
+    return results
 
 
 def display_results(results):
@@ -1378,17 +1460,8 @@ def display_results(results):
     pdf_bytes = results['pdf_report']
     b64_pdf = base64.b64encode(pdf_bytes).decode()
     
-    display(HTML(f'''
-        <div style="margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-            <h3>Download Report</h3>
-            <p>Click the link below to download your mental health assessment report:</p>
-            <a href="data:application/pdf;base64,{b64_pdf}" download="vocalysis_report.pdf" 
-               style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; 
-                      text-decoration: none; border-radius: 4px; font-weight: bold;">
-                Download PDF Report
-            </a>
-        </div>
-    '''))
+    print("\n=== PDF Report ===\n")
+    print("PDF report generated successfully. Use the 'pdf_report' key in the results dictionary to access it.")
 
 
 def save_model(model, feature_names, class_names=['Normal', 'Anxiety', 'Depression', 'Stress']):
@@ -1426,6 +1499,270 @@ def save_model(model, feature_names, class_names=['Normal', 'Anxiety', 'Depressi
     return 'model/vocalysis_model.pth'
 
 
+class CNNMentalHealthModel(nn.Module):
+    """CNN model for mental health classification"""
+    
+    def __init__(self, input_dim, num_classes=4, dropout_rate=0.3):
+        """Initialize the model
+        
+        Args:
+            input_dim (int): Input dimension (number of features)
+            num_classes (int): Number of output classes (Normal, Anxiety, Depression, Stress)
+            dropout_rate (float): Dropout rate for regularization
+        """
+        super().__init__()
+        
+        self.conv_layers = nn.Sequential(
+            nn.Conv1d(1, 32, kernel_size=3, padding=1),
+            nn.BatchNorm1d(32),
+            nn.ReLU(),
+            nn.MaxPool1d(2),
+            nn.Conv1d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.MaxPool1d(2),
+            nn.Conv1d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool1d(1)
+        )
+        
+        # Calculate the size of flattened features after convolutions
+        self.fc_input_dim = 128
+        
+        self.classifier = nn.Sequential(
+            nn.Linear(self.fc_input_dim, 64),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(64, num_classes)
+        )
+        
+        self.confidence = nn.Sequential(
+            nn.Linear(self.fc_input_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, x):
+        """Forward pass
+        
+        Args:
+            x (torch.Tensor): Input tensor (batch_size, input_dim)
+            
+        Returns:
+            tuple: (class_probabilities, confidence)
+        """
+        x = x.unsqueeze(1)
+        
+        features = self.conv_layers(x)
+        
+        features = features.view(-1, self.fc_input_dim)
+        
+        logits = self.classifier(features)
+        confidence = self.confidence(features)
+        
+        return torch.softmax(logits, dim=1), confidence
+
+
+class RNNMentalHealthModel(nn.Module):
+    """RNN model for mental health classification"""
+    
+    def __init__(self, input_dim, hidden_dim=128, num_layers=2, num_classes=4, dropout_rate=0.3):
+        """Initialize the model
+        
+        Args:
+            input_dim (int): Input dimension (number of features)
+            hidden_dim (int): Hidden dimension of the RNN
+            num_layers (int): Number of RNN layers
+            num_classes (int): Number of output classes (Normal, Anxiety, Depression, Stress)
+            dropout_rate (float): Dropout rate for regularization
+        """
+        super().__init__()
+        
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        
+        self.gru = nn.GRU(
+            input_size=1,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout_rate if num_layers > 1 else 0,
+            bidirectional=True
+        )
+        
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim * 2, 64),  # * 2 for bidirectional
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(64, num_classes)
+        )
+        
+        self.confidence = nn.Sequential(
+            nn.Linear(hidden_dim * 2, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, x):
+        """Forward pass
+        
+        Args:
+            x (torch.Tensor): Input tensor (batch_size, input_dim)
+            
+        Returns:
+            tuple: (class_probabilities, confidence)
+        """
+        x = x.unsqueeze(2)  # (batch_size, input_dim, 1)
+        x = x.transpose(1, 2)  # (batch_size, 1, input_dim)
+        
+        gru_out, _ = self.gru(x)
+        
+        features = gru_out[:, -1, :]
+        
+        logits = self.classifier(features)
+        confidence = self.confidence(features)
+        
+        return torch.softmax(logits, dim=1), confidence
+
+
+class AttentionMentalHealthModel(nn.Module):
+    """Attention-based model for mental health classification"""
+    
+    def __init__(self, input_dim, hidden_dim=128, num_classes=4, dropout_rate=0.3):
+        """Initialize the model
+        
+        Args:
+            input_dim (int): Input dimension (number of features)
+            hidden_dim (int): Hidden dimension
+            num_classes (int): Number of output classes (Normal, Anxiety, Depression, Stress)
+            dropout_rate (float): Dropout rate for regularization
+        """
+        super().__init__()
+        
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        
+        self.embedding = nn.Sequential(
+            nn.Linear(1, hidden_dim),
+            nn.ReLU()
+        )
+        
+        self.attention_query = nn.Linear(hidden_dim, hidden_dim)
+        self.attention_key = nn.Linear(hidden_dim, hidden_dim)
+        self.attention_value = nn.Linear(hidden_dim, hidden_dim)
+        
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim, 64),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(64, num_classes)
+        )
+        
+        self.confidence = nn.Sequential(
+            nn.Linear(hidden_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1),
+            nn.Sigmoid()
+        )
+    
+    def attention(self, query, key, value):
+        """Self-attention mechanism
+        
+        Args:
+            query (torch.Tensor): Query tensor
+            key (torch.Tensor): Key tensor
+            value (torch.Tensor): Value tensor
+            
+        Returns:
+            torch.Tensor: Attended features
+        """
+        # Calculate attention scores
+        scores = torch.matmul(query, key.transpose(-2, -1)) / (self.hidden_dim ** 0.5)
+        
+        attention_weights = torch.softmax(scores, dim=-1)
+        
+        attended_values = torch.matmul(attention_weights, value)
+        
+        return attended_values
+    
+    def forward(self, x):
+        """Forward pass
+        
+        Args:
+            x (torch.Tensor): Input tensor (batch_size, input_dim)
+            
+        Returns:
+            tuple: (class_probabilities, confidence)
+        """
+        x = x.unsqueeze(2)
+        
+        embedded = self.embedding(x)  # (batch_size, input_dim, hidden_dim)
+        
+        query = self.attention_query(embedded)
+        key = self.attention_key(embedded)
+        value = self.attention_value(embedded)
+        attended = self.attention(query, key, value)
+        
+        features = attended.mean(dim=1)  # (batch_size, hidden_dim)
+        
+        logits = self.classifier(features)
+        confidence = self.confidence(features)
+        
+        return torch.softmax(logits, dim=1), confidence
+
+
+class EnsembleMentalHealthModel(nn.Module):
+    """Ensemble of multiple mental health models"""
+    
+    def __init__(self, models, weights=None):
+        """Initialize the ensemble
+        
+        Args:
+            models (list): List of model instances
+            weights (list, optional): Weights for each model. If None, equal weights are used.
+        """
+        super().__init__()
+        
+        self.models = nn.ModuleList(models)
+        
+        if weights is None:
+            self.weights = torch.ones(len(models)) / len(models)
+        else:
+            self.weights = torch.tensor(weights) / sum(weights)
+    
+    def forward(self, x):
+        """Forward pass
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            tuple: (ensemble_probabilities, ensemble_confidence)
+        """
+        all_probs = []
+        all_confidences = []
+        
+        for model in self.models:
+            probs, confidence = model(x)
+            all_probs.append(probs)
+            all_confidences.append(confidence)
+        
+        all_probs = torch.stack(all_probs, dim=0)  # (num_models, batch_size, num_classes)
+        all_confidences = torch.stack(all_confidences, dim=0)  # (num_models, batch_size, 1)
+        
+        weighted_probs = all_probs * self.weights.view(-1, 1, 1)
+        weighted_confidences = all_confidences * self.weights.view(-1, 1, 1)
+        
+        ensemble_probs = weighted_probs.sum(dim=0)  # (batch_size, num_classes)
+        ensemble_confidence = weighted_confidences.sum(dim=0)  # (batch_size, 1)
+        
+        return ensemble_probs, ensemble_confidence
+
+
 def load_model(model_path, model_info_path):
     """Load a trained model
     
@@ -1439,11 +1776,34 @@ def load_model(model_path, model_info_path):
     with open(model_info_path, 'r') as f:
         model_info = json.load(f)
     
-    model = MentalHealthModel(
-        input_dim=model_info['input_dim'],
-        hidden_dims=model_info['hidden_dims'],
-        num_classes=model_info['num_classes']
-    )
+    model_type = model_info.get('model_type', 'mlp')
+    
+    if model_type == 'mlp':
+        model = MentalHealthModel(
+            input_dim=model_info['input_dim'],
+            hidden_dims=model_info['hidden_dims'],
+            num_classes=model_info['num_classes']
+        )
+    elif model_type == 'cnn':
+        model = CNNMentalHealthModel(
+            input_dim=model_info['input_dim'],
+            num_classes=model_info['num_classes']
+        )
+    elif model_type == 'rnn':
+        model = RNNMentalHealthModel(
+            input_dim=model_info['input_dim'],
+            hidden_dim=model_info.get('hidden_dim', 128),
+            num_layers=model_info.get('num_layers', 2),
+            num_classes=model_info['num_classes']
+        )
+    elif model_type == 'attention':
+        model = AttentionMentalHealthModel(
+            input_dim=model_info['input_dim'],
+            hidden_dim=model_info.get('hidden_dim', 128),
+            num_classes=model_info['num_classes']
+        )
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
     
     model.load_state_dict(torch.load(model_path))
     model.eval()
