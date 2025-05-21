@@ -6,13 +6,13 @@ This guide provides instructions for accessing and testing the Vocalysis mental 
 
 The Vocalysis system is available at the following URL:
 
-**URL**: https://Cittaa2023:Cittaa@Investors2024@vocalysis-investor-demo.devinapps.com
+**URL**: https://user:146e90389355ed08cd3c8ad636afffb8@voice-stress-analyzer-tunnel-poe8fgwx.devinapps.com
 
 ### Authentication
 
 The system is protected with authentication:
-- **Username**: Cittaa2023
-- **Password**: Cittaa@Investors2024
+- **Username**: user
+- **Password**: 146e90389355ed08cd3c8ad636afffb8
 
 ## Testing the System
 
