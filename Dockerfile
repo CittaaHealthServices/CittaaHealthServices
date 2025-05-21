@@ -6,7 +6,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     libsndfile1 \
     ffmpeg \
-    libpq-dev \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
@@ -17,11 +16,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Create data directory for SQLite
+RUN mkdir -p /app/data
+
 # Expose port
 EXPOSE 8501
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV DB_TYPE=sqlite
+ENV ENCRYPTION_KEY=vocalysis_secure_encryption_key_for_investor_demo
 
 # Run the application
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

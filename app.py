@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import cm  # Add explicit import for colormap module
 import io
 from datetime import datetime
 from fpdf import FPDF
@@ -568,6 +569,41 @@ def main():
             st.session_state.demo_type = demo_options[selected_demo]
             st.rerun()
     
+    st.markdown("## Record Your Voice")
+    st.markdown("Record your voice for mental health analysis:")
+    
+    from microphone_recorder import microphone_recorder
+    
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        audio_data = microphone_recorder()
+    
+    with col2:
+        if st.button("Analyze Recording"):
+            if audio_data is None:
+                st.error("No recording detected. Please record your voice first.")
+            else:
+                with st.spinner("Analyzing voice recording..."):
+                    try:
+                        from audio_converter import convert_audio_to_wav_if_needed
+                        converted_audio = convert_audio_to_wav_if_needed(audio_data, "recording.wav")
+                        
+                        from vocalysis_clean import run_vocalysis_analysis
+                        
+                        results = run_vocalysis_analysis(
+                            audio_data=converted_audio,
+                            model_type=model_type,
+                            use_secure_storage=use_secure_storage
+                        )
+                        
+                        st.session_state.results = results
+                        st.session_state.analysis_complete = True
+                        st.session_state.demo_type = None
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error analyzing voice recording: {str(e)}")
+    
     st.markdown("## Upload Voice Recording")
     st.markdown("Upload a voice recording for mental health analysis:")
     
@@ -578,10 +614,13 @@ def main():
             try:
                 audio_bytes = uploaded_file.read()
                 
+                from audio_converter import convert_audio_to_wav_if_needed
+                converted_audio = convert_audio_to_wav_if_needed(audio_bytes, uploaded_file.name)
+                
                 from vocalysis_clean import run_vocalysis_analysis
                 
                 results = run_vocalysis_analysis(
-                    audio_data=audio_bytes,
+                    audio_data=converted_audio,
                     model_type=model_type,
                     use_secure_storage=use_secure_storage
                 )
@@ -606,6 +645,22 @@ def main():
         This system is for educational and research purposes only. It is not intended to provide medical diagnosis 
         or replace professional mental health evaluation.
     """)
+
+st.markdown("""
+<script>
+// Listen for the recordingComplete event
+window.addEventListener('recordingComplete', function() {
+    const audioDataDiv = document.getElementById('audio-data');
+    if (audioDataDiv) {
+        const audioData = JSON.parse(audioDataDiv.textContent);
+        window.parent.postMessage({
+            type: 'streamlit:setComponentValue',
+            value: audioData.data
+        }, '*');
+    }
+});
+</script>
+""", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
