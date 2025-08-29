@@ -1,4 +1,5 @@
 # Cittaa Health Services Private Limited
+This repo now also includes a minimal Docker example at `examples/docker-hello` to quickly verify Docker is functioning on your machine.
 
 Welcome to the official GitHub account of Cittaa Health Services Private Limited. We are a leading provider of innovative mental health solutions, dedicated to promoting mental well-being and making mental health care more accessible to all.
 
