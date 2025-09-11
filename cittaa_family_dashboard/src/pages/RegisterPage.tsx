@@ -56,7 +56,7 @@ export default function RegisterPage() {
         family_name: formData.family_name
       })
       
-      login(response.access_token, response.parent_id, response.family_id)
+      login((response as any).access_token, (response as any).parent_id, (response as any).family_id)
       navigate('/dashboard')
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.')

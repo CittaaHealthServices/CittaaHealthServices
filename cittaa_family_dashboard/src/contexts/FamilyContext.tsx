@@ -10,23 +10,6 @@ interface Child {
   biometric_enabled: boolean
 }
 
-interface ConsentStatus {
-  content_filtering: {
-    given: boolean
-    date: string | null
-    parent_consent: boolean
-  }
-  activity_monitoring: {
-    given: boolean
-    date: string | null
-    parent_consent: boolean
-  }
-  biometric_data: {
-    given: boolean
-    date: string | null
-    parent_consent: boolean
-  }
-}
 
 interface FamilyContextType {
   family: {
@@ -55,9 +38,9 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     setLoading(true)
     try {
       const response = await familyApi.getOverview(token)
-      setFamily(response.family)
-      setChildrenData(response.children)
-      setConsentOverview(response.consent_overview)
+      setFamily((response as any).family)
+      setChildrenData((response as any).children)
+      setConsentOverview((response as any).consent_overview)
     } catch (error) {
       console.error('Failed to fetch family data:', error)
     } finally {

@@ -24,7 +24,7 @@ export default function LoginPage() {
 
     try {
       const response = await familyApi.login({ email, password })
-      login(response.access_token, response.parent_id, response.family_id)
+      login((response as any).access_token, (response as any).parent_id, (response as any).family_id)
       navigate('/dashboard')
     } catch (err) {
       setError('Invalid email or password. Please try again.')

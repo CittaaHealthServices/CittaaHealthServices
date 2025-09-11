@@ -24,7 +24,7 @@ export default function EducationalProgressPage() {
   const { token } = useAuth()
   const { children } = useFamily()
   const [progressData, setProgressData] = useState<any>({})
-  const [loading, setLoading] = useState(false)
+  const [, setLoading] = useState(false)
 
   useEffect(() => {
     loadEducationalProgress()
