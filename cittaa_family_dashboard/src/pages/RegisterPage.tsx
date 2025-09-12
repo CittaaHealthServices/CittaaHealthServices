@@ -10,23 +10,24 @@ import { useAuth } from '@/contexts/AuthContext'
 import { familyApi } from '@/lib/api'
 
 export default function RegisterPage() {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    full_name: '',
-    phone_number: '',
-    family_name: ''
-  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [formData, setFormData] = useState({
+    family_name: '',
+    full_name: '',
+    email: '',
+    phone_number: '',
+    password: '',
+    confirmPassword: ''
+  })
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: value
     }))
   }
 
@@ -35,30 +36,44 @@ export default function RegisterPage() {
     setLoading(true)
     setError('')
 
-    if (formData.password !== formData.confirmPassword) {
+    console.log('Form submission started')
+    console.log('Form data:', formData)
+
+    const { email, password, confirmPassword, full_name, phone_number, family_name } = formData
+
+    if (!email || !password || !full_name || !family_name) {
+      setError('Please fill in all required fields')
+      setLoading(false)
+      return
+    }
+
+    if (password !== confirmPassword) {
       setError('Passwords do not match')
       setLoading(false)
       return
     }
 
-    if (formData.password.length < 8) {
+    if (password.length < 8) {
       setError('Password must be at least 8 characters long')
       setLoading(false)
       return
     }
 
     try {
+      console.log('Calling registration API...')
       const response = await familyApi.register({
-        email: formData.email,
-        password: formData.password,
-        full_name: formData.full_name,
-        phone_number: formData.phone_number || undefined,
-        family_name: formData.family_name
+        email,
+        password,
+        full_name,
+        phone_number: phone_number || undefined,
+        family_name
       })
       
+      console.log('Registration successful, logging in...')
       login((response as any).access_token, (response as any).parent_id, (response as any).family_id)
       navigate('/dashboard')
     } catch (err: any) {
+      console.error('Registration error:', err)
       setError(err.message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
@@ -106,7 +121,7 @@ export default function RegisterPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} method="post" className="space-y-4">
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -120,9 +135,10 @@ export default function RegisterPage() {
                     id="family_name"
                     name="family_name"
                     value={formData.family_name}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     required
                     placeholder="The Sharma Family"
+                    autoComplete="organization"
                   />
                 </div>
                 
@@ -132,9 +148,10 @@ export default function RegisterPage() {
                     id="full_name"
                     name="full_name"
                     value={formData.full_name}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     required
                     placeholder="Rajesh Sharma"
+                    autoComplete="name"
                   />
                 </div>
               </div>
@@ -147,9 +164,10 @@ export default function RegisterPage() {
                     name="email"
                     type="email"
                     value={formData.email}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     required
                     placeholder="rajesh@example.com"
+                    autoComplete="email"
                   />
                 </div>
                 
@@ -160,8 +178,9 @@ export default function RegisterPage() {
                     name="phone_number"
                     type="tel"
                     value={formData.phone_number}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     placeholder="+91 98765 43210"
+                    autoComplete="tel"
                   />
                 </div>
               </div>
@@ -174,9 +193,10 @@ export default function RegisterPage() {
                     name="password"
                     type="password"
                     value={formData.password}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     required
                     placeholder="Minimum 8 characters"
+                    autoComplete="new-password"
                   />
                 </div>
                 
@@ -187,9 +207,10 @@ export default function RegisterPage() {
                     name="confirmPassword"
                     type="password"
                     value={formData.confirmPassword}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     required
                     placeholder="Confirm your password"
+                    autoComplete="new-password"
                   />
                 </div>
               </div>

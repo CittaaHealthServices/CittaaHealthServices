@@ -33,10 +33,14 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false)
 
   const refreshFamily = async () => {
-    if (!isAuthenticated || !token) return
+    if (!isAuthenticated || !token) {
+      console.log('Skipping family refresh - not authenticated or no token')
+      return
+    }
 
     setLoading(true)
     try {
+      console.log('Fetching family data with token:', token.substring(0, 10) + '...')
       const response = await familyApi.getOverview(token)
       setFamily((response as any).family)
       setChildrenData((response as any).children)
@@ -49,10 +53,10 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && token && !loading) {
       refreshFamily()
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, token])
 
   return (
     <FamilyContext.Provider value={{

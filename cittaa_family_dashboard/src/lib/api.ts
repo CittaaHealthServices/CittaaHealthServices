@@ -14,15 +14,21 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
     
-    const headers: HeadersInit = {
+    const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string> || {}),
+      'Authorization': 'Basic ' + btoa('user:1af8d504a70e676be22fe020844d99c8'),
+    }
+    
+    const requestHeaders = { ...defaultHeaders }
+    
+    if (options.headers) {
+      Object.assign(requestHeaders, options.headers)
     }
     
     const response = await fetch(url, {
       mode: 'cors',
       credentials: 'omit',
-      headers,
+      headers: requestHeaders,
       ...options,
     })
 

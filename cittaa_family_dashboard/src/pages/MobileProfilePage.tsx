@@ -66,14 +66,14 @@ export default function MobileProfilePage() {
   };
 
   const copyDownloadUrl = (token: string) => {
-    const baseUrl = 'https://app-elkjjhso.fly.dev';
+    const baseUrl = 'https://user:1af8d504a70e676be22fe020844d99c8@invisible-parental-control-app-tunnel-wg23lz5v.devinapps.com';
     const downloadUrl = `${baseUrl}/mobile-profile/download/${token}`;
     navigator.clipboard.writeText(downloadUrl);
     alert('Download URL copied to clipboard!');
   };
 
   const openDownloadUrl = (token: string) => {
-    const baseUrl = 'https://app-elkjjhso.fly.dev';
+    const baseUrl = 'https://user:1af8d504a70e676be22fe020844d99c8@invisible-parental-control-app-tunnel-wg23lz5v.devinapps.com';
     const downloadUrl = `${baseUrl}/mobile-profile/download/${token}`;
     window.open(downloadUrl, '_blank');
   };
