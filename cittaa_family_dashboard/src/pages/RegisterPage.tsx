@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,24 +12,15 @@ import { familyApi } from '@/lib/api'
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [formData, setFormData] = useState({
-    family_name: '',
-    full_name: '',
-    email: '',
-    phone_number: '',
-    password: '',
-    confirmPassword: ''
-  })
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
+  const familyNameRef = useRef<HTMLInputElement>(null)
+  const fullNameRef = useRef<HTMLInputElement>(null)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const phoneRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const confirmPasswordRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,19 +28,15 @@ export default function RegisterPage() {
     setError('')
 
     console.log('Form submission started')
-    console.log('Form data from state:', formData)
 
-    const form = e.target as HTMLFormElement
-    const formDataDOM = new FormData(form)
-    
-    const family_name = formData.family_name || formDataDOM.get('family_name') as string || ''
-    const full_name = formData.full_name || formDataDOM.get('full_name') as string || ''
-    const email = formData.email || formDataDOM.get('email') as string || ''
-    const phone_number = formData.phone_number || formDataDOM.get('phone_number') as string || ''
-    const password = formData.password || formDataDOM.get('password') as string || ''
-    const confirmPassword = formData.confirmPassword || formDataDOM.get('confirmPassword') as string || ''
+    const family_name = familyNameRef.current?.value || ''
+    const full_name = fullNameRef.current?.value || ''
+    const email = emailRef.current?.value || ''
+    const phone_number = phoneRef.current?.value || ''
+    const password = passwordRef.current?.value || ''
+    const confirmPassword = confirmPasswordRef.current?.value || ''
 
-    console.log('Extracted values:', { family_name, full_name, email, phone_number, password: '***', confirmPassword: '***' })
+    console.log('Extracted values from refs:', { family_name, full_name, email, phone_number, password: '***', confirmPassword: '***' })
 
     if (!email || !password || !full_name || !family_name) {
       setError('Please fill in all required fields')
@@ -142,13 +129,9 @@ export default function RegisterPage() {
                 <div className="space-y-2">
                   <Label htmlFor="family_name">Family Name</Label>
                   <Input
+                    ref={familyNameRef}
                     id="family_name"
                     name="family_name"
-                    value={formData.family_name}
-                    onChange={(e) => {
-                      console.log('Family name input changed:', e.target.value);
-                      handleInputChange(e);
-                    }}
                     required
                     placeholder="The Sharma Family"
                     autoComplete="organization"
@@ -158,13 +141,9 @@ export default function RegisterPage() {
                 <div className="space-y-2">
                   <Label htmlFor="full_name">Your Full Name</Label>
                   <Input
+                    ref={fullNameRef}
                     id="full_name"
                     name="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => {
-                      console.log('Full name input changed:', e.target.value);
-                      handleInputChange(e);
-                    }}
                     required
                     placeholder="Rajesh Sharma"
                     autoComplete="name"
@@ -176,11 +155,10 @@ export default function RegisterPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <Input
+                    ref={emailRef}
                     id="email"
                     name="email"
                     type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
                     required
                     placeholder="rajesh@example.com"
                     autoComplete="email"
@@ -190,11 +168,10 @@ export default function RegisterPage() {
                 <div className="space-y-2">
                   <Label htmlFor="phone_number">Phone Number (Optional)</Label>
                   <Input
+                    ref={phoneRef}
                     id="phone_number"
                     name="phone_number"
                     type="tel"
-                    value={formData.phone_number}
-                    onChange={handleInputChange}
                     placeholder="+91 98765 43210"
                     autoComplete="tel"
                   />
@@ -205,11 +182,10 @@ export default function RegisterPage() {
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <Input
+                    ref={passwordRef}
                     id="password"
                     name="password"
                     type="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
                     required
                     placeholder="Minimum 8 characters"
                     autoComplete="new-password"
@@ -219,11 +195,10 @@ export default function RegisterPage() {
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
                   <Input
+                    ref={confirmPasswordRef}
                     id="confirmPassword"
                     name="confirmPassword"
                     type="password"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
                     required
                     placeholder="Confirm your password"
                     autoComplete="new-password"
