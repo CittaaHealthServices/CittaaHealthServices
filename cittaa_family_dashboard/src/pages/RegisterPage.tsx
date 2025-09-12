@@ -37,9 +37,19 @@ export default function RegisterPage() {
     setError('')
 
     console.log('Form submission started')
-    console.log('Form data:', formData)
+    console.log('Form data from state:', formData)
 
-    const { email, password, confirmPassword, full_name, phone_number, family_name } = formData
+    const form = e.target as HTMLFormElement
+    const formDataDOM = new FormData(form)
+    
+    const family_name = formData.family_name || formDataDOM.get('family_name') as string || ''
+    const full_name = formData.full_name || formDataDOM.get('full_name') as string || ''
+    const email = formData.email || formDataDOM.get('email') as string || ''
+    const phone_number = formData.phone_number || formDataDOM.get('phone_number') as string || ''
+    const password = formData.password || formDataDOM.get('password') as string || ''
+    const confirmPassword = formData.confirmPassword || formDataDOM.get('confirmPassword') as string || ''
+
+    console.log('Extracted values:', { family_name, full_name, email, phone_number, password: '***', confirmPassword: '***' })
 
     if (!email || !password || !full_name || !family_name) {
       setError('Please fill in all required fields')

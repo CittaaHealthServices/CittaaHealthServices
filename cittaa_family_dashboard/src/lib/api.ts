@@ -6,11 +6,12 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const baseUrl = 'https://app-elkjjhso.fly.dev'
+    const baseUrl = 'https://invisible-parental-control-app-tunnel-wg23lz5v.devinapps.com'
     const url = `${baseUrl}${endpoint}`
     
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
+      'Authorization': 'Basic ' + btoa('user:1af8d504a70e676be22fe020844d99c8'),
     }
     
     const requestHeaders = { ...defaultHeaders }
