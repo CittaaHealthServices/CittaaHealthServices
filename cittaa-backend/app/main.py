@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 
 from .database import connect_to_mongo, close_mongo_connection, connect_to_redis, close_redis_connection
-from .routers import auth, children, devices, content, analytics, institutions
+from .routers import auth, children, devices, content, analytics, institutions, mobile, schools
 from .models import APIResponse
 
 @asynccontextmanager
@@ -38,6 +38,8 @@ app.include_router(devices.router, prefix="/api/devices", tags=["Devices"])
 app.include_router(content.router, prefix="/api/content", tags=["Content Filtering"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(institutions.router, prefix="/api/institutions", tags=["Institutions"])
+app.include_router(mobile.router)
+app.include_router(schools.router)
 
 @app.get("/healthz")
 async def healthz():
