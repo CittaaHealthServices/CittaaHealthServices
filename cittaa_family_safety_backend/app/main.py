@@ -20,8 +20,8 @@ app = FastAPI(title="CITTAA Family Safety API", version="1.0.0")
 # Disable CORS. Do not remove this for full-stack development.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=["https://invisible-parental-control-app-5wfhkeb1.devinapps.com", "*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"]
