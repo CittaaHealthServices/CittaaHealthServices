@@ -135,7 +135,10 @@ export default function RegisterPage() {
                     id="family_name"
                     name="family_name"
                     value={formData.family_name}
-                    onChange={handleInputChange}
+                    onChange={(e) => {
+                      console.log('Family name input changed:', e.target.value);
+                      handleInputChange(e);
+                    }}
                     required
                     placeholder="The Sharma Family"
                     autoComplete="organization"
@@ -148,7 +151,10 @@ export default function RegisterPage() {
                     id="full_name"
                     name="full_name"
                     value={formData.full_name}
-                    onChange={handleInputChange}
+                    onChange={(e) => {
+                      console.log('Full name input changed:', e.target.value);
+                      handleInputChange(e);
+                    }}
                     required
                     placeholder="Rajesh Sharma"
                     autoComplete="name"
