@@ -90,6 +90,7 @@ export default function ChildPasswordEntry({ onLogin }: ChildPasswordEntryProps)
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-[#8B5A96] focus:outline-none text-lg tracking-widest"
                 placeholder="●●●●●●●●●●●●●●●●●●●●●●●"
+                autoComplete="current-password"
                 required
               />
             </div>
