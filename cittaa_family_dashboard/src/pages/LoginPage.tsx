@@ -38,12 +38,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-4">
           <div className="flex justify-center">
-            <div className="bg-blue-600 p-3 rounded-full">
+            <div className="bg-[#8B5A96] p-3 rounded-full">
               <Shield className="h-8 w-8 text-white" />
             </div>
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">CITTAA Family Safety</h1>
+            <h1 className="text-3xl font-bold text-[#8B5A96]">CITTAA Family Safety</h1>
             <p className="text-gray-600 mt-2">Transparent & Compliant Digital Protection</p>
           </div>
         </div>
@@ -67,11 +67,14 @@ export default function LoginPage() {
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
                   required
                   placeholder="parent@example.com"
+                  autoComplete="email"
                 />
               </div>
               
@@ -79,15 +82,18 @@ export default function LoginPage() {
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
                   required
                   placeholder="Enter your password"
+                  autoComplete="current-password"
                 />
               </div>
               
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full bg-[#8B5A96] hover:bg-[#8B5A96]/90" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
@@ -95,7 +101,7 @@ export default function LoginPage() {
             <div className="mt-4 text-center">
               <p className="text-sm text-gray-600">
                 Don't have an account?{' '}
-                <Link to="/register" className="text-blue-600 hover:underline">
+                <Link to="/register" className="text-[#8B5A96] hover:underline">
                   Create a family account
                 </Link>
               </p>
@@ -105,15 +111,15 @@ export default function LoginPage() {
 
         <div className="grid grid-cols-3 gap-4 text-center">
           <div className="space-y-2">
-            <Shield className="h-6 w-6 text-blue-600 mx-auto" />
+            <Shield className="h-6 w-6 text-[#8B5A96] mx-auto" />
             <p className="text-xs text-gray-600">Transparent Protection</p>
           </div>
           <div className="space-y-2">
-            <Heart className="h-6 w-6 text-red-500 mx-auto" />
+            <Heart className="h-6 w-6 text-[#7BB3A8] mx-auto" />
             <p className="text-xs text-gray-600">Family Communication</p>
           </div>
           <div className="space-y-2">
-            <Users className="h-6 w-6 text-green-600 mx-auto" />
+            <Users className="h-6 w-6 text-[#7BB3A8] mx-auto" />
             <p className="text-xs text-gray-600">Age-Appropriate Consent</p>
           </div>
         </div>
