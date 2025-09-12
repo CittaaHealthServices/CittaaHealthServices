@@ -1,22 +1,16 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-
-
 class ApiClient {
-  private baseUrl: string
-
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl
+  constructor() {
   }
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`
+    const baseUrl = 'https://app-elkjjhso.fly.dev'
+    const url = `${baseUrl}${endpoint}`
     
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
-      'Authorization': 'Basic ' + btoa('user:1af8d504a70e676be22fe020844d99c8'),
     }
     
     const requestHeaders = { ...defaultHeaders }
@@ -149,6 +143,6 @@ class ApiClient {
   }
 }
 
-const familyApi = new ApiClient(API_BASE_URL)
+const familyApi = new ApiClient()
 
 export { familyApi }
