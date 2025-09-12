@@ -49,6 +49,7 @@ class Child(Base):
     consent_records = relationship("ConsentRecord", back_populates="child")
     activity_logs = relationship("ActivityLog", back_populates="child")
     educational_progress = relationship("EducationalProgress", back_populates="child")
+    mobile_profiles = relationship("MobileProfile", back_populates="child")
 
 class ConsentRecord(Base):
     __tablename__ = "consent_records"
@@ -144,3 +145,20 @@ class HospitalIntegration(Base):
     medical_ethics_compliance = Column(Boolean, default=True)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class MobileProfile(Base):
+    __tablename__ = "mobile_profiles"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    child_id = Column(Integer, ForeignKey("children.id"), nullable=False)
+    device_id = Column(String, nullable=False)
+    device_type = Column(String, nullable=False)
+    profile_config = Column(JSON, nullable=False)
+    download_token = Column(String, unique=True, nullable=False)
+    downloaded_at = Column(DateTime, nullable=True)
+    activated_at = Column(DateTime, nullable=True)
+    last_sync = Column(DateTime, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    child = relationship("Child", back_populates="mobile_profiles")

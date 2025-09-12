@@ -179,6 +179,55 @@ CITTAA Family Safety is India's first transparent and compliant parental control
    - Manage data sharing preferences
    - Control third-party access
 
+## Mobile Profile Management
+
+Generate and manage mobile safety profiles for your children's devices:
+
+### Generating Mobile Profiles
+
+1. **Navigate to Mobile Profiles**: Click "Mobile Profiles" tab in dashboard or visit `/mobile-profiles`
+2. **Select Child**: Choose which child needs a mobile profile
+3. **Choose Device Type**: Select iOS or Android based on your child's device
+4. **Generate Profile**: Click "Generate iOS Profile" or "Generate Android Profile"
+5. **Copy Download URL**: Use the "Copy Download URL" button to get the secure link
+6. **Share with Child**: Send the URL to your child or help them access it on their device
+
+### Mobile Profile Features
+
+Each mobile profile includes:
+- **Transparent Content Filtering**: Blocks inappropriate content with educational explanations
+- **Age-Appropriate Consent**: Proper consent mechanisms for children 13+
+- **VPN Detection & Blocking**: Prevents circumvention of safety measures
+- **Educational Content Promotion**: Promotes learning and digital citizenship
+- **DPDP Act 2023 Compliance**: Full transparency and legal compliance
+
+### Profile Download Process
+
+1. **Child receives URL**: Share the secure download link with your child
+2. **Profile Download**: Child accesses the URL on their mobile device
+3. **Automatic Configuration**: Safety settings are automatically applied
+4. **Transparent Setup**: Child sees clear explanations of all protection features
+5. **Activation Confirmation**: System confirms profile is active and working
+
+### Managing Existing Profiles
+
+- **View Profile Status**: See which profiles are downloaded, activated, or pending
+- **Copy URLs**: Re-copy download URLs for profiles not yet downloaded
+- **Monitor Activity**: Track profile usage and safety feature effectiveness
+- **Update Settings**: Modify profile configurations as children grow
+
+### Troubleshooting Mobile Profiles
+
+**Profile Not Downloading:**
+- Ensure the download URL is accessed from the child's device
+- Check internet connection on the mobile device
+- Verify the URL hasn't expired (profiles expire after 7 days)
+
+**Profile Not Activating:**
+- Confirm child has followed all setup instructions
+- Check that required permissions are granted on the device
+- Contact support@cittaa.in if activation fails repeatedly
+
 ## Educational Features
 
 ### Digital Citizenship Learning

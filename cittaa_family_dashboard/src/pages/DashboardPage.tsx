@@ -138,11 +138,12 @@ export default function DashboardPage() {
         </div>
 
         <Tabs defaultValue="children" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="children">Children</TabsTrigger>
             <TabsTrigger value="consent">Consent Status</TabsTrigger>
             <TabsTrigger value="activity">Recent Activity</TabsTrigger>
             <TabsTrigger value="education">Education</TabsTrigger>
+            <TabsTrigger value="mobile">Mobile Profiles</TabsTrigger>
           </TabsList>
 
           <TabsContent value="children" className="space-y-6">
@@ -351,6 +352,48 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="mobile" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Mobile Profile Management</h2>
+              <Button asChild>
+                <Link to="/mobile-profiles">Manage Mobile Profiles</Link>
+              </Button>
+            </div>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Mobile Safety Profiles</CardTitle>
+                <CardDescription>Generate and manage mobile safety profiles for your children's devices</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{children.length}</div>
+                    <p className="text-sm text-gray-600">Children ready for mobile profiles</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">iOS &amp; Android</div>
+                    <p className="text-sm text-gray-600">Supported platforms</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">100%</div>
+                    <p className="text-sm text-gray-600">DPDP Act 2023 compliant</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 mb-2">Mobile Profile Features:</h4>
+                  <ul className="text-sm space-y-1 text-blue-700">
+                    <li>✅ Transparent content filtering with educational explanations</li>
+                    <li>✅ Age-appropriate consent mechanisms</li>
+                    <li>✅ VPN detection and blocking</li>
+                    <li>✅ Educational content promotion</li>
+                    <li>✅ Complete transparency and compliance</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

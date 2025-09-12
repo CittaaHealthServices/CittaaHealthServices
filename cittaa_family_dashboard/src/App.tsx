@@ -9,6 +9,7 @@ import ChildProfilePage from '@/pages/ChildProfilePage'
 import ConsentManagementPage from '@/pages/ConsentManagementPage'
 import ActivityMonitoringPage from '@/pages/ActivityMonitoringPage'
 import EducationalProgressPage from '@/pages/EducationalProgressPage'
+import MobileProfilePage from '@/pages/MobileProfilePage'
 import CompliancePage from '@/pages/CompliancePage'
 import AddChildPage from '@/pages/AddChildPage'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -60,6 +61,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <EducationalProgressPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mobile-profiles"
+                element={
+                  <ProtectedRoute>
+                    <MobileProfilePage />
                   </ProtectedRoute>
                 }
               />

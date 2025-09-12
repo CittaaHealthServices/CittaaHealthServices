@@ -5,11 +5,12 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 import jwt
+import secrets
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 
 from .database import engine, get_db
-from .models import Base, Family, Parent, Child, ConsentRecord, ActivityLog, ContentBlock, EducationalProgress, AuditLog
+from .models import Base, Family, Parent, Child, ConsentRecord, ActivityLog, ContentBlock, EducationalProgress, AuditLog, MobileProfile
 from .consent_manager import ConsentManager
 
 Base.metadata.create_all(bind=engine)
@@ -19,11 +20,16 @@ app = FastAPI(title="CITTAA Family Safety API", version="1.0.0")
 # Disable CORS. Do not remove this for full-stack development.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
 )
+
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    return {"message": "OK"}
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
@@ -46,7 +52,7 @@ class ParentLogin(BaseModel):
 class ChildCreate(BaseModel):
     full_name: str
     age: int
-    date_of_birth: datetime
+    date_of_birth: str
     safety_password: str
 
 class ConsentRequest(BaseModel):
@@ -183,11 +189,16 @@ async def get_family_overview(current_parent: Parent = Depends(get_current_paren
 async def create_child(child_data: ChildCreate, current_parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
     hashed_password = get_password_hash(child_data.safety_password)
     
+    try:
+        date_of_birth = datetime.strptime(child_data.date_of_birth, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
     child = Child(
         family_id=current_parent.family_id,
         full_name=child_data.full_name,
         age=child_data.age,
-        date_of_birth=child_data.date_of_birth,
+        date_of_birth=date_of_birth,
         safety_password=hashed_password
     )
     db.add(child)
@@ -358,3 +369,139 @@ async def create_sample_data(db: Session = Depends(get_db)):
         return {"message": "Sample data created successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create sample data: {str(e)}")
+
+class MobileProfileCreate(BaseModel):
+    child_id: int
+    device_type: str
+    device_id: str
+
+@app.post("/mobile-profile/generate")
+async def generate_mobile_profile(profile_data: MobileProfileCreate, current_parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
+    child = db.query(Child).filter(
+        Child.id == profile_data.child_id,
+        Child.family_id == current_parent.family_id
+    ).first()
+    
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    
+    download_token = secrets.token_urlsafe(32)
+    
+    profile_config = {
+        "child_info": {
+            "name": child.full_name,
+            "age": child.age,
+            "family_id": current_parent.family_id
+        },
+        "safety_settings": {
+            "content_filtering": True,
+            "educational_promotion": True,
+            "screen_time_limits": True,
+            "vpn_blocking": True,
+            "transparent_monitoring": True
+        },
+        "educational_content": {
+            "age_appropriate_sites": [
+                "https://www.khanacademy.org",
+                "https://kids.nationalgeographic.com",
+                "https://www.nasa.gov/audience/forkids",
+                "https://scratch.mit.edu"
+            ],
+            "blocked_categories": ["adult_content", "violence", "gambling", "social_media"]
+        },
+        "compliance": {
+            "dpdp_act_2023": True,
+            "transparent_explanations": True,
+            "consent_tracking": True,
+            "audit_logging": True
+        }
+    }
+    
+    mobile_profile = MobileProfile(
+        child_id=profile_data.child_id,
+        device_id=profile_data.device_id,
+        device_type=profile_data.device_type,
+        profile_config=profile_config,
+        download_token=download_token
+    )
+    
+    db.add(mobile_profile)
+    db.commit()
+    db.refresh(mobile_profile)
+    
+    return {
+        "profile_id": mobile_profile.id,
+        "download_token": download_token,
+        "download_url": f"/mobile-profile/download/{download_token}",
+        "message": "Mobile profile generated successfully"
+    }
+
+@app.get("/mobile-profile/download/{download_token}")
+async def download_mobile_profile(download_token: str, db: Session = Depends(get_db)):
+    mobile_profile = db.query(MobileProfile).filter(
+        MobileProfile.download_token == download_token,
+        MobileProfile.active == True
+    ).first()
+    
+    if not mobile_profile:
+        raise HTTPException(status_code=404, detail="Profile not found or expired")
+    
+    if not mobile_profile.downloaded_at:
+        mobile_profile.downloaded_at = datetime.utcnow()
+        db.commit()
+    
+    return {
+        "profile_config": mobile_profile.profile_config,
+        "device_type": mobile_profile.device_type,
+        "activation_instructions": {
+            "ios": "Install CITTAA Family Safety app from App Store and import this profile",
+            "android": "Install CITTAA Family Safety app from Play Store and import this profile"
+        },
+        "support_contact": "support@cittaa.in"
+    }
+
+@app.post("/mobile-profile/activate/{download_token}")
+async def activate_mobile_profile(download_token: str, db: Session = Depends(get_db)):
+    mobile_profile = db.query(MobileProfile).filter(
+        MobileProfile.download_token == download_token,
+        MobileProfile.active == True
+    ).first()
+    
+    if not mobile_profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    mobile_profile.activated_at = datetime.utcnow()
+    mobile_profile.last_sync = datetime.utcnow()
+    
+    child = db.query(Child).filter(Child.id == mobile_profile.child_id).first()
+    child.profile_active = True
+    
+    db.commit()
+    
+    return {
+        "message": "Mobile profile activated successfully",
+        "child_name": child.full_name,
+        "safety_features_active": True
+    }
+
+@app.get("/mobile-profile/list")
+async def list_mobile_profiles(current_parent: Parent = Depends(get_current_parent), db: Session = Depends(get_db)):
+    profiles = db.query(MobileProfile).join(Child).filter(
+        Child.family_id == current_parent.family_id,
+        MobileProfile.active == True
+    ).all()
+    
+    return {
+        "profiles": [
+            {
+                "id": profile.id,
+                "child_name": profile.child.full_name,
+                "device_type": profile.device_type,
+                "downloaded": profile.downloaded_at is not None,
+                "activated": profile.activated_at is not None,
+                "created_at": profile.created_at,
+                "download_token": profile.download_token if not profile.downloaded_at else None
+            }
+            for profile in profiles
+        ]
+    }

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 
 class ApiClient {
@@ -14,11 +14,15 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
     
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> || {}),
+    }
+    
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      mode: 'cors',
+      credentials: 'omit',
+      headers,
       ...options,
     })
 
@@ -108,6 +112,34 @@ class ApiClient {
 
   async checkContentFilter(url: string, childAge: number) {
     return this.request(`/content-filter/check?url=${encodeURIComponent(url)}&child_age=${childAge}`)
+  }
+
+  async generateMobileProfile(token: string, data: {
+    child_id: number
+    device_type: string
+    device_id: string
+  }) {
+    return this.request('/mobile-profile/generate', {
+      method: 'POST',
+      headers: this.getAuthHeaders(token),
+      body: JSON.stringify(data),
+    })
+  }
+
+  async listMobileProfiles(token: string) {
+    return this.request('/mobile-profile/list', {
+      headers: this.getAuthHeaders(token),
+    })
+  }
+
+  async downloadMobileProfile(downloadToken: string) {
+    return this.request(`/mobile-profile/download/${downloadToken}`)
+  }
+
+  async activateMobileProfile(downloadToken: string) {
+    return this.request(`/mobile-profile/activate/${downloadToken}`, {
+      method: 'POST',
+    })
   }
 }
 
