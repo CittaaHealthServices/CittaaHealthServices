@@ -33,4 +33,16 @@ export const verifyEmergencyOtp = (phone: string, otp: string) =>
 export const resetChildPassword = (newPassword: string, biometricsApproved: boolean) =>
   api.post('/api/auth/reset-child-password', { newPassword, biometricsApproved })
 
+export const downloadMobileProfile = (platform: 'ios' | 'android') =>
+  api.get(`/api/devices/mobile-profile`, { params: { platform }, responseType: 'blob' })
+
+export const generateMobileProfile = (childId: string, platform: 'ios' | 'android', familySettings: Record<string, unknown> = {}, childData: Record<string, unknown> = {}) =>
+  api.post(`/api/mobile/generate-profile/${childId}`, { platform, family_settings: familySettings, child_data: childData })
+
+export const downloadProfileByToken = (profileToken: string) =>
+  api.get(`/api/mobile/download-profile/${encodeURIComponent(profileToken)}`, { responseType: 'blob' })
+
+export const activateMobileProfile = (payload: { child_id: string; platform: 'ios' | 'android'; device_fingerprint: string; biometric_setup?: boolean }) =>
+  api.post('/api/mobile/activate-profile', payload)
+
 export default api

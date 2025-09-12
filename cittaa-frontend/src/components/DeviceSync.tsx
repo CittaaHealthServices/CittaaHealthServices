@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Smartphone, Laptop, Tv, Wifi, Shield, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
+import { Smartphone, Laptop, Tv, Wifi, Shield, RefreshCw, CheckCircle, AlertCircle, Download } from 'lucide-react'
+import { downloadMobileProfile } from '../services/api'
 
 export default function DeviceSync() {
   const [lastUpdated, setLastUpdated] = useState('2 seconds ago')
@@ -100,6 +101,7 @@ export default function DeviceSync() {
 
   const handleToggleAutoSync = () => {
     setAutoSync(!autoSync)
+
     console.log('Auto-sync toggled:', !autoSync)
   }
 
@@ -251,6 +253,49 @@ export default function DeviceSync() {
               <RefreshCw className="w-5 h-5 mr-2" />
               Force Sync All Devices
             </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await downloadMobileProfile('ios')
+                  const blob = new Blob([res.data], { type: 'application/x-apple-aspen-config' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'CITTAA.mobileconfig'
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                  URL.revokeObjectURL(url)
+                } catch {
+                  alert('Failed to download mobile profile. Please try again.')
+                }
+              }}
+              className="flex items-center px-6 py-3 bg-[#8B5A96] text-white rounded-xl font-medium hover:opacity-90 transition-colors">
+              <Download className="w-5 h-5 mr-2" />
+              Download iOS Profile
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await downloadMobileProfile('android')
+                  const blob = new Blob([res.data], { type: 'application/json' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'CITTAA_android_profile.json'
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                  URL.revokeObjectURL(url)
+                } catch {
+                  alert('Failed to download mobile profile. Please try again.')
+                }
+              }}
+              className="flex items-center px-6 py-3 bg-[#7BB3A8] text-white rounded-xl font-medium hover:opacity-90 transition-colors">
+              <Download className="w-5 h-5 mr-2" />
+              Download Android Profile
+            </button>
+
             <button className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-xl font-medium hover:bg-gray-700 transition-colors">
               <Shield className="w-5 h-5 mr-2" />
               Security Settings

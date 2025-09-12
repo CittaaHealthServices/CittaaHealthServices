@@ -13,6 +13,12 @@ import ComplianceDashboard from './components/ComplianceDashboard'
 import DeviceSync from './components/DeviceSync'
 import VPNAlert from './components/VPNAlert'
 import ForgotPassword from './components/ForgotPassword'
+import MobileProfileGenerator from './components/MobileProfileGenerator'
+import ProfileDownloadManager from './components/ProfileDownloadManager'
+import DeviceRegistration from './components/DeviceRegistration'
+import CrossDeviceSync from './components/CrossDeviceSync'
+import ProfileActivationGuide from './components/ProfileActivationGuide'
+import ParentInstructions from './components/ParentInstructions'
 import type { User } from './types'
 
 function App() {
@@ -35,6 +41,12 @@ function App() {
           <Route path="/device-sync" element={<DeviceSync />} />
           <Route path="/vpn-alert" element={<VPNAlert />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/mobile/generate" element={<MobileProfileGenerator />} />
+          <Route path="/mobile/download" element={<ProfileDownloadManager />} />
+          <Route path="/mobile/register" element={<DeviceRegistration />} />
+          <Route path="/mobile/cross-sync" element={<CrossDeviceSync />} />
+          <Route path="/mobile/activation-guide" element={<ProfileActivationGuide />} />
+          <Route path="/mobile/parent-instructions" element={<ParentInstructions />} />
         </Routes>
       </div>
     </Router>
