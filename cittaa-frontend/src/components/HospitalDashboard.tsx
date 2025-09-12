@@ -1,11 +1,7 @@
 import { useState } from 'react'
-import { Heart, User, Clock, Shield, Activity, FileText, Users } from 'lucide-react'
+import { Heart, User as UserIcon, Clock, Shield, Activity, FileText, Users } from 'lucide-react'
 
-interface HospitalDashboardProps {
-  user: any
-}
-
-export default function HospitalDashboard({}: HospitalDashboardProps) {
+export default function HospitalDashboard() {
   const [currentSession] = useState({
     type: 'Anxiety Therapy',
     patient: 'Rohan',
@@ -58,7 +54,7 @@ export default function HospitalDashboard({}: HospitalDashboardProps) {
           <div className="bg-gradient-to-r from-teal-50 to-blue-50 rounded-xl p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
-                <User className="w-6 h-6 mr-3 text-teal-600" />
+                <UserIcon className="w-6 h-6 mr-3 text-teal-600" />
                 <div>
                   <h2 className="text-xl font-semibold text-gray-800">Current Session: {currentSession.type}</h2>
                   <p className="text-gray-600">Patient: {currentSession.patient} (Age {currentSession.age})</p>

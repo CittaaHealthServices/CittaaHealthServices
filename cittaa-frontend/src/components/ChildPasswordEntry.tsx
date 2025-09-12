@@ -1,9 +1,12 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Shield, Fingerprint } from 'lucide-react'
+import { childLogin } from '../services/api'
+
+import type { User } from '../types'
 
 interface ChildPasswordEntryProps {
-  onLogin: (user: any) => void
+  onLogin: (user: User) => void
 }
 
 export default function ChildPasswordEntry({ onLogin }: ChildPasswordEntryProps) {
@@ -18,27 +21,14 @@ export default function ChildPasswordEntry({ onLogin }: ChildPasswordEntryProps)
     setIsLoading(true)
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/child-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          password: password,
-          biometric_data: showBiometric ? 'fingerprint_verified' : null
-        }),
+      const { data } = await childLogin({
+        password,
+        biometric_data: showBiometric ? 'fingerprint_verified' : null,
       })
-
-      if (response.ok) {
-        const userData = await response.json()
-        onLogin(userData)
-        navigate('/child-dashboard')
-      } else {
-        alert('Invalid password. Please try again.')
-      }
-    } catch (error) {
-      console.error('Login error:', error)
-      alert('Connection error. Please check your internet connection.')
+      onLogin(data)
+      navigate('/child-dashboard')
+    } catch {
+      alert('Invalid password or connection issue.')
     } finally {
       setIsLoading(false)
     }
@@ -98,7 +88,7 @@ export default function ChildPasswordEntry({ onLogin }: ChildPasswordEntryProps)
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none text-lg tracking-widest"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-[#8B5A96] focus:outline-none text-lg tracking-widest"
                 placeholder="●●●●●●●●●●●●●●●●●●●●●●●"
                 required
               />
@@ -110,7 +100,7 @@ export default function ChildPasswordEntry({ onLogin }: ChildPasswordEntryProps)
               className={`w-full py-3 px-4 rounded-xl border-2 border-dashed transition-all duration-300 ${
                 showBiometric 
                   ? 'border-green-500 bg-green-50 text-green-700' 
-                  : 'border-gray-300 hover:border-blue-500 text-gray-600'
+                  : 'border-gray-300 hover:border-[#7BB3A8] text-gray-600'
               }`}
             >
               <Fingerprint className="w-6 h-6 mx-auto mb-1" />
@@ -120,7 +110,7 @@ export default function ChildPasswordEntry({ onLogin }: ChildPasswordEntryProps)
             <button
               type="submit"
               disabled={isLoading || !password}
-              className="w-full cittaa-primary py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-300 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed animate-bounce-gentle"
+              className="w-full cittaa-primary py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-300 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed animate-bounce-gentle"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center">
@@ -138,7 +128,7 @@ export default function ChildPasswordEntry({ onLogin }: ChildPasswordEntryProps)
                 type="button"
                 onClick={() => setLanguage('hindi')}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                  language === 'hindi' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+                  language === 'hindi' ? 'bg-[#7BB3A8] text-white' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 हिंदी
@@ -147,7 +137,7 @@ export default function ChildPasswordEntry({ onLogin }: ChildPasswordEntryProps)
                 type="button"
                 onClick={() => setLanguage('english')}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                  language === 'english' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+                  language === 'english' ? 'bg-[#7BB3A8] text-white' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 English

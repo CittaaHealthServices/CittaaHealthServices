@@ -1,3 +1,16 @@
+:root {
+  --cittaa-primary: #8B5A96;
+  --cittaa-secondary: #7BB3A8;
+  --cittaa-gray: #6B7280;
+  --cittaa-bg: #F3F4F6;
+  --cittaa-text: #1F2937;
+}
+.cittaa-primary { background-color: var(--cittaa-primary); color: #fff; }
+.cittaa-secondary { background-color: var(--cittaa-secondary); color: #fff; }
+
+@keyframes bounceGentle { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+.animate-bounce-gentle { animation: bounceGentle 2s infinite; }
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,9 +23,9 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 271 26% 47%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
+    --secondary: 171 26% 57%;
     --secondary-foreground: 222.2 84% 4.9%;
     --muted: 210 40% 96%;
     --muted-foreground: 215.4 16.3% 46.9%;
@@ -22,11 +35,11 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 271 26% 47%;
     --radius: 0.5rem;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary: 271 26% 47%;
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
@@ -41,9 +54,9 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
+    --primary: 271 26% 47%;
     --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 171 26% 57%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
@@ -53,10 +66,10 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
+    --ring: 271 26% 47%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary: 271 26% 47%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
@@ -76,15 +89,18 @@
 
 /* CITTAA Brand Colors */
 .cittaa-primary {
-  @apply bg-blue-600 text-white;
+  background-color: #8B5A96;
+  color: #ffffff;
 }
 
 .cittaa-secondary {
-  @apply bg-blue-800 text-white;
+  background-color: #7BB3A8;
+  color: #ffffff;
 }
 
 .cittaa-accent {
-  @apply bg-blue-500 text-white;
+  background-color: #6B7280;
+  color: #ffffff;
 }
 
 .cittaa-success {

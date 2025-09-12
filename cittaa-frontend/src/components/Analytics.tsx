@@ -1,11 +1,7 @@
 import { useState } from 'react'
 import { BarChart3, Shield, Download, Settings } from 'lucide-react'
 
-interface AnalyticsProps {
-  user: any
-}
-
-export default function Analytics({}: AnalyticsProps) {
+export default function Analytics() {
   const [timeRange, setTimeRange] = useState('week')
 
   const weeklyData = {

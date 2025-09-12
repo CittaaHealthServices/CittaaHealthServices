@@ -41,7 +41,7 @@ export default function EmergencyOverride() {
       
       alert(`Emergency override granted for ${duration} minutes. Child device access has been temporarily unrestricted.`)
       navigate('/parent-dashboard')
-    } catch (error) {
+    } catch {
       alert('Failed to grant override. Please check your code and try again.')
     } finally {
       setIsLoading(false)

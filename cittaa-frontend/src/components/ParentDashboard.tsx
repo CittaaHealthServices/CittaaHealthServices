@@ -1,11 +1,7 @@
 import { useState } from 'react'
 import { Users, Shield, AlertTriangle, BarChart3, Settings, Eye, Ban, CheckCircle } from 'lucide-react'
 
-interface ParentDashboardProps {
-  user: any
-}
-
-export default function ParentDashboard({}: ParentDashboardProps) {
+export default function ParentDashboard() {
   const [children] = useState([
     {
       id: 1,

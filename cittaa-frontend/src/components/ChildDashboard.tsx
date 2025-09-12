@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BookOpen, GamepadIcon, Music, Phone, Target, Clock, Shield } from 'lucide-react'
 
+import type { User } from '../types'
+
 interface ChildDashboardProps {
-  user: any
+  user: User | null
 }
 
 export default function ChildDashboard({ user }: ChildDashboardProps) {

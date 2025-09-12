@@ -1,11 +1,7 @@
 import { useState } from 'react'
 import { School, Users, AlertTriangle, BarChart3, BookOpen, Shield } from 'lucide-react'
 
-interface SchoolDashboardProps {
-  user: any
-}
-
-export default function SchoolDashboard({}: SchoolDashboardProps) {
+export default function SchoolDashboard() {
   const [activeStudents] = useState(847)
   const [totalStudents] = useState(950)
   const [currentSubject] = useState('Mathematics')
