@@ -5,6 +5,7 @@ interface AuthContextType {
   token: string | null
   parentId: number | null
   familyId: number | null
+  loading: boolean
   login: (token: string, parentId: number, familyId: number) => void
   logout: () => void
 }
@@ -16,24 +17,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
   const [parentId, setParentId] = useState<number | null>(null)
   const [familyId, setFamilyId] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('cittaa_token')
-    const storedParentId = localStorage.getItem('cittaa_parent_id')
-    const storedFamilyId = localStorage.getItem('cittaa_family_id')
+    const storedToken = localStorage.getItem('auth_token')
+    const storedParentId = localStorage.getItem('parent_id')
+    const storedFamilyId = localStorage.getItem('family_id')
 
     if (storedToken && storedParentId && storedFamilyId) {
       setToken(storedToken)
       setParentId(parseInt(storedParentId))
       setFamilyId(parseInt(storedFamilyId))
       setIsAuthenticated(true)
+    } else {
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('parent_id')
+      localStorage.removeItem('family_id')
     }
+    setLoading(false)
   }, [])
 
   const login = (token: string, parentId: number, familyId: number) => {
-    localStorage.setItem('cittaa_token', token)
-    localStorage.setItem('cittaa_parent_id', parentId.toString())
-    localStorage.setItem('cittaa_family_id', familyId.toString())
+    localStorage.setItem('auth_token', token)
+    localStorage.setItem('parent_id', parentId.toString())
+    localStorage.setItem('family_id', familyId.toString())
     
     setToken(token)
     setParentId(parentId)
@@ -42,9 +49,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = () => {
-    localStorage.removeItem('cittaa_token')
-    localStorage.removeItem('cittaa_parent_id')
-    localStorage.removeItem('cittaa_family_id')
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('parent_id')
+    localStorage.removeItem('family_id')
     
     setToken(null)
     setParentId(null)
@@ -58,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token,
       parentId,
       familyId,
+      loading,
       login,
       logout
     }}>

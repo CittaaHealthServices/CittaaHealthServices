@@ -22,12 +22,20 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
+    const formData = new FormData(e.target as HTMLFormElement)
+    const emailValue = formData.get('email') as string
+    const passwordValue = formData.get('password') as string
+
+    console.log('Login attempt with:', { email: emailValue, password: passwordValue ? '***' : 'empty' })
+
     try {
-      const response = await familyApi.login({ email, password })
+      const response = await familyApi.login({ email: emailValue, password: passwordValue })
+      console.log('Login response:', response)
       login((response as any).access_token, (response as any).parent_id, (response as any).family_id)
       navigate('/dashboard')
-    } catch (err) {
-      setError('Invalid email or password. Please try again.')
+    } catch (err: any) {
+      console.error('Login error:', err)
+      setError(err.message || 'Invalid email or password. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -70,8 +78,10 @@ export default function LoginPage() {
                   name="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
+                  onChange={(e) => {
+                    console.log('Email onChange:', e.target.value)
+                    setEmail(e.target.value)
+                  }}
                   required
                   placeholder="parent@example.com"
                   autoComplete="email"
@@ -85,8 +95,10 @@ export default function LoginPage() {
                   name="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
+                  onChange={(e) => {
+                    console.log('Password onChange:', e.target.value)
+                    setPassword(e.target.value)
+                  }}
                   required
                   placeholder="Enter your password"
                   autoComplete="current-password"
