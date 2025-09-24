@@ -173,12 +173,13 @@ export default function Page() {
     setDuration(0);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaStreamRef.current = stream;
-    const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    const preferredMime = (window as any).MediaRecorder && ((MediaRecorder as any).isTypeSupported?.('audio/webm') ? 'audio/webm' : ((MediaRecorder as any).isTypeSupported?.('audio/mp4') ? 'audio/mp4' : ''));
+    const mr = new MediaRecorder(stream, preferredMime ? ({ mimeType: preferredMime } as MediaRecorderOptions) : undefined);
     mediaRecorderRef.current = mr;
     chunksRef.current = [];
     mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
     mr.onstop = async () => {
-      const b = new Blob(chunksRef.current, { type: 'audio/webm' });
+      const b = new Blob(chunksRef.current, { type: preferredMime || 'audio/webm' });
       setBlob(b);
       const url = URL.createObjectURL(b);
       wsRef.current?.load(url);
