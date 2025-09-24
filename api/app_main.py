@@ -19,6 +19,7 @@ librosa = None
 
 from scipy.io import wavfile
 from fpdf import FPDF
+from audio_converter import convert_audio_to_wav_if_needed
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vocalysis")
@@ -185,15 +186,15 @@ async def analyze(
         raise
     logger.info("analyze: read %d bytes from %s", len(data), name)
     if librosa is None:
-        if not name.lower().endswith(".wav"):
-            logger.error("analyze: non-wav input with librosa=None")
-            raise HTTPException(status_code=400, detail="Only WAV supported on this host")
         try:
+            if not name.lower().endswith(".wav"):
+                logger.info("analyze: converting non-wav input to wav")
+                data = convert_audio_to_wav_if_needed(data, name)
             sr, y = wavfile.read(io.BytesIO(data))
             logger.info("analyze: wavfile.read ok sr=%s len=%s", sr, getattr(y, 'shape', None))
         except Exception as e:
-            logger.exception("analyze: wavfile.read failed")
-            raise HTTPException(status_code=400, detail=f"Failed to read WAV: {e}")
+            logger.exception("analyze: wavfile.read failed (post-conversion attempt)")
+            raise HTTPException(status_code=400, detail=f"Failed to read audio: {e}")
         report = _analyze_numpy_wav(y, sr)
     else:
         try:
