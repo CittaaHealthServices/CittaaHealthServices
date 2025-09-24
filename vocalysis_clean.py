@@ -6,19 +6,41 @@
 
 import os
 import numpy as np
-import pandas as pd
+try:
+    import pandas as pd  # optional
+except Exception:
+    pd = None
 import matplotlib.pyplot as plt
 import librosa
 import librosa.display
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-import torchaudio
+try:
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    from torch.utils.data import Dataset, DataLoader
+    import torchaudio
+except ImportError:
+    torch = None
+    from types import SimpleNamespace
+    nn = SimpleNamespace(Module=object)  # minimal fallback to allow class definitions
+    optim = None
+    Dataset = object
+    class _DL: pass
+    DataLoader = _DL
+    torchaudio = None
 import soundfile as sf
-import IPython.display as ipd
-from ipywidgets import widgets, Button, HBox, VBox, Layout
-from IPython.display import display, clear_output
+try:
+    import IPython.display as ipd
+    from IPython.display import display, clear_output
+    from ipywidgets import widgets, Button, HBox, VBox, Layout
+except Exception:
+    ipd = None
+    def display(*args, **kwargs): 
+        return None
+    def clear_output(*args, **kwargs):
+        return None
+    class _W: pass
+    widgets = Button = HBox = VBox = Layout = _W
 import time
 import random
 import warnings
@@ -36,11 +58,15 @@ import asyncio
 
 warnings.filterwarnings('ignore')
 
-torch.manual_seed(42)
+if torch is not None:
+    torch.manual_seed(42)
 np.random.seed(42)
 random.seed(42)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch is not None and hasattr(torch, "cuda") and torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = "cpu"
 print(f"Using device: {device}")
 
 
@@ -492,9 +518,11 @@ class FeatureExtractor:
             features = self.extract_features(segment)
             all_features.append(features)
         
-        df = pd.DataFrame(all_features)
-        
-        return df
+        if pd is not None:
+            df = pd.DataFrame(all_features)
+            return df
+        else:
+            return all_features
     
     def get_feature_names(self):
         """Get the names of all features
@@ -729,7 +757,7 @@ class MentalHealthDataset(Dataset):
             return torch.FloatTensor(features)
 
 
-def train_model(model, train_loader, val_loader, num_epochs=50, lr=0.001, device=torch.device("cpu")):
+def train_model(model, train_loader, val_loader, num_epochs=50, lr=0.001, device="cpu"):
     """Train the mental health classification model
     
     Args:
@@ -828,7 +856,7 @@ def train_model(model, train_loader, val_loader, num_epochs=50, lr=0.001, device
     return model, history
 
 
-def evaluate_model(model, test_loader, device=torch.device("cpu")):
+def evaluate_model(model, test_loader, device="cpu"):
     """Evaluate the model on test data
     
     Args:
@@ -1191,7 +1219,7 @@ def generate_pdf_report(features, probabilities, confidence, mental_health_score
     pdf.set_font('Arial', '', 10)
     
     for interpretation in interpretations:
-        pdf.multi_cell(0, 5, f'• {interpretation}')
+        pdf.multi_cell(0, 5, f'- {interpretation}')
     
     pdf.ln(5)
     
@@ -1200,7 +1228,7 @@ def generate_pdf_report(features, probabilities, confidence, mental_health_score
     pdf.set_font('Arial', '', 10)
     
     for recommendation in recommendations:
-        pdf.multi_cell(0, 5, f'• {recommendation}')
+        pdf.multi_cell(0, 5, f'- {recommendation}')
     
     pdf.ln(5)
     
@@ -1224,7 +1252,7 @@ def generate_pdf_report(features, probabilities, confidence, mental_health_score
     return pdf_bytes
 
 
-def run_vocalysis_analysis(audio_data=None, file_path=None, model_type='ensemble', use_secure_storage=True, storage_config=None):
+def run_vocalysis_analysis(audio_data=None, file_path=None, model_type='ensemble', use_secure_storage=True, storage_config=None, cultural_context=None):
     """Run the complete Vocalysis analysis pipeline
     
     Args:
@@ -1233,6 +1261,7 @@ def run_vocalysis_analysis(audio_data=None, file_path=None, model_type='ensemble
         model_type (str): Type of model to use ('mlp', 'cnn', 'rnn', 'attention', 'ensemble')
         use_secure_storage (bool): Whether to use secure storage
         storage_config (dict, optional): Configuration for secure storage
+        cultural_context (dict, optional): {'region','language','age_group','gender'}
         
     Returns:
         dict: Analysis results
@@ -1283,60 +1312,82 @@ def run_vocalysis_analysis(audio_data=None, file_path=None, model_type='ensemble
         except Exception as e:
             print(f"Warning: Failed to store voice data securely: {e}")
     
-    # Generate synthetic data for model training
-    X_synth, y_synth = generate_synthetic_data(num_samples=1000, num_features=len(avg_features))
-    X_train, X_test, y_train, y_test = train_test_split(X_synth, y_synth, test_size=0.2, random_state=42)
-    
-    train_dataset = MentalHealthDataset(X_train, y_train)
-    test_dataset = MentalHealthDataset(X_test, y_test)
-    
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
-    
-    input_dim = len(avg_features)
-    
-    if model_type == 'mlp':
-        model = MentalHealthModel(input_dim=input_dim, hidden_dims=[128, 64], num_classes=4)
-    elif model_type == 'cnn':
-        model = CNNMentalHealthModel(input_dim=input_dim, num_classes=4)
-    elif model_type == 'rnn':
-        model = RNNMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_layers=2, num_classes=4)
-    elif model_type == 'attention':
-        model = AttentionMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_classes=4)
-    elif model_type == 'ensemble':
-        # Create an ensemble of all model types
-        models = [
-            MentalHealthModel(input_dim=input_dim, hidden_dims=[128, 64], num_classes=4),
-            CNNMentalHealthModel(input_dim=input_dim, num_classes=4),
-            RNNMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_layers=2, num_classes=4),
-            AttentionMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_classes=4)
-        ]
-        
-        trained_models = []
-        for i, m in enumerate(models):
-            print(f"Training model {i+1}/{len(models)}...")
-            trained_model, _ = train_model(m, train_loader, test_loader, num_epochs=20, device=device)
-            trained_models.append(trained_model)
-        
-        model = EnsembleMentalHealthModel(trained_models)
+    if torch is None:
+        sr = feature_extractor.sr
+        f = avg_features
+        anxiety_raw = 0.0
+        depression_raw = 0.0
+        stress_raw = 0.0
+
+        anxiety_raw += max(0.0, (f.get('spectral_centroid_mean', 0) - 1800.0) / 2000.0)
+        anxiety_raw += max(0.0, (f.get('zcr_std', 0) - 0.03) / 0.05)
+        stress_raw += max(0.0, (f.get('speech_rate', 0) - 4.5) / 3.0)
+        stress_raw += max(0.0, (f.get('pitch_std', 0) - 20.0) / 30.0)
+        depression_raw += max(0.0, (150.0 - f.get('pitch_mean', 150.0)) / 150.0)
+        depression_raw += max(0.0, (3.0 - f.get('speech_rate', 3.0)) / 3.0)
+        depression_raw += 1.0 if f.get('rms_std', 0) < 0.02 else 0.0
+
+        anxiety = max(1e-6, anxiety_raw)
+        depression = max(1e-6, depression_raw)
+        stress = max(1e-6, stress_raw)
+        normal = 1.0
+
+        probs_arr = np.array([normal, anxiety, depression, stress], dtype=float)
+        probs_arr = np.clip(probs_arr, 1e-6, None)
+        probs_arr = probs_arr / probs_arr.sum()
+        avg_probs = probs_arr
+        avg_conf = 0.78
+        eval_results = {'note': 'heuristic path used (no torch available)'}
     else:
-        return {'error': f"Unknown model type: {model_type}"}
-    
-    if model_type != 'ensemble':
-        model, history = train_model(model, train_loader, test_loader, num_epochs=20, device=device)
-    
-    # Evaluate the model
-    eval_results = evaluate_model(model, test_loader, device=device)
-    
-    # Make predictions on the actual voice features
-    features_tensor = torch.FloatTensor(features_df.values).to(device)
-    
-    model.eval()
-    with torch.no_grad():
-        probabilities, confidence = model(features_tensor)
+        # Generate synthetic data for model training
+        X_synth, y_synth = generate_synthetic_data(num_samples=1000, num_features=len(avg_features))
+        X_train, X_test, y_train, y_test = train_test_split(X_synth, y_synth, test_size=0.2, random_state=42)
         
-        avg_probs = probabilities.mean(dim=0).cpu().numpy()
-        avg_conf = confidence.mean().item()
+        train_dataset = MentalHealthDataset(X_train, y_train)
+        test_dataset = MentalHealthDataset(X_test, y_test)
+        
+        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+        
+        input_dim = len(avg_features)
+        
+        if model_type == 'mlp':
+            model = MentalHealthModel(input_dim=input_dim, hidden_dims=[128, 64], num_classes=4)
+        elif model_type == 'cnn':
+            model = CNNMentalHealthModel(input_dim=input_dim, num_classes=4)
+        elif model_type == 'rnn':
+            model = RNNMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_layers=2, num_classes=4)
+        elif model_type == 'attention':
+            model = AttentionMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_classes=4)
+        elif model_type == 'ensemble':
+            models = [
+                MentalHealthModel(input_dim=input_dim, hidden_dims=[128, 64], num_classes=4),
+                CNNMentalHealthModel(input_dim=input_dim, num_classes=4),
+                RNNMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_layers=2, num_classes=4),
+                AttentionMentalHealthModel(input_dim=input_dim, hidden_dim=128, num_classes=4)
+            ]
+            
+            trained_models = []
+            for i, m in enumerate(models):
+                print(f"Training model {i+1}/{len(models)}...")
+                trained_model, _ = train_model(m, train_loader, test_loader, num_epochs=20, device=device)
+                trained_models.append(trained_model)
+            
+            model = EnsembleMentalHealthModel(trained_models)
+        else:
+            return {'error': f"Unknown model type: {model_type}"}
+        
+        if model_type != 'ensemble':
+            model, history = train_model(model, train_loader, test_loader, num_epochs=20, device=device)
+        
+        eval_results = evaluate_model(model, test_loader, device=device)
+        
+        features_tensor = torch.FloatTensor(features_df.values).to(device)
+        model.eval()
+        with torch.no_grad():
+            probabilities, confidence = model(features_tensor)
+            avg_probs = probabilities.mean(dim=0).cpu().numpy()
+            avg_conf = confidence.mean().item()
     
     # Calculate mental health score
     mental_health_score = calculate_mental_health_score(avg_probs, avg_conf)
@@ -1363,6 +1414,40 @@ def run_vocalysis_analysis(audio_data=None, file_path=None, model_type='ensemble
         'model_type': model_type,
         'evaluation': eval_results
     }
+    if cultural_context:
+        region_weights = {
+            'north_india': {'depression': 0.9, 'stress': 1.1, 'anxiety': 1.0},
+            'south_india': {'depression': 1.0, 'stress': 0.9, 'anxiety': 1.1},
+            'west_india': {'depression': 0.95, 'stress': 1.05, 'anxiety': 1.0},
+            'east_india': {'depression': 1.05, 'stress': 0.95, 'anxiety': 1.0},
+        }
+        region = cultural_context.get('region', 'north_india')
+        weights = region_weights.get(region, region_weights['north_india'])
+        probs_arr = np.array(results['probabilities'], dtype=float)
+        probs_arr[1] *= weights['anxiety']
+        probs_arr[2] *= weights['depression']
+        probs_arr[3] *= weights['stress']
+        probs_arr = np.clip(probs_arr, 1e-6, None)
+        probs_arr = probs_arr / probs_arr.sum()
+        results['probabilities'] = probs_arr.tolist()
+
+        mental_health_score = calculate_mental_health_score(probs_arr, avg_conf)
+        interpretations = interpret_features(avg_features)
+        scale_mappings = map_to_psychology_scales(probs_arr, mental_health_score)
+        recommendations = generate_recommendations(probs_arr, mental_health_score, scale_mappings)
+        pdf_report = generate_pdf_report(
+            avg_features, probs_arr, avg_conf, mental_health_score,
+            interpretations, scale_mappings, recommendations
+        )
+        results.update({
+            'mental_health_score': mental_health_score,
+            'interpretations': interpretations,
+            'scale_mappings': scale_mappings,
+            'recommendations': recommendations,
+            'pdf_report': pdf_report
+        })
+        results['cultural_context'] = cultural_context
+
     
     if use_secure_storage and voice_data_id is not None:
         try:
