@@ -20,4 +20,4 @@ COPY secure_storage.py /app/secure_storage.py
 COPY api /app/api
 
 EXPOSE 8080
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
