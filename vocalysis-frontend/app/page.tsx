@@ -218,7 +218,22 @@ export default function Page() {
     setRecording(false);
   };
 
+  const [health, setHealth] = useState<'ok'|'bad'|'checking'>('checking');
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/health`, { cache: 'no-store' });
+        if (!cancelled && res.ok) setHealth('ok'); else if (!cancelled) setHealth('bad');
+      } catch {
+        if (!cancelled) setHealth('bad');
+      }
+    };
+    check();
+    const id = setInterval(check, 15000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [backendUrl]);
 
   const analyze = async () => {
     if (demo) {
@@ -243,7 +258,11 @@ export default function Page() {
       fd.append('gender', gender);
 
       const res = await fetch(`${backendUrl}/analyze`, { method: 'POST', body: fd });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        let text = '';
+        try { text = await res.text(); } catch {}
+        throw new Error(text || `HTTP ${res.status}`);
+      }
       const json: AnalyzeResponse = await res.json();
       setResult(json);
 
@@ -253,9 +272,9 @@ export default function Page() {
         a.download = 'CITTAA_Vocalysis_Report.pdf';
         a.textContent = 'Download PDF';
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Analysis failed. If you uploaded a file, please use WAV (16kHz mono), or try a Demo Scenario.');
+      alert(`Analysis failed: ${e?.message || e || 'Unknown error'}. Please use a true WAV (16kHz mono), or try a Demo Scenario.`);
     } finally {
       setLoading(false);
     }
@@ -284,8 +303,12 @@ export default function Page() {
         </div>
       </div>
 
-      <div className="banner">
+      <div className="banner" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div className="badge">Healthcare-grade UI</div>
+        <div className="badge" style={{ background: health==='ok' ? '#d4edda' : health==='checking' ? '#fff3cd' : '#f8d7da', color: health==='ok' ? '#155724' : health==='checking' ? '#856404' : '#721c24' }}>
+          {health === 'ok' ? 'Backend: Online' : health === 'checking' ? 'Checking backend…' : 'Backend: Unreachable'}
+        </div>
+        {health === 'bad' && <button className="button small" onClick={()=>location.reload()}>Retry</button>}
         <div className="small">{t.privacy} • {t.duration}</div>
       </div>
 
