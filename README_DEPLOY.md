@@ -1,3 +1,21 @@
+# Render Backend Deployment (Alternative to Railway/Cloud Run)
+
+Quick start (Render Web Service via Dockerfile):
+- Connect GitHub repo CittaaHealthServices/CittaaHealthServices
+- Create Web Service → Environment: Docker
+- Root: repository root; set Dockerfile path to api/Dockerfile
+- Env Vars:
+  - PORT=8080
+  - BACKEND_CORS_ORIGINS=https://&lt;your-vercel-project&gt;.vercel.app  (use "*" only for smoke tests)
+- Deploy and note the URL like https://vocalysis-api.onrender.com
+- Verify:
+  - GET {RENDER_URL}/health -> {"status":"ok"}
+  - POST {RENDER_URL}/analyze with provided WAV returns results and pdf_report_b64
+- Set Vercel NEXT_PUBLIC_BACKEND_URL={RENDER_URL} and redeploy frontend
+
+Blueprint (optional):
+- Commit render.yaml at repo root (provided) then on Render → New + From Blueprint → point to this repo/branch.
+- It builds api/Dockerfile and exposes /health.
 # CITTAA Vocalysis Deployment
 
 Option A) Backend on Railway (recommended for fast demo)
