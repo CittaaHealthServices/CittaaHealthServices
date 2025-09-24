@@ -12,8 +12,7 @@ Verification:
 
 Troubleshooting:
 - If analysis fails from browser but works via curl, check CORS in backend env: BACKEND_CORS_ORIGINS must include this Devin Apps origin exactly.
-- Ensure the recorder sends WAV: the UI converts MediaRecorder output to true WAV before upload; if blocked, try file upload with a WAV recorded locally.
-
+- Ensure the recorder sends WAV: the UI converts MediaRecorder output to true WAV before upload; uploads are restricted to WAV files (16kHz mono). If blocked, try file upload with a true WAV recorded locally.
 
 
 # Live Frontend (Devin Apps)
@@ -22,7 +21,7 @@ Troubleshooting:
 
 Build/export locally (for reference):
 - export NEXT_PUBLIC_BACKEND_URL="https://vocalysis-api-sdlpaube.fly.dev"
-- npm install && npm run build && npm run export  # outputs build/
+- npm install && npm run build && npm run export  # emits out/, script copies to build/
 
 
 # Vocalysis Frontend (Next.js)
@@ -34,12 +33,13 @@ Build/export locally (for reference):
 - Install and build:
   - npm install
   - npm run build
-  - npm run export
+  - npm run export  # produces out/ and copies to build/
 - Deploy folder `build/` to Devin Apps as the site root.
 
 ## Notes
 - CORS on backend should include the Devin Apps origin after deployment.
 - Ensure to rebuild when changing NEXT_PUBLIC_BACKEND_URL.
+
 # CITTAA Vocalysis Frontend (Vercel)
 
 - Next.js App Router, TypeScript
@@ -49,7 +49,7 @@ Build/export locally (for reference):
 
 Run locally:
 - npm install
-- set NEXT_PUBLIC_BACKEND_URL in .env.local (Railway or Cloud Run URL)
+- set NEXT_PUBLIC_BACKEND_URL in .env.local
 - npm run dev
 
 Build:
@@ -58,16 +58,15 @@ Build:
 Deploy to Vercel:
 - Root Directory: vocalysis-frontend
 - Environment Variables:
-  - NEXT_PUBLIC_BACKEND_URL=https://<your-backend-url>  # Railway or Cloud Run
+  - NEXT_PUBLIC_BACKEND_URL=https://<your-backend-url>
 - Deploy (Production)
 
 Backend options:
-- Railway (fastest): Deploy api/Dockerfile, note public URL, set BACKEND_CORS_ORIGINS to your Vercel domain.
-- Cloud Run: Build container from api/, deploy allow unauthenticated, set BACKEND_CORS_ORIGINS.
+- Cloud Run or Fly: Deploy api/, set BACKEND_CORS_ORIGINS to your frontend origin.
 
 Verification:
 - Record mic audio (10–15s), Analyze -> results + PDF link
-- Upload provided WAV and Analyze
+- Upload a true WAV and Analyze
 - Try Demo Scenarios, and Hindi toggle
 - Confirm no CORS errors in browser console
 
@@ -77,3 +76,12 @@ CI note for prototype:
 - Per user instruction, treat Devin Apps deployment and manual end-to-end verification as the primary check.
 - External CI failures unrelated to these frontend changes can be ignored for this demo.
 - Verified: upload normalization to WAV works; user-provided clip analyzed successfully; PDF opens.
+
+---
+
+Hosting policy (per user):
+- Strictly no Railway/Render.
+- Current deployment:
+  - Frontend: Devin Apps https://voice-analysis-app-8pgryn1z.devinapps.com
+  - Backend: Fly.io https://vocalysis-api-sdlpaube.fly.dev
+- Ensure BACKEND_CORS_ORIGINS on backend matches the Devin Apps origin exactly.

@@ -1,3 +1,36 @@
+Vocalysis – Live Deployment (Prototype)
+
+Live URLs
+- Frontend (Devin Apps): https://voice-analysis-app-8pgryn1z.devinapps.com/
+- Backend (Fly): https://vocalysis-api-sdlpaube.fly.dev/
+
+Status
+- End-to-end verified: upload/record → Analyze → scores + working “Download PDF”
+- CORS locked to the Devin Apps origin
+- Frontend uploads restricted to WAV; client converts to true WAV as needed
+
+Static export and deploy (frontend)
+- Ensure env: export NEXT_PUBLIC_BACKEND_URL="https://vocalysis-api-sdlpaube.fly.dev"
+- Build/export:
+  - npm ci
+  - npm run build
+  - npm run export  # produces out/ and copies to build/
+- Deploy folder vocalysis-frontend/build/ to Devin Apps
+
+Backend CORS hardening
+- Environment variable BACKEND_CORS_ORIGINS must be set to:
+  https://voice-analysis-app-8pgryn1z.devinapps.com
+- Middleware in api/app_main.py reads this env and restricts origins accordingly
+
+Verification
+- Backend: GET /health → {"status":"ok"}
+- Backend: POST /analyze with a true WAV (16kHz mono PCM) returns scores + pdf_report_b64
+- Frontend: Record 10–20s or upload a true WAV → Analyze → Download PDF opens successfully
+
+Notes
+- Prototype policy: Devin Apps live verification is primary; ignore external CI for this proto
+- Strictly no Railway/Render per user instruction
+
 # Deployment Summary (Live, Verified)
 
 Devin run: https://app.devin.ai/sessions/867a91c09212494abd6227631cee944b
@@ -214,3 +247,15 @@ CI status (prototype note):
 - For this prototype, Devin Apps live verification is the primary acceptance per user direction.
 - External CI deployments can be ignored if unrelated to the code changes here.
 - Live verification completed: frontend and backend links above; user clip analyzed successfully with non-zero PDF generated.
+
+---
+
+Hosting policy (per user):
+- Do not use Railway or Render for this demo.
+- Backend hosting: Fly.io at https://vocalysis-api-sdlpaube.fly.dev
+- Frontend hosting: Devin Apps at https://voice-analysis-app-8pgryn1z.devinapps.com
+- CORS is locked to the Devin Apps origin listed above.
+
+User clip verification:
+- The provided clip was analyzed successfully on the live backend after normalization to true WAV (16kHz mono PCM).
+- The generated PDF opens correctly (non-zero size).
