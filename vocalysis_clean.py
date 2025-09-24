@@ -10,7 +10,10 @@ try:
     import pandas as pd  # optional
 except Exception:
     pd = None
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:
+    plt = None
 import librosa
 import librosa.display
 try:
@@ -239,21 +242,23 @@ class AudioProcessor:
             sr (int): Sample rate
             title (str): Plot title
         """
-        plt.figure(figsize=(12, 4))
-        librosa.display.waveshow(audio_data, sr=sr)
-        plt.title(title)
-        plt.xlabel("Time (s)")
-        plt.ylabel("Amplitude")
-        plt.tight_layout()
-        plt.show()
+        if plt is not None:
+            plt.figure(figsize=(12, 4))
+            librosa.display.waveshow(audio_data, sr=sr)
+            plt.title(title)
+            plt.xlabel("Time (s)")
+            plt.ylabel("Amplitude")
+            plt.tight_layout()
+            plt.show()
         
-        plt.figure(figsize=(12, 4))
-        D = librosa.amplitude_to_db(np.abs(librosa.stft(audio_data)), ref=np.max)
-        librosa.display.specshow(D, sr=sr, x_axis='time', y_axis='log')
-        plt.colorbar(format='%+2.0f dB')
-        plt.title(f"{title} - Spectrogram")
-        plt.tight_layout()
-        plt.show()
+        if plt is not None:
+            plt.figure(figsize=(12, 4))
+            D = librosa.amplitude_to_db(np.abs(librosa.stft(audio_data)), ref=np.max)
+            librosa.display.specshow(D, sr=sr, x_axis='time', y_axis='log')
+            plt.colorbar(format='%+2.0f dB')
+            plt.title(f"{title} - Spectrogram")
+            plt.tight_layout()
+            plt.show()
 
 
 class FeatureExtractor:
@@ -567,28 +572,30 @@ class FeatureExtractor:
         mean_values = np.concatenate((mean_values, [mean_values[0]]))
         angles = np.concatenate((angles, [angles[0]]))
         
-        fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(polar=True))
-        ax.plot(angles, mean_values, 'o-', linewidth=2)
-        ax.fill(angles, mean_values, alpha=0.25)
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(selected_features)
-        ax.set_ylim(0, 1)
-        ax.grid(True)
-        plt.title('Voice Feature Analysis', size=15)
-        plt.tight_layout()
-        plt.show()
+        if plt is not None:
+            fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(polar=True))
+            ax.plot(angles, mean_values, 'o-', linewidth=2)
+            ax.fill(angles, mean_values, alpha=0.25)
+            ax.set_xticks(angles[:-1])
+            ax.set_xticklabels(selected_features)
+            ax.set_ylim(0, 1)
+            ax.grid(True)
+            plt.title('Voice Feature Analysis', size=15)
+            plt.tight_layout()
+            plt.show()
         
-        plt.figure(figsize=(12, 6))
-        mean_original = features_df[selected_features].mean()
-        std_original = features_df[selected_features].std()
-        
-        x = np.arange(len(selected_features))
-        plt.bar(x, mean_original, yerr=std_original, align='center', alpha=0.7, capsize=10)
-        plt.xticks(x, selected_features, rotation=45, ha='right')
-        plt.ylabel('Value')
-        plt.title('Mean Feature Values with Standard Deviation')
-        plt.tight_layout()
-        plt.show()
+        if plt is not None:
+            plt.figure(figsize=(12, 6))
+            mean_original = features_df[selected_features].mean()
+            std_original = features_df[selected_features].std()
+            
+            x = np.arange(len(selected_features))
+            plt.bar(x, mean_original, yerr=std_original, align='center', alpha=0.7, capsize=10)
+            plt.xticks(x, selected_features, rotation=45, ha='right')
+            plt.ylabel('Value')
+            plt.title('Mean Feature Values with Standard Deviation')
+            plt.tight_layout()
+            plt.show()
 
 
 class MentalHealthModel(nn.Module):
