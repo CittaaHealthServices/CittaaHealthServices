@@ -1,3 +1,9 @@
+# Deployment Summary (Live, Verified)
+
+Devin run: https://app.devin.ai/sessions/867a91c09212494abd6227631cee944b
+PR: https://github.com/CittaaHealthServices/CittaaHealthServices/pull/10 (@CittaaHealthServices)
+
+
 # Final Live Deployment (verified)
 
 - Backend (FastAPI): https://vocalysis-api-sdlpaube.fly.dev
@@ -16,6 +22,11 @@ Verification update (latest):
 - Live URLs:
   - Frontend: https://voice-analysis-app-8pgryn1z.devinapps.com
   - Backend: https://vocalysis-api-sdlpaube.fly.dev
+
+
+CORS hardening:
+- BACKEND_CORS_ORIGINS is set to: https://voice-analysis-app-8pgryn1z.devinapps.com
+- Verified requests from other origins blocked; frontend origin allowed
 
 
 
@@ -196,3 +207,10 @@ Post-deploy checklist (Railway + Vercel)
 - Add Vercel env: NEXT_PUBLIC_BACKEND_URL=https://&lt;railway-service&gt;.up.railway.app
 - After smoke tests pass, tighten CORS on Railway: BACKEND_CORS_ORIGINS=https://&lt;your-vercel-project&gt;.vercel.app
 - Re-test end-to-end: recording, upload, bilingual toggle, cultural selectors, PDF download.
+
+---
+
+CI status (prototype note):
+- For this prototype, Devin Apps live verification is the primary acceptance per user direction.
+- External CI deployments can be ignored if unrelated to the code changes here.
+- Live verification completed: frontend and backend links above; user clip analyzed successfully with non-zero PDF generated.

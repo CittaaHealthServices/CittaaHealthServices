@@ -1,3 +1,21 @@
+# Live Demo
+
+- Frontend: https://voice-analysis-app-8pgryn1z.devinapps.com/
+- Backend API: https://vocalysis-api-sdlpaube.fly.dev/
+
+Build env:
+- NEXT_PUBLIC_BACKEND_URL=https://vocalysis-api-sdlpaube.fly.dev
+
+Verification:
+- Record 10–20s → Analyze → scores + working “Download PDF”
+- EN/हिंदी toggle; cultural selectors; no CORS errors
+
+Troubleshooting:
+- If analysis fails from browser but works via curl, check CORS in backend env: BACKEND_CORS_ORIGINS must include this Devin Apps origin exactly.
+- Ensure the recorder sends WAV: the UI converts MediaRecorder output to true WAV before upload; if blocked, try file upload with a WAV recorded locally.
+
+
+
 # Live Frontend (Devin Apps)
 - URL: https://voice-analysis-app-8pgryn1z.devinapps.com/
 - Backend: https://vocalysis-api-sdlpaube.fly.dev
@@ -52,3 +70,10 @@ Verification:
 - Upload provided WAV and Analyze
 - Try Demo Scenarios, and Hindi toggle
 - Confirm no CORS errors in browser console
+
+---
+
+CI note for prototype:
+- Per user instruction, treat Devin Apps deployment and manual end-to-end verification as the primary check.
+- External CI failures unrelated to these frontend changes can be ignored for this demo.
+- Verified: upload normalization to WAV works; user-provided clip analyzed successfully; PDF opens.
