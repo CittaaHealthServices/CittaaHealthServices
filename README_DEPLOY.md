@@ -1,3 +1,27 @@
+# Deployment Guide
+
+## Devin Apps (Frontend static, Backend external)
+- Prereq: Backend URL ready (e.g., https://vocalysis-api-sdlpaube.fly.dev)
+- Frontend env:
+  - NEXT_PUBLIC_BACKEND_URL must point to backend URL
+
+Steps:
+1) cd vocalysis-frontend
+2) npm install
+3) export NEXT_PUBLIC_BACKEND_URL="https://vocalysis-api-sdlpaube.fly.dev"
+4) npm run build && npm run export  # outputs static site to vocalysis-frontend/build
+5) Deploy folder vocalysis-frontend/build to Devin Apps
+6) Note the frontend URL (https://<app>.devinapps.com). Tighten backend CORS:
+   - BACKEND_CORS_ORIGINS="https://<app>.devinapps.com"
+7) Verify:
+   - Open frontend URL
+   - Upload WAV, run Analyze
+   - Confirm results and PDF download
+   - No CORS errors
+
+## Backend CORS
+- FastAPI reads BACKEND_CORS_ORIGINS env var (comma-separated list).
+- For smoke test, you can use "*" temporarily, then restrict to the frontend origin.
 # Render Backend Deployment (Alternative to Railway/Cloud Run)
 
 Quick start (Render Web Service via Dockerfile):
