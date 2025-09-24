@@ -9,6 +9,3 @@ scikit-learn==1.5.1
 soundfile==0.12.1
 numba==0.59.1
 fpdf==1.7.2
-pandas==2.2.2
-matplotlib==3.9.2
-torch==2.4.1
