@@ -1,3 +1,48 @@
+# Final Live Deployment (verified)
+
+- Backend (FastAPI): https://vocalysis-api-sdlpaube.fly.dev
+- Frontend (Devin Apps): https://voice-analysis-app-8pgryn1z.devinapps.com/
+
+CORS:
+- BACKEND_CORS_ORIGINS should be set to: https://voice-analysis-app-8pgryn1z.devinapps.com
+Backend (Fly.io) notes:
+- fly.toml is included to keep at least 1 machine running and probe /health.
+- Ensure PORT=8080 is used and /health is fast.
+
+Verification update (latest):
+- POST /analyze with true WAV returns scores and pdf_report_b64
+- Decoded PDF saved: /home/ubuntu/screenshots/vocalysis_report_latest2.pdf (non-zero size)
+- Frontend E2E: record 10–20s → Analyze → scores + working “Download PDF” link; no CORS errors
+- Live URLs:
+  - Frontend: https://voice-analysis-app-8pgryn1z.devinapps.com
+  - Backend: https://vocalysis-api-sdlpaube.fly.dev
+
+
+
+Verification status:
+- GET /health: 200 OK
+- Frontend loads and demo scenarios render results
+- EN/हिंदी toggle verified on deployed site
+- Next step: upload WAV via frontend and confirm PDF download; if blocked by CORS, ensure BACKEND_CORS_ORIGINS is exactly the Devin Apps URL above
+
+
+Screenshots (saved during verification):
+- /home/ubuntu/screenshots/voice_analysis_app_154054.png  # English UI with demo results
+- /home/ubuntu/screenshots/voice_analysis_app_154119.png  # Hindi UI with demo results
+
+
+# Quick Live Deploy (current demo URLs)
+
+- Backend (FastAPI): https://vocalysis-api-sdlpaube.fly.dev
+- Frontend (Devin Apps): https://voice-analysis-app-8pgryn1z.devinapps.com
+
+CORS:
+- Set BACKEND_CORS_ORIGINS to: https://voice-analysis-app-8pgryn1z.devinapps.com
+
+Frontend build env:
+- NEXT_PUBLIC_BACKEND_URL=https://vocalysis-api-sdlpaube.fly.dev
+
+
 # Deployment Guide
 
 ## Devin Apps (Frontend static, Backend external)

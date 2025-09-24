@@ -1,3 +1,27 @@
+# Live Frontend (Devin Apps)
+- URL: https://voice-analysis-app-8pgryn1z.devinapps.com/
+- Backend: https://vocalysis-api-sdlpaube.fly.dev
+
+Build/export locally (for reference):
+- export NEXT_PUBLIC_BACKEND_URL="https://vocalysis-api-sdlpaube.fly.dev"
+- npm install && npm run build && npm run export  # outputs build/
+
+
+# Vocalysis Frontend (Next.js)
+
+## Build and Export for Devin Apps
+- Set backend URL:
+  - export NEXT_PUBLIC_BACKEND_URL="https://vocalysis-api-sdlpaube.fly.dev"
+  - Or edit .env.example → .env with the correct URL
+- Install and build:
+  - npm install
+  - npm run build
+  - npm run export
+- Deploy folder `build/` to Devin Apps as the site root.
+
+## Notes
+- CORS on backend should include the Devin Apps origin after deployment.
+- Ensure to rebuild when changing NEXT_PUBLIC_BACKEND_URL.
 # CITTAA Vocalysis Frontend (Vercel)
 
 - Next.js App Router, TypeScript
