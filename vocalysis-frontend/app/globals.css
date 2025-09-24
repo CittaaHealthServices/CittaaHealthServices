@@ -1,0 +1,42 @@
+:root{
+  --primary:#1f4aa8;
+  --secondary:#2fbf71;
+  --warning:#ffc107;
+  --danger:#dc3545;
+  --light:#f5f7fb;
+  --text:#22304a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--light);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.container{max-width:1024px;margin:0 auto;padding:24px}
+.header{display:flex;align-items:center;gap:16px;margin:12px 0}
+.logo{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--primary),#2c5aa0);box-shadow:0 6px 16px rgba(31,74,168,.3)}
+.title{font-weight:800;font-size:22px}
+.subtitle{opacity:.8}
+.banner{
+  background:white;border-radius:16px;padding:20px;display:flex;justify-content:space-between;align-items:center;
+  box-shadow:0 6px 20px rgba(0,0,0,.08); margin:18px 0; border:1px solid #eaf0ff
+}
+.badge{background:rgba(47,191,113,.12); color:#128651; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700}
+.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.card{background:white;border-radius:16px;padding:18px;box-shadow:0 6px 20px rgba(0,0,0,.08);border:1px solid #eaf0ff}
+.actions{display:flex;gap:12px;flex-wrap:wrap}
+.button{
+  background:var(--primary); color:white; padding:12px 16px; border-radius:12px; border:none; cursor:pointer;
+  transition:transform .08s ease, box-shadow .2s ease; font-weight:700
+}
+.button.secondary{background:var(--secondary)}
+.button.warning{background:var(--warning);color:#3a2a00}
+.button:active{transform:translateY(1px)}
+.wave{height:60px;background:linear-gradient(180deg,#cfe0ff,#eaf0ff);border-radius:12px;margin:8px 0;position:relative;overflow:hidden}
+.level{height:8px;border-radius:999px;background:linear-gradient(90deg,#2fbf71,#ffc107,#dc3545)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.score{padding:14px;border-radius:14px;background:#f8fbff;border:1px solid #eaf0ff}
+.score.h{background:#fff2f3;border-color:#ffd7db}
+.score.m{background:#fff9e8;border-color:#ffe9ae}
+.score.l{background:#eefaf2;border-color:#c6f0d8}
+.small{font-size:12px;opacity:.8}
+.langToggle{display:flex;gap:8px}
+.langToggle button{padding:6px 10px;border-radius:10px;border:1px solid #d9e3ff;background:white;cursor:pointer}
+.footer{opacity:.7;font-size:12px;margin-top:8px}
