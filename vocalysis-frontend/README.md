@@ -1,3 +1,8 @@
+Recording compatibility:
+- The app selects a supported MediaRecorder mimeType dynamically at runtime (prefers audio/webm when available).
+- All recordings are normalized to true WAV client-side before upload.
+- If recording fails on older Safari/iOS, use file upload (WAV) as fallback.
+
 # Live Demo
 
 - Frontend: https://voice-analysis-app-8pgryn1z.devinapps.com/
