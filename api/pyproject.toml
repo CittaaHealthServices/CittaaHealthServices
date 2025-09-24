@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "vocalysis-api"
+version = "0.1.0"
+description = "CITTAA Vocalysis FastAPI backend"
+authors = ["CITTAA Health Services"]
+readme = "README.md"
+packages = [{ include = "api", from = "." }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.111.0"
+uvicorn = {extras = ["standard"], version = "^0.30.0"}
+pydantic = "^2.7.0"
+numpy = "^2.0.0"
+scipy = "^1.13.0"
+scikit-learn = "^1.5.0"
+librosa = "^0.10.2"
+soundfile = "^0.12.1"
+pydub = "^0.25.1"
+fpdf = "^1.7.2"
+python-multipart = "^0.0.9"
+
+# Optional heavy deps are intentionally omitted for slim deploys
+# torch = {version="*", optional=true}
+# pandas = {version="*", optional=true}
+# matplotlib = {version="*", optional=true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
