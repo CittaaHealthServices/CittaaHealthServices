@@ -1,3 +1,22 @@
+# CITTAA Vocalysis – Demo API and Vercel Frontend
+
+This repository contains the Python analysis engine and a lightweight API for deployment.
+
+Quick start (local API):
+- python3 -m venv .venv && source .venv/bin/activate
+- pip install -r api/requirements.txt
+- uvicorn api.main:app --host 0.0.0.0 --port 8080
+- Test: curl -F "audio=@/path/to/file.wav" -F region=south_india -F language=english -F age_group=adult -F gender=male http://localhost:8080/analyze
+
+Deploy (Cloud Run):
+- Build: docker build -t gcr.io/PROJECT_ID/vocalysis-api:demo -f api/Dockerfile .
+- Push: gcloud run deploy vocalysis-api --image gcr.io/PROJECT_ID/vocalysis-api:demo --platform managed --allow-unauthenticated --region us-central1
+
+Frontend (Vercel):
+- A Next.js frontend can call POST {BACKEND_URL}/analyze with form-data fields: audio, region, language, age_group, gender.
+- The response contains scores, cultural_context, recommendations, and pdf_report_b64 (base64 PDF). Decode on client for download.
+
+
 # Cittaa Health Services Private Limited
 
 Welcome to the official GitHub account of Cittaa Health Services Private Limited. We are a leading provider of innovative mental health solutions, dedicated to promoting mental well-being and making mental health care more accessible to all.
