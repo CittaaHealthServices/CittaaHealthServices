@@ -317,7 +317,7 @@ export default function Page() {
           )}
           <label className="button secondary">
             {t.upload}
-            <input hidden type="file" accept="audio/*" onChange={async e=>{
+            <input hidden type="file" accept="audio/wav,.wav" onChange={async e=>{
               const f = e.target.files?.[0];
               if (!f) return;
               try {
@@ -327,7 +327,7 @@ export default function Page() {
                 wsRef.current?.load(url);
               } catch (err) {
                 console.error(err);
-                alert('Could not read/convert the selected audio. Please upload a WAV (16kHz mono) or try recording.');
+                alert('Could not read/convert the selected audio. Please upload a true WAV (16kHz mono), or try recording.');
               }
             }}/>
           </label>
