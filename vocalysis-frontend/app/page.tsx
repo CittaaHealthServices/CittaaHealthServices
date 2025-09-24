@@ -77,6 +77,58 @@ type AnalyzeResponse = {
   confidence_level?: number | undefined;
   features?: any;
 };
+async function blobToArrayBuffer(blob: Blob) {
+  return await blob.arrayBuffer();
+}
+function encodeWavFromAudioBuffer(audioBuffer: AudioBuffer): Blob {
+  const numCh = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const samples = audioBuffer.length;
+  const bytesPerSample = 2;
+  const blockAlign = numCh * bytesPerSample;
+  const dataSize = samples * blockAlign;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  const writeString = (offset: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i)); };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numCh, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 8 * bytesPerSample, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+  let offset = 44;
+  const interleaved = new Float32Array(samples * numCh);
+  const channelData: Float32Array[] = [];
+  for (let ch = 0; ch < numCh; ch++) channelData[ch] = audioBuffer.getChannelData(ch);
+  for (let i = 0; i < samples; i++) {
+    for (let ch = 0; ch < numCh; ch++) {
+      interleaved[i * numCh + ch] = channelData[ch][i];
+    }
+  }
+  for (let i = 0; i < interleaved.length; i++) {
+    let s = Math.max(-1, Math.min(1, interleaved[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    offset += 2;
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+async function ensureWav(blob: Blob): Promise<Blob> {
+  if (blob.type === 'audio/wav') return blob;
+  const ab = await blobToArrayBuffer(blob);
+  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const audioBuffer = await ctx.decodeAudioData(ab.slice(0) as ArrayBuffer);
+  const wav = encodeWavFromAudioBuffer(audioBuffer);
+  await ctx.close();
+  return wav;
+}
+
 
 export default function Page() {
   const [lang, setLang] = useState<'en'|'hi'>('en');
@@ -183,7 +235,8 @@ export default function Page() {
     setLoading(true);
     try {
       const fd = new FormData();
-      fd.append('audio', new File([blob], 'recording.webm', { type: 'audio/webm' }));
+      const wavBlob = await ensureWav(blob);
+      fd.append('audio', new File([wavBlob], 'recording.wav', { type: 'audio/wav' }));
       fd.append('region', region);
       fd.append('language', language);
       fd.append('age_group', age);
@@ -202,7 +255,7 @@ export default function Page() {
       }
     } catch (e) {
       console.error(e);
-      alert('Analysis failed. Please try again or use Demo Scenario.');
+      alert('Analysis failed. If you uploaded a file, please use WAV (16kHz mono), or try a Demo Scenario.');
     } finally {
       setLoading(false);
     }
@@ -264,12 +317,18 @@ export default function Page() {
           )}
           <label className="button secondary">
             {t.upload}
-            <input hidden type="file" accept="audio/*" onChange={e=>{
+            <input hidden type="file" accept="audio/*" onChange={async e=>{
               const f = e.target.files?.[0];
               if (!f) return;
-              setBlob(f);
-              const url = URL.createObjectURL(f);
-              wsRef.current?.load(url);
+              try {
+                const wavBlob = await ensureWav(f);
+                setBlob(wavBlob);
+                const url = URL.createObjectURL(wavBlob);
+                wsRef.current?.load(url);
+              } catch (err) {
+                console.error(err);
+                alert('Could not read/convert the selected audio. Please upload a WAV (16kHz mono) or try recording.');
+              }
             }}/>
           </label>
 
