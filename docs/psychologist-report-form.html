@@ -339,7 +339,7 @@
             };
 
             try {
-                const response = await fetch('https://cittaa.app.n8n.cloud/webhook/psychologist-report-submit', {
+                const response = await fetch('/api/submit-report', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
