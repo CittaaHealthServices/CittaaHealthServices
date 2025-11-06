@@ -1,0 +1,8 @@
+{
+  "name": "cittaa-health-services",
+  "version": "1.0.0",
+  "description": "CITTAA Health Services - Psychologist Quality Assurance System",
+  "dependencies": {
+    "formidable": "^3.5.1"
+  }
+}
