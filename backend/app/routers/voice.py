@@ -1,0 +1,271 @@
+"""
+Voice analysis router for Vocalysis API
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, BackgroundTasks
+from sqlalchemy.orm import Session
+from datetime import datetime
+import os
+import uuid
+import numpy as np
+import sys
+
+from app.models.database import get_db
+from app.models.user import User
+from app.models.voice_sample import VoiceSample
+from app.models.prediction import Prediction
+from app.schemas.voice import VoiceUploadResponse, VoiceStatusResponse, VoiceSampleResponse, VoiceAnalysisRequest
+from app.schemas.prediction import PredictionResponse, AnalysisResultResponse
+from app.routers.auth import get_current_user
+from app.services.voice_analysis import VoiceAnalysisService
+from app.utils.config import settings
+
+router = APIRouter()
+
+# Initialize voice analysis service
+voice_service = VoiceAnalysisService()
+
+@router.post("/upload", response_model=VoiceUploadResponse)
+async def upload_voice_sample(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload voice recording for analysis"""
+    # Validate file format
+    allowed_formats = ['.wav', '.mp3', '.m4a', '.webm', '.ogg']
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in allowed_formats:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file format. Allowed formats: {', '.join(allowed_formats)}"
+        )
+    
+    # Read file content
+    content = await file.read()
+    
+    # Check file size
+    if len(content) > settings.MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size: {settings.MAX_UPLOAD_SIZE / (1024*1024):.1f}MB"
+        )
+    
+    # Create upload directory if not exists
+    upload_dir = os.path.join(settings.UPLOAD_DIR, current_user.id)
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Generate unique filename
+    sample_id = str(uuid.uuid4())
+    file_path = os.path.join(upload_dir, f"{sample_id}{file_ext}")
+    
+    # Save file
+    with open(file_path, 'wb') as f:
+        f.write(content)
+    
+    # Create voice sample record
+    voice_sample = VoiceSample(
+        id=sample_id,
+        user_id=current_user.id,
+        file_path=file_path,
+        file_name=file.filename,
+        audio_format=file_ext[1:],
+        file_size=len(content),
+        processing_status="uploaded",
+        recorded_via="web_app"
+    )
+    
+    db.add(voice_sample)
+    db.commit()
+    
+    return VoiceUploadResponse(
+        sample_id=sample_id,
+        user_id=current_user.id,
+        status="uploaded",
+        message="Voice sample uploaded successfully. Processing will begin shortly.",
+        estimated_processing_time=45
+    )
+
+@router.post("/analyze/{sample_id}", response_model=PredictionResponse)
+async def analyze_voice_sample(
+    sample_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Analyze uploaded voice sample"""
+    # Get voice sample
+    voice_sample = db.query(VoiceSample).filter(
+        VoiceSample.id == sample_id,
+        VoiceSample.user_id == current_user.id
+    ).first()
+    
+    if not voice_sample:
+        raise HTTPException(status_code=404, detail="Voice sample not found")
+    
+    # Update status
+    voice_sample.processing_status = "processing"
+    db.commit()
+    
+    try:
+        # Run analysis
+        result = voice_service.analyze_audio(voice_sample.file_path)
+        
+        if "error" in result:
+            voice_sample.processing_status = "failed"
+            voice_sample.validation_message = result["error"]
+            db.commit()
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        # Update voice sample
+        voice_sample.processing_status = "completed"
+        voice_sample.duration_seconds = result.get("features", {}).get("duration", 0)
+        voice_sample.quality_score = result.get("confidence", 0)
+        voice_sample.features = result.get("features", {})
+        voice_sample.processed_at = datetime.utcnow()
+        
+        # Create prediction record
+        prediction = Prediction(
+            user_id=current_user.id,
+            voice_sample_id=sample_id,
+            model_version="v1.0",
+            model_type="ensemble",
+            normal_score=float(result["probabilities"][0]),
+            anxiety_score=float(result["probabilities"][1]),
+            depression_score=float(result["probabilities"][2]),
+            stress_score=float(result["probabilities"][3]),
+            overall_risk_level=result.get("risk_level", "low"),
+            mental_health_score=result.get("mental_health_score", 0),
+            confidence=result.get("confidence", 0),
+            phq9_score=result.get("scale_mappings", {}).get("PHQ-9", 0),
+            phq9_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PHQ-9", ""),
+            gad7_score=result.get("scale_mappings", {}).get("GAD-7", 0),
+            gad7_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("GAD-7", ""),
+            pss_score=result.get("scale_mappings", {}).get("PSS", 0),
+            pss_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PSS", ""),
+            wemwbs_score=result.get("scale_mappings", {}).get("WEMWBS", 0),
+            wemwbs_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("WEMWBS", ""),
+            interpretations=result.get("interpretations", []),
+            recommendations=result.get("recommendations", []),
+            voice_features=result.get("features", {})
+        )
+        
+        db.add(prediction)
+        db.commit()
+        db.refresh(prediction)
+        
+        return PredictionResponse.model_validate(prediction)
+        
+    except Exception as e:
+        voice_sample.processing_status = "failed"
+        voice_sample.validation_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@router.post("/demo-analyze", response_model=PredictionResponse)
+async def demo_analyze(
+    request: VoiceAnalysisRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generate demo analysis results"""
+    demo_type = request.demo_type or "normal"
+    
+    # Generate demo results
+    result = voice_service.generate_demo_results(demo_type)
+    
+    # Create prediction record
+    prediction = Prediction(
+        user_id=current_user.id,
+        model_version="v1.0-demo",
+        model_type="demo",
+        normal_score=float(result["probabilities"][0]),
+        anxiety_score=float(result["probabilities"][1]),
+        depression_score=float(result["probabilities"][2]),
+        stress_score=float(result["probabilities"][3]),
+        overall_risk_level=result.get("risk_level", "low"),
+        mental_health_score=result.get("mental_health_score", 0),
+        confidence=result.get("confidence", 0),
+        phq9_score=result.get("scale_mappings", {}).get("PHQ-9", 0),
+        phq9_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PHQ-9", ""),
+        gad7_score=result.get("scale_mappings", {}).get("GAD-7", 0),
+        gad7_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("GAD-7", ""),
+        pss_score=result.get("scale_mappings", {}).get("PSS", 0),
+        pss_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PSS", ""),
+        wemwbs_score=result.get("scale_mappings", {}).get("WEMWBS", 0),
+        wemwbs_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("WEMWBS", ""),
+        interpretations=result.get("interpretations", []),
+        recommendations=result.get("recommendations", []),
+        voice_features=result.get("features", {})
+    )
+    
+    db.add(prediction)
+    db.commit()
+    db.refresh(prediction)
+    
+    return PredictionResponse.model_validate(prediction)
+
+@router.get("/status/{sample_id}", response_model=VoiceStatusResponse)
+async def get_voice_status(
+    sample_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get processing status of voice sample"""
+    voice_sample = db.query(VoiceSample).filter(
+        VoiceSample.id == sample_id,
+        VoiceSample.user_id == current_user.id
+    ).first()
+    
+    if not voice_sample:
+        raise HTTPException(status_code=404, detail="Voice sample not found")
+    
+    return VoiceStatusResponse(
+        sample_id=voice_sample.id,
+        status=voice_sample.processing_status,
+        uploaded_at=voice_sample.recorded_at,
+        processed_at=voice_sample.processed_at,
+        message=voice_sample.validation_message or f"Status: {voice_sample.processing_status}",
+        quality_score=voice_sample.quality_score
+    )
+
+@router.get("/samples", response_model=list[VoiceSampleResponse])
+async def get_user_samples(
+    limit: int = 10,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's voice samples"""
+    samples = db.query(VoiceSample).filter(
+        VoiceSample.user_id == current_user.id
+    ).order_by(VoiceSample.recorded_at.desc()).limit(limit).all()
+    
+    return [VoiceSampleResponse.model_validate(s) for s in samples]
+
+@router.delete("/samples/{sample_id}")
+async def delete_voice_sample(
+    sample_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a voice sample"""
+    voice_sample = db.query(VoiceSample).filter(
+        VoiceSample.id == sample_id,
+        VoiceSample.user_id == current_user.id
+    ).first()
+    
+    if not voice_sample:
+        raise HTTPException(status_code=404, detail="Voice sample not found")
+    
+    # Delete file if exists
+    if voice_sample.file_path and os.path.exists(voice_sample.file_path):
+        os.remove(voice_sample.file_path)
+    
+    # Delete associated prediction
+    db.query(Prediction).filter(Prediction.voice_sample_id == sample_id).delete()
+    
+    # Delete voice sample
+    db.delete(voice_sample)
+    db.commit()
+    
+    return {"message": "Voice sample deleted successfully"}
