@@ -12,14 +12,27 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  const getDashboardRoute = (role: string) => {
+    switch (role) {
+      case 'psychologist':
+        return '/psychologist/dashboard'
+      case 'super_admin':
+      case 'hr_admin':
+        return '/admin/dashboard'
+      default:
+        return '/dashboard'
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      await login(email, password)
-      navigate('/dashboard')
+      const user = await login(email, password)
+      const dashboardRoute = getDashboardRoute(user?.role || 'patient')
+      navigate(dashboardRoute)
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 
