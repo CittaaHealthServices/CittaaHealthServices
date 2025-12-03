@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 import jwt
 from typing import Optional
 
-from app.routers import auth, voice, predictions, dashboard, admin, psychologist
+from app.routers import auth, voice, predictions, dashboard, admin, psychologist, clinical_trial
 from app.models.database import init_db, get_db
 from app.utils.config import settings
 
@@ -49,6 +49,7 @@ app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["Pred
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(psychologist.router, prefix="/api/v1/psychologist", tags=["Psychologist"])
+app.include_router(clinical_trial.router, prefix="/api/v1/clinical-trial", tags=["Clinical Trial"])
 
 @app.get("/")
 async def root():

@@ -5,8 +5,8 @@ interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (data: RegisterData) => Promise<void>
+  login: (email: string, password: string) => Promise<User>
+  register: (data: RegisterData) => Promise<User>
   logout: () => void
   updateUser: (data: Partial<User>) => void
 }
@@ -17,6 +17,10 @@ interface RegisterData {
   full_name?: string
   phone?: string
   role?: string
+  age_range?: string
+  gender?: string
+  language_preference?: string
+  is_clinical_trial_participant?: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -40,18 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     const response = await authService.login(email, password)
     localStorage.setItem('token', response.access_token)
     localStorage.setItem('user', JSON.stringify(response.user))
     setUser(response.user)
+    return response.user
   }
 
-  const register = async (data: RegisterData) => {
+  const register = async (data: RegisterData): Promise<User> => {
     const response = await authService.register(data)
     localStorage.setItem('token', response.access_token)
     localStorage.setItem('user', JSON.stringify(response.user))
     setUser(response.user)
+    return response.user
   }
 
   const logout = () => {

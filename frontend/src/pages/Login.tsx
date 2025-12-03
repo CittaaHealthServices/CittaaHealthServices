@@ -12,14 +12,28 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  const getDashboardRoute = (role: string) => {
+    switch (role) {
+      case 'psychologist':
+        return '/psychologist/dashboard'
+      case 'admin':
+      case 'super_admin':
+      case 'hr_admin':
+        return '/admin/dashboard'
+      default:
+        return '/dashboard'
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      await login(email, password)
-      navigate('/dashboard')
+      const user = await login(email, password)
+      const dashboardRoute = getDashboardRoute(user?.role || 'patient')
+      navigate(dashboardRoute)
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 
@@ -122,14 +136,20 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-primary-500 hover:text-primary-600 font-medium">
-                Register here
-              </Link>
-            </p>
-          </div>
+                    <div className="mt-4 text-center">
+                      <Link to="/forgot-password" className="text-sm text-gray-500 hover:text-primary-500 transition-colors">
+                        Forgot your password?
+                      </Link>
+                    </div>
+
+                    <div className="mt-4 text-center">
+                      <p className="text-gray-600">
+                        Don't have an account?{' '}
+                        <Link to="/register" className="text-primary-500 hover:text-primary-600 font-medium">
+                          Register here
+                        </Link>
+                      </p>
+                    </div>
         </div>
 
         {/* Footer */}

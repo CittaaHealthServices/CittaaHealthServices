@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import PatientDashboard from './pages/PatientDashboard'
 import VoiceRecording from './pages/VoiceRecording'
 import AnalysisResults from './pages/AnalysisResults'
@@ -43,6 +45,7 @@ function AppRoutes() {
     switch (user.role) {
       case 'psychologist':
         return '/psychologist/dashboard'
+      case 'admin':
       case 'super_admin':
       case 'hr_admin':
         return '/admin/dashboard'
@@ -53,9 +56,11 @@ function AppRoutes() {
   
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Login />} />
-      <Route path="/register" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Register />} />
+            {/* Public routes */}
+            <Route path="/login" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Login />} />
+            <Route path="/register" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Register />} />
+            <Route path="/forgot-password" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <ForgotPassword />} />
+            <Route path="/reset-password" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <ResetPassword />} />
       
       {/* Patient routes */}
       <Route path="/dashboard" element={
@@ -93,17 +98,17 @@ function AppRoutes() {
       
       {/* Admin routes */}
       <Route path="/admin/dashboard" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'super_admin', 'hr_admin']}>
           <Layout><AdminDashboard /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/admin/approvals" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
           <Layout><PendingApprovals /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/admin/users" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'super_admin', 'hr_admin']}>
           <Layout><UserManagement /></Layout>
         </ProtectedRoute>
       } />

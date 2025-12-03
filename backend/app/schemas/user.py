@@ -18,6 +18,7 @@ class UserCreate(BaseModel):
     role: str = "patient"
     organization_id: Optional[str] = None
     employee_id: Optional[str] = None
+    is_clinical_trial_participant: bool = False
 
 class UserLogin(BaseModel):
     """Schema for user login"""

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { adminService } from '../services/api'
 import { 
   ArrowLeft, Users, Search, Filter, Activity, AlertTriangle,
-  MoreVertical
+  MoreVertical, UserPlus, X, Plus
 } from 'lucide-react'
 
 interface User {
@@ -16,6 +16,7 @@ interface User {
   trial_status: string
   created_at: string
   last_login: string
+  assigned_psychologist_id?: string
 }
 
 export default function UserManagement() {
@@ -26,10 +27,39 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [totalUsers, setTotalUsers] = useState(0)
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [assigningPatient, setAssigningPatient] = useState<User | null>(null)
+  const [psychologists, setPsychologists] = useState<User[]>([])
+  const [selectedPsychologist, setSelectedPsychologist] = useState<string>('')
+  const [assignLoading, setAssignLoading] = useState(false)
+  
+  // Add User Modal State
+  const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [addUserLoading, setAddUserLoading] = useState(false)
+  const [newUser, setNewUser] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    role: 'patient',
+    phone: ''
+  })
 
   useEffect(() => {
     loadUsers()
   }, [roleFilter])
+
+  useEffect(() => {
+    // Load psychologists for assignment modal
+    const loadPsychologists = async () => {
+      try {
+        const data = await adminService.getAllUsers('psychologist', 100, 0)
+        setPsychologists(data.users || [])
+      } catch (err) {
+        console.error('Failed to load psychologists:', err)
+      }
+    }
+    loadPsychologists()
+  }, [])
 
   const loadUsers = async () => {
     try {
@@ -55,15 +85,61 @@ export default function UserManagement() {
     }
   }
 
-  const handleDeactivate = async (userId: string) => {
-    try {
-      await adminService.deactivateUser(userId)
-      loadUsers()
-      setSelectedUser(null)
-    } catch (err) {
-      console.error('Failed to deactivate user:', err)
+    const handleDeactivate = async (userId: string) => {
+      try {
+        await adminService.deactivateUser(userId)
+        loadUsers()
+        setSelectedUser(null)
+      } catch (err) {
+        console.error('Failed to deactivate user:', err)
+      }
     }
-  }
+
+    const openAssignModal = (patient: User) => {
+      setAssigningPatient(patient)
+      setSelectedPsychologist('')
+      setShowAssignModal(true)
+      setSelectedUser(null)
+    }
+
+    const handleAssignPsychologist = async () => {
+      if (!assigningPatient || !selectedPsychologist) return
+    
+      try {
+        setAssignLoading(true)
+        await adminService.assignPsychologist(assigningPatient.id, selectedPsychologist)
+        setShowAssignModal(false)
+        setAssigningPatient(null)
+        setSelectedPsychologist('')
+        loadUsers()
+      } catch (err) {
+        console.error('Failed to assign psychologist:', err)
+        setError('Failed to assign psychologist')
+      } finally {
+        setAssignLoading(false)
+      }
+    }
+
+    const handleAddUser = async () => {
+      if (!newUser.email || !newUser.password || !newUser.full_name) {
+        setError('Please fill in all required fields')
+        return
+      }
+    
+      try {
+        setAddUserLoading(true)
+        setError('')
+        await adminService.createUser(newUser)
+        setShowAddUserModal(false)
+        setNewUser({ email: '', password: '', full_name: '', role: 'patient', phone: '' })
+        loadUsers()
+      } catch (err: any) {
+        console.error('Failed to create user:', err)
+        setError(err.response?.data?.detail || 'Failed to create user')
+      } finally {
+        setAddUserLoading(false)
+      }
+    }
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -256,25 +332,36 @@ export default function UserManagement() {
                               <div className="px-3 py-2 border-b border-gray-100">
                                 <p className="text-xs text-gray-500">Change Role</p>
                               </div>
-                              {['patient', 'psychologist', 'hr_admin', 'researcher'].map((role) => (
-                                <button
-                                  key={role}
-                                  onClick={() => handleRoleChange(user.id, role)}
-                                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 capitalize ${
-                                    user.role === role ? 'text-primary-500 font-medium' : 'text-gray-700'
-                                  }`}
-                                >
-                                  {role.replace('_', ' ')}
-                                </button>
-                              ))}
-                              <div className="border-t border-gray-100 mt-1 pt-1">
-                                <button
-                                  onClick={() => handleDeactivate(user.id)}
-                                  className="w-full text-left px-3 py-2 text-sm text-error hover:bg-red-50"
-                                >
-                                  Deactivate User
-                                </button>
-                              </div>
+                                                            {['patient', 'psychologist', 'hr_admin', 'researcher'].map((role) => (
+                                                              <button
+                                                                key={role}
+                                                                onClick={() => handleRoleChange(user.id, role)}
+                                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 capitalize ${
+                                                                  user.role === role ? 'text-primary-500 font-medium' : 'text-gray-700'
+                                                                }`}
+                                                              >
+                                                                {role.replace('_', ' ')}
+                                                              </button>
+                                                            ))}
+                                                            {user.role === 'patient' && (
+                                                              <div className="border-t border-gray-100 mt-1 pt-1">
+                                                                <button
+                                                                  onClick={() => openAssignModal(user)}
+                                                                  className="w-full text-left px-3 py-2 text-sm text-primary-600 hover:bg-primary-50 flex items-center space-x-2"
+                                                                >
+                                                                  <UserPlus className="w-4 h-4" />
+                                                                  <span>Assign Psychologist</span>
+                                                                </button>
+                                                              </div>
+                                                            )}
+                                                            <div className="border-t border-gray-100 mt-1 pt-1">
+                                                              <button
+                                                                onClick={() => handleDeactivate(user.id)}
+                                                                className="w-full text-left px-3 py-2 text-sm text-error hover:bg-red-50"
+                                                              >
+                                                                Deactivate User
+                                                              </button>
+                                                            </div>
                             </div>
                           </>
                         )}
@@ -287,6 +374,195 @@ export default function UserManagement() {
           </table>
         </div>
       </div>
+
+      {/* Add User Button */}
+      <div className="fixed bottom-6 right-6">
+        <button
+          onClick={() => setShowAddUserModal(true)}
+          className="bg-primary-500 text-white p-4 rounded-full shadow-lg hover:bg-primary-600 transition-all hover:scale-105 flex items-center space-x-2"
+        >
+          <Plus className="w-6 h-6" />
+          <span className="pr-2">Add User</span>
+        </button>
+      </div>
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 animate-slideUp">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800">Add New User</h3>
+              <button
+                onClick={() => setShowAddUserModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  value={newUser.full_name}
+                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="Enter full name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="Enter email address"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="Enter password"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="patient">Patient</option>
+                  <option value="psychologist">Psychologist</option>
+                  <option value="hr_admin">HR Admin</option>
+                  <option value="researcher">Researcher</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone (Optional)</label>
+                <input
+                  type="tel"
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="Enter phone number"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowAddUserModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddUser}
+                disabled={addUserLoading || !newUser.email || !newUser.password || !newUser.full_name}
+                className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {addUserLoading ? (
+                  <>
+                    <Activity className="w-4 h-4 animate-spin" />
+                    <span>Creating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    <span>Create User</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Psychologist Modal */}
+      {showAssignModal && assigningPatient && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 animate-slideUp">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800">Assign Psychologist</h3>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-gray-500">Assigning psychologist to:</p>
+                <p className="font-medium text-gray-800">{assigningPatient.full_name || assigningPatient.email}</p>
+                <p className="text-sm text-gray-500">{assigningPatient.email}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Psychologist
+                </label>
+                <select
+                  value={selectedPsychologist}
+                  onChange={(e) => setSelectedPsychologist(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Choose a psychologist...</option>
+                  {psychologists.map((psych) => (
+                    <option key={psych.id} value={psych.id}>
+                      {psych.full_name || psych.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {psychologists.length === 0 && (
+                <p className="text-sm text-warning text-center">
+                  No psychologists available. Please add psychologist users first.
+                </p>
+              )}
+            </div>
+            
+            <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignPsychologist}
+                disabled={!selectedPsychologist || assignLoading}
+                className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {assignLoading ? (
+                  <>
+                    <Activity className="w-4 h-4 animate-spin" />
+                    <span>Assigning...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    <span>Assign</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

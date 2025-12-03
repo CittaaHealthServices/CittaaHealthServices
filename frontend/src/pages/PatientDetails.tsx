@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { psychologistService } from '../services/api'
 import { 
   ArrowLeft, Phone, Mail, Calendar, Activity,
-  FileText, Plus, AlertTriangle
+  FileText, Plus, AlertTriangle, Mic, Loader2
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
@@ -53,6 +53,19 @@ export default function PatientDetails() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showAssessmentForm, setShowAssessmentForm] = useState(false)
+  const [analyzingVoice, setAnalyzingVoice] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState<{
+    prediction_id: string
+    risk_level: string
+    mental_health_score: number
+    phq9_score: number
+    gad7_score: number
+    pss_score: number
+    wemwbs_score: number
+    confidence: number
+    interpretations: string[]
+    recommendations: string[]
+  } | null>(null)
   const [assessmentForm, setAssessmentForm] = useState({
     phq9_score: '',
     gad7_score: '',
@@ -105,6 +118,21 @@ export default function PatientDetails() {
       loadPatientData()
     } catch (err) {
       console.error('Failed to create assessment:', err)
+    }
+  }
+
+  const handleVoiceAnalysis = async () => {
+    try {
+      setAnalyzingVoice(true)
+      setAnalysisResult(null)
+      const result = await psychologistService.analyzePatientVoice(patientId!)
+      setAnalysisResult(result)
+      loadPatientData()
+    } catch (err) {
+      console.error('Voice analysis failed:', err)
+      setError('Failed to perform voice analysis')
+    } finally {
+      setAnalyzingVoice(false)
     }
   }
 
@@ -276,6 +304,101 @@ export default function PatientDetails() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Voice Analysis Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-800">Voice Analysis</h3>
+          <button
+            onClick={handleVoiceAnalysis}
+            disabled={analyzingVoice}
+            className="flex items-center px-4 py-2 bg-gradient-to-r from-primary-500 to-secondary-400 text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {analyzingVoice ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Mic className="w-4 h-4 mr-2" />
+                Run Voice Analysis
+              </>
+            )}
+          </button>
+        </div>
+        
+        {analysisResult && (
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-500">Mental Health Score</p>
+                <p className="text-2xl font-bold text-primary-600">{analysisResult.mental_health_score?.toFixed(0) || 'N/A'}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-500">Risk Level</p>
+                <p className={`text-lg font-semibold capitalize ${
+                  analysisResult.risk_level === 'low' ? 'text-success' :
+                  analysisResult.risk_level === 'moderate' ? 'text-warning' : 'text-error'
+                }`}>{analysisResult.risk_level}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-500">Confidence</p>
+                <p className="text-lg font-semibold text-gray-700">{((analysisResult.confidence || 0) * 100).toFixed(0)}%</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-500">PHQ-9</p>
+                <p className="text-lg font-semibold text-gray-700">{analysisResult.phq9_score?.toFixed(0) || 'N/A'}/27</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-primary-50 rounded-lg p-4">
+                <p className="text-sm font-medium text-primary-700">GAD-7 (Anxiety)</p>
+                <p className="text-xl font-bold text-primary-600">{analysisResult.gad7_score?.toFixed(0) || 'N/A'}/21</p>
+              </div>
+              <div className="bg-secondary-50 rounded-lg p-4">
+                <p className="text-sm font-medium text-secondary-700">PSS (Stress)</p>
+                <p className="text-xl font-bold text-secondary-600">{analysisResult.pss_score?.toFixed(0) || 'N/A'}/40</p>
+              </div>
+              <div className="bg-accent-50 rounded-lg p-4">
+                <p className="text-sm font-medium text-accent-700">WEMWBS (Wellbeing)</p>
+                <p className="text-xl font-bold text-accent-600">{analysisResult.wemwbs_score?.toFixed(0) || 'N/A'}/70</p>
+              </div>
+            </div>
+            
+            {analysisResult.interpretations && analysisResult.interpretations.length > 0 && (
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h4 className="font-medium text-blue-800 mb-2">Clinical Interpretations</h4>
+                <ul className="space-y-1">
+                  {analysisResult.interpretations.map((item, idx) => (
+                    <li key={idx} className="text-sm text-blue-700">{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {analysisResult.recommendations && analysisResult.recommendations.length > 0 && (
+              <div className="bg-green-50 rounded-lg p-4">
+                <h4 className="font-medium text-green-800 mb-2">Recommendations</h4>
+                <ul className="space-y-1">
+                  {analysisResult.recommendations.map((item, idx) => (
+                    <li key={idx} className="text-sm text-green-700">{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {!analysisResult && !analyzingVoice && (
+          <div className="p-12 text-center">
+            <Mic className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">Click "Run Voice Analysis" to analyze patient's voice samples</p>
+            <p className="text-sm text-gray-400 mt-1">Results will be saved to patient's record and visible in their portal</p>
+          </div>
+        )}
       </div>
 
       {/* Clinical Assessments */}

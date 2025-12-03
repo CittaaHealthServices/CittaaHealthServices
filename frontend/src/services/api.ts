@@ -108,6 +108,10 @@ export const authService = {
     full_name?: string
     phone?: string
     role?: string
+    age_range?: string
+    gender?: string
+    language_preference?: string
+    is_clinical_trial_participant?: boolean
   }) => {
     const response = await api.post('/auth/register', data)
     return response.data
@@ -157,6 +161,11 @@ export const voiceService = {
   
   getUserSamples: async (limit = 10) => {
     const response = await api.get(`/voice/samples?limit=${limit}`)
+    return response.data
+  },
+  
+  getAIInsights: async (predictionId: string) => {
+    const response = await api.get(`/voice/insights/${predictionId}`)
     return response.data
   }
 }
@@ -249,6 +258,18 @@ export const adminService = {
   deactivateUser: async (userId: string) => {
     const response = await api.delete(`/admin/users/${userId}`)
     return response.data
+  },
+  
+  createUser: async (data: {
+    email: string
+    password: string
+    full_name: string
+    role: string
+    phone?: string
+    organization_id?: string
+  }) => {
+    const response = await api.post('/admin/users', data)
+    return response.data
   }
 }
 
@@ -292,6 +313,68 @@ export const psychologistService = {
   
   getDashboard: async () => {
     const response = await api.get('/psychologist/dashboard')
+    return response.data
+  },
+  
+  getPatientVoiceSamples: async (patientId: string) => {
+    const response = await api.get(`/psychologist/patients/${patientId}/voice-samples`)
+    return response.data
+  },
+  
+  analyzePatientVoice: async (patientId: string) => {
+    const response = await api.post(`/psychologist/patients/${patientId}/analyze`)
+    return response.data
+  }
+}
+
+// Clinical Trial Service
+export const clinicalTrialService = {
+  getStatus: async () => {
+    const response = await api.get('/clinical-trial/status')
+    return response.data
+  },
+  
+  enroll: async (data: {
+    age?: number
+    gender?: string
+    phone?: string
+    institution?: string
+    preferred_language?: string
+    medical_history?: string
+    current_medications?: string
+    emergency_contact_name?: string
+    emergency_contact_phone?: string
+  }) => {
+    const params = new URLSearchParams()
+    if (data.age) params.append('age', data.age.toString())
+    if (data.gender) params.append('gender', data.gender)
+    if (data.phone) params.append('phone', data.phone)
+    if (data.institution) params.append('institution', data.institution)
+    if (data.preferred_language) params.append('preferred_language', data.preferred_language)
+    if (data.medical_history) params.append('medical_history', data.medical_history)
+    if (data.current_medications) params.append('current_medications', data.current_medications)
+    if (data.emergency_contact_name) params.append('emergency_contact_name', data.emergency_contact_name)
+    if (data.emergency_contact_phone) params.append('emergency_contact_phone', data.emergency_contact_phone)
+    const response = await api.post(`/clinical-trial/enroll?${params}`)
+    return response.data
+  },
+  
+  startSession: async (sessionType: string = 'baseline') => {
+    const response = await api.post(`/clinical-trial/session/start?session_type=${sessionType}`)
+    return response.data
+  },
+  
+  uploadSessionRecording: async (sessionId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/clinical-trial/session/${sessionId}/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+  
+  getBaseline: async () => {
+    const response = await api.get('/clinical-trial/baseline')
     return response.data
   }
 }

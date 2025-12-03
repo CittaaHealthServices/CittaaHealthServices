@@ -13,7 +13,8 @@ export default function Register() {
     age_range: '',
     gender: '',
     language_preference: 'english',
-    consent: false
+    consent: false,
+    is_clinical_trial_participant: false
   })
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -56,7 +57,11 @@ export default function Register() {
         password: formData.password,
         full_name: formData.full_name,
         phone: formData.phone,
-        role: 'patient'
+        age_range: formData.age_range,
+        gender: formData.gender,
+        language_preference: formData.language_preference,
+        role: 'patient',
+        is_clinical_trial_participant: formData.is_clinical_trial_participant
       })
       navigate('/dashboard')
     } catch (err: unknown) {
@@ -248,6 +253,28 @@ export default function Register() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Clinical Trial Participation */}
+            <div className="bg-primary-50 rounded-lg p-4 border border-primary-100">
+              <label className="flex items-start space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="is_clinical_trial_participant"
+                  checked={formData.is_clinical_trial_participant}
+                  onChange={handleChange}
+                  className="mt-1 w-4 h-4 text-primary-500 border-gray-300 rounded focus:ring-primary-500"
+                />
+                <div>
+                  <span className="text-sm font-medium text-primary-700">
+                    Register as Clinical Trial Participant
+                  </span>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Check this box if you are registering for the Vocalysis clinical trial. 
+                    Your registration will require admin approval before you can access trial features.
+                  </p>
+                </div>
+              </label>
             </div>
 
             {/* Consent Checkbox */}

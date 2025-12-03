@@ -13,6 +13,7 @@ from app.models.user import User, UserRole
 from app.models.prediction import Prediction
 from app.models.voice_sample import VoiceSample
 from app.routers.auth import get_current_user, require_role
+from app.services.email_service import email_service
 
 router = APIRouter()
 
@@ -21,7 +22,7 @@ async def get_all_users(
     role: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "hr_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get all users (admin only)"""
@@ -53,7 +54,7 @@ async def get_all_users(
 
 @router.get("/pending-approvals")
 async def get_pending_approvals(
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get users pending clinical trial approval"""
@@ -81,7 +82,7 @@ async def get_pending_approvals(
 @router.post("/approve-participant/{user_id}")
 async def approve_clinical_trial_participant(
     user_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Approve a user for clinical trial participation"""
@@ -99,13 +100,25 @@ async def approve_clinical_trial_participant(
     
     db.commit()
     
+    # Send approval email notification
+    try:
+        psychologist_name = None
+        if user.assigned_psychologist_id:
+            psychologist = db.query(User).filter(User.id == user.assigned_psychologist_id).first()
+            if psychologist:
+                psychologist_name = psychologist.full_name
+        email_service.send_clinical_trial_approved(user.email, user.full_name, psychologist_name)
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to send approval email: {e}")
+    
     return {"message": f"User {user.email} approved for clinical trial"}
 
 @router.post("/reject-participant/{user_id}")
 async def reject_clinical_trial_participant(
     user_id: str,
     reason: Optional[str] = None,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Reject a user for clinical trial participation"""
@@ -120,41 +133,107 @@ async def reject_clinical_trial_participant(
     
     db.commit()
     
+    # Send rejection email notification
+    try:
+        email_service.send_clinical_trial_rejected(user.email, user.full_name, reason)
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to send rejection email: {e}")
+    
     return {"message": f"User {user.email} rejected for clinical trial", "reason": reason}
+
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+
+class AssignPsychologistRequest(BaseModel):
+    patient_id: str
+    psychologist_id: str
+
+class CreateUserRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str
+    role: str
+    phone: Optional[str] = None
+    organization_id: Optional[str] = None
+
+@router.post("/users")
+async def create_user(
+    request: CreateUserRequest,
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
+    db: Session = Depends(get_db)
+):
+    """Create a new user (admin only)"""
+    from app.routers.auth import hash_password
+    
+    valid_roles = ["patient", "psychologist", "hr_admin", "researcher", "admin"]
+    if request.role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Valid roles: {valid_roles}")
+    
+    # Check if email already exists
+    existing = db.query(User).filter(User.email == request.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create new user
+    user = User(
+        email=request.email,
+        password_hash=hash_password(request.password),
+        full_name=request.full_name,
+        role=request.role,
+        phone=request.phone,
+        organization_id=request.organization_id,
+        is_active=True,
+        is_verified=True
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "message": f"User {user.email} created successfully",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "is_active": user.is_active
+        }
+    }
 
 @router.post("/assign-psychologist")
 async def assign_psychologist_to_patient(
-    patient_id: str,
-    psychologist_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
+    request: AssignPsychologistRequest,
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
-    """Assign a psychologist to a patient"""
-    patient = db.query(User).filter(User.id == patient_id).first()
-    psychologist = db.query(User).filter(
-        User.id == psychologist_id,
-        User.role == "psychologist"
-    ).first()
+        """Assign a psychologist to a patient"""
+        patient = db.query(User).filter(User.id == request.patient_id).first()
+        psychologist = db.query(User).filter(
+            User.id == request.psychologist_id,
+            User.role == "psychologist"
+        ).first()
     
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-    if not psychologist:
-        raise HTTPException(status_code=404, detail="Psychologist not found")
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        if not psychologist:
+            raise HTTPException(status_code=404, detail="Psychologist not found")
     
-    patient.assigned_psychologist_id = psychologist_id
-    patient.assignment_date = datetime.utcnow()
+        patient.assigned_psychologist_id = request.psychologist_id
+        patient.assignment_date = datetime.utcnow()
     
-    db.commit()
+        db.commit()
     
-    return {
-        "message": f"Psychologist {psychologist.email} assigned to patient {patient.email}",
-        "patient_id": patient_id,
-        "psychologist_id": psychologist_id
-    }
+        return {
+            "message": f"Psychologist {psychologist.email} assigned to patient {patient.email}",
+            "patient_id": request.patient_id,
+            "psychologist_id": request.psychologist_id
+        }
 
 @router.get("/statistics")
 async def get_system_statistics(
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "hr_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get system-wide statistics"""
@@ -307,3 +386,129 @@ async def deactivate_user(
     db.commit()
     
     return {"message": f"User {user.email} deactivated"}
+
+
+# Data Export Endpoints for Model Retraining and Patent Process
+from fastapi.responses import FileResponse
+from app.services.data_export import data_export_service, accuracy_logger
+
+@router.get("/export/features")
+async def export_features_to_excel(
+    limit: int = 1000,
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
+    db: Session = Depends(get_db)
+):
+    """Export all voice feature extraction data to Excel for model retraining"""
+    # Get all predictions with features
+    predictions = db.query(Prediction).filter(
+        Prediction.voice_features.isnot(None)
+    ).limit(limit).all()
+    
+    if not predictions:
+        raise HTTPException(status_code=404, detail="No feature data available for export")
+    
+    # Prepare features and metadata
+    features_list = []
+    metadata_list = []
+    
+    for p in predictions:
+        if p.voice_features:
+            features_list.append(p.voice_features)
+            metadata_list.append({
+                "prediction_id": p.id,
+                "user_id": p.user_id,
+                "predicted_at": p.predicted_at.isoformat() if p.predicted_at else None,
+                "risk_level": p.overall_risk_level,
+                "mental_health_score": p.mental_health_score,
+                "confidence": p.confidence,
+                "phq9_score": p.phq9_score,
+                "gad7_score": p.gad7_score,
+                "pss_score": p.pss_score,
+                "wemwbs_score": p.wemwbs_score,
+                "normal_score": p.normal_score,
+                "anxiety_score": p.anxiety_score,
+                "depression_score": p.depression_score,
+                "stress_score": p.stress_score
+            })
+    
+    # Export to Excel
+    filepath = data_export_service.export_features_to_excel(features_list, metadata_list)
+    
+    return FileResponse(
+        filepath,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=f"vocalysis_features_export.xlsx"
+    )
+
+
+@router.get("/export/accuracy-metrics")
+async def export_accuracy_metrics(
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
+    db: Session = Depends(get_db)
+):
+    """Export accuracy metrics and F1 scores to Excel"""
+    filepath = accuracy_logger.export_metrics_to_excel()
+    
+    return FileResponse(
+        filepath,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="vocalysis_accuracy_metrics.xlsx"
+    )
+
+
+@router.get("/metrics/accuracy")
+async def get_accuracy_metrics(
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
+    db: Session = Depends(get_db)
+):
+    """Get current accuracy metrics and F1 scores"""
+    summary = accuracy_logger.get_summary()
+    
+    return {
+        "metrics": summary,
+        "description": {
+            "accuracy": "Overall prediction accuracy (validated predictions only)",
+            "macro_f1_score": "Unweighted mean of F1 scores for all classes",
+            "weighted_f1_score": "Weighted mean of F1 scores based on class support",
+            "class_metrics": "Per-class precision, recall, and F1 scores"
+        }
+    }
+
+
+@router.post("/metrics/validate/{prediction_id}")
+async def validate_prediction(
+    prediction_id: str,
+    actual_class: str,
+    current_user: User = Depends(require_role(["super_admin", "admin", "psychologist"])),
+    db: Session = Depends(get_db)
+):
+    """Add ground truth label to a prediction for accuracy calculation (clinical validation)"""
+    valid_classes = ["normal", "anxiety", "depression", "stress"]
+    if actual_class not in valid_classes:
+        raise HTTPException(status_code=400, detail=f"Invalid class. Valid: {valid_classes}")
+    
+    # Verify prediction exists
+    prediction = db.query(Prediction).filter(Prediction.id == prediction_id).first()
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    # Add validation
+    accuracy_logger.validate_prediction(prediction_id, actual_class)
+    
+    return {
+        "message": f"Prediction {prediction_id} validated with actual class: {actual_class}",
+        "predicted_class": _get_predicted_class(prediction),
+        "actual_class": actual_class,
+        "is_correct": _get_predicted_class(prediction) == actual_class
+    }
+
+
+def _get_predicted_class(prediction: Prediction) -> str:
+    """Get the predicted class from a prediction"""
+    scores = {
+        "normal": prediction.normal_score or 0,
+        "anxiety": prediction.anxiety_score or 0,
+        "depression": prediction.depression_score or 0,
+        "stress": prediction.stress_score or 0
+    }
+    return max(scores, key=scores.get)

@@ -1,10 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { voiceService } from '../services/api'
+import { voiceService, clinicalTrialService } from '../services/api'
 import { 
   Mic, Square, Play, Pause, Upload, AlertCircle, 
-  CheckCircle, Loader, Volume2, Activity
+  CheckCircle, Loader, Volume2, Activity, Target, Award
 } from 'lucide-react'
+
+interface ClinicalTrialStatus {
+  enrolled: boolean
+  participant_id?: string
+  approval_status?: string
+  samples_collected?: number
+  samples_required?: number
+  target_samples?: number
+  baseline_established?: boolean
+}
 
 export default function VoiceRecording() {
   const navigate = useNavigate()
@@ -17,6 +27,8 @@ export default function VoiceRecording() {
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [waveformData, setWaveformData] = useState<number[]>([])
+  const [clinicalTrialStatus, setClinicalTrialStatus] = useState<ClinicalTrialStatus | null>(null)
+  const [loadingStatus, setLoadingStatus] = useState(true)
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -24,13 +36,27 @@ export default function VoiceRecording() {
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationRef = useRef<number | null>(null)
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-      if (animationRef.current) cancelAnimationFrame(animationRef.current)
-      if (audioUrl) URL.revokeObjectURL(audioUrl)
-    }
-  }, [audioUrl])
+    useEffect(() => {
+      // Fetch clinical trial status on mount
+      const fetchStatus = async () => {
+        try {
+          const status = await clinicalTrialService.getStatus()
+          setClinicalTrialStatus(status)
+        } catch (err) {
+          // User may not be enrolled in clinical trial
+          setClinicalTrialStatus({ enrolled: false })
+        } finally {
+          setLoadingStatus(false)
+        }
+      }
+      fetchStatus()
+    
+      return () => {
+        if (timerRef.current) clearInterval(timerRef.current)
+        if (animationRef.current) cancelAnimationFrame(animationRef.current)
+        if (audioUrl) URL.revokeObjectURL(audioUrl)
+      }
+    }, [audioUrl])
 
   const startRecording = async () => {
     try {
@@ -209,13 +235,81 @@ export default function VoiceRecording() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-800">Voice Recording</h1>
-        <p className="text-gray-500 mt-1">Record or upload a voice sample for mental health analysis</p>
-      </div>
+    return (
+      <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn">
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800">Voice Recording</h1>
+          <p className="text-gray-500 mt-1">Record or upload a voice sample for mental health analysis</p>
+        </div>
+
+        {/* Clinical Trial Sample Progress */}
+        {!loadingStatus && clinicalTrialStatus?.enrolled && clinicalTrialStatus?.approval_status === 'approved' && (
+          <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-2xl p-6 border border-primary-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                  <Target className="w-5 h-5 text-primary-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Personalized Analysis Progress</h3>
+                  <p className="text-sm text-gray-500">Collect 9-12 samples for personalized results</p>
+                </div>
+              </div>
+              {clinicalTrialStatus.baseline_established && (
+                <div className="flex items-center space-x-2 bg-success/10 text-success px-3 py-1 rounded-full">
+                  <Award className="w-4 h-4" />
+                  <span className="text-sm font-medium">Baseline Established</span>
+                </div>
+              )}
+            </div>
+          
+            {/* Progress Bar */}
+            <div className="mb-2">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-600">
+                  {clinicalTrialStatus.samples_collected || 0} of {clinicalTrialStatus.target_samples || 10} samples collected
+                </span>
+                <span className="text-primary-600 font-medium">
+                  {Math.round(((clinicalTrialStatus.samples_collected || 0) / (clinicalTrialStatus.target_samples || 10)) * 100)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div 
+                  className="bg-gradient-to-r from-primary-500 to-secondary-400 h-3 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, ((clinicalTrialStatus.samples_collected || 0) / (clinicalTrialStatus.target_samples || 10)) * 100)}%` }}
+                />
+              </div>
+            </div>
+          
+            {/* Sample Indicators */}
+            <div className="flex justify-between mt-3">
+              {Array.from({ length: clinicalTrialStatus.target_samples || 10 }).map((_, index) => (
+                <div
+                  key={index}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                    index < (clinicalTrialStatus.samples_collected || 0)
+                      ? 'bg-primary-500 text-white'
+                      : index === (clinicalTrialStatus.samples_collected || 0)
+                      ? 'bg-primary-100 text-primary-600 border-2 border-primary-500'
+                      : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
+                  {index + 1}
+                </div>
+              ))}
+            </div>
+          
+            {/* Status Message */}
+            <p className="text-sm text-gray-600 mt-4">
+              {(clinicalTrialStatus.samples_collected || 0) < (clinicalTrialStatus.samples_required || 9)
+                ? `${(clinicalTrialStatus.samples_required || 9) - (clinicalTrialStatus.samples_collected || 0)} more samples needed to establish your personalized baseline.`
+                : clinicalTrialStatus.baseline_established
+                ? 'Your personalized baseline is established. Continue recording for more accurate results.'
+                : 'Processing your baseline. This may take a moment.'}
+            </p>
+          </div>
+        )}
 
       {/* Recording Card */}
       <div className="bg-white rounded-2xl shadow-lg p-8">
