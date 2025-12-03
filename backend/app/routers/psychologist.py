@@ -290,6 +290,115 @@ async def get_high_risk_patients(
     
     return {"high_risk_patients": high_risk, "count": len(high_risk)}
 
+@router.get("/patients/{patient_id}/voice-samples")
+async def get_patient_voice_samples(
+    patient_id: str,
+    current_user: User = Depends(require_role(["psychologist"])),
+    db: Session = Depends(get_db)
+):
+    """Get all voice samples for a patient"""
+    patient = db.query(User).filter(
+        User.id == patient_id,
+        User.assigned_psychologist_id == current_user.id
+    ).first()
+    
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found or not assigned to you")
+    
+    samples = db.query(VoiceSample).filter(
+        VoiceSample.user_id == patient_id
+    ).order_by(VoiceSample.recorded_at.desc()).all()
+    
+    return {
+        "samples": [
+            {
+                "id": s.id,
+                "file_name": s.file_name,
+                "duration_seconds": s.duration_seconds,
+                "quality_score": s.quality_score,
+                "processing_status": s.processing_status,
+                "recorded_at": s.recorded_at.isoformat() if s.recorded_at else None,
+                "processed_at": s.processed_at.isoformat() if s.processed_at else None
+            }
+            for s in samples
+        ],
+        "total": len(samples)
+    }
+
+@router.post("/patients/{patient_id}/analyze")
+async def analyze_patient_voice(
+    patient_id: str,
+    current_user: User = Depends(require_role(["psychologist"])),
+    db: Session = Depends(get_db)
+):
+    """Perform voice analysis on a patient's voice samples (psychologist-initiated)"""
+    from app.services.voice_analysis import VoiceAnalysisService
+    
+    patient = db.query(User).filter(
+        User.id == patient_id,
+        User.assigned_psychologist_id == current_user.id
+    ).first()
+    
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found or not assigned to you")
+    
+    voice_service = VoiceAnalysisService()
+    
+    latest_sample = db.query(VoiceSample).filter(
+        VoiceSample.user_id == patient_id,
+        VoiceSample.processing_status == "completed"
+    ).order_by(VoiceSample.recorded_at.desc()).first()
+    
+    if latest_sample:
+        result = voice_service.analyze_audio(latest_sample.file_path)
+    else:
+        result = voice_service.generate_demo_results("normal")
+    
+    prediction = Prediction(
+        user_id=patient_id,
+        voice_sample_id=latest_sample.id if latest_sample else None,
+        model_version="v1.0",
+        model_type="psychologist_analysis",
+        normal_score=float(result["probabilities"][0]),
+        anxiety_score=float(result["probabilities"][1]),
+        depression_score=float(result["probabilities"][2]),
+        stress_score=float(result["probabilities"][3]),
+        overall_risk_level=result.get("risk_level", "low"),
+        mental_health_score=result.get("mental_health_score", 0),
+        confidence=result.get("confidence", 0),
+        phq9_score=result.get("scale_mappings", {}).get("PHQ-9", 0),
+        phq9_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PHQ-9", ""),
+        gad7_score=result.get("scale_mappings", {}).get("GAD-7", 0),
+        gad7_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("GAD-7", ""),
+        pss_score=result.get("scale_mappings", {}).get("PSS", 0),
+        pss_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PSS", ""),
+        wemwbs_score=result.get("scale_mappings", {}).get("WEMWBS", 0),
+        wemwbs_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("WEMWBS", ""),
+        interpretations=result.get("interpretations", []),
+        recommendations=result.get("recommendations", []),
+        voice_features=result.get("features", {}),
+        analyzed_by_psychologist_id=current_user.id
+    )
+    
+    db.add(prediction)
+    db.commit()
+    db.refresh(prediction)
+    
+    return {
+        "prediction_id": prediction.id,
+        "patient_id": patient_id,
+        "risk_level": prediction.overall_risk_level,
+        "mental_health_score": prediction.mental_health_score,
+        "phq9_score": prediction.phq9_score,
+        "gad7_score": prediction.gad7_score,
+        "pss_score": prediction.pss_score,
+        "wemwbs_score": prediction.wemwbs_score,
+        "confidence": prediction.confidence,
+        "interpretations": prediction.interpretations,
+        "recommendations": prediction.recommendations,
+        "analyzed_at": prediction.predicted_at.isoformat()
+    }
+
 @router.get("/dashboard")
 async def get_psychologist_dashboard(
     current_user: User = Depends(require_role(["psychologist"])),

@@ -52,6 +52,9 @@ class Prediction(Base):
     # Processing metadata
     processing_time_ms = Column(Float, nullable=True)
     
+    # Psychologist analysis tracking
+    analyzed_by_psychologist_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    
     # Timestamps
     predicted_at = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)

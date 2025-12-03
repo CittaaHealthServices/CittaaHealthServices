@@ -314,6 +314,16 @@ export const psychologistService = {
   getDashboard: async () => {
     const response = await api.get('/psychologist/dashboard')
     return response.data
+  },
+  
+  getPatientVoiceSamples: async (patientId: string) => {
+    const response = await api.get(`/psychologist/patients/${patientId}/voice-samples`)
+    return response.data
+  },
+  
+  analyzePatientVoice: async (patientId: string) => {
+    const response = await api.post(`/psychologist/patients/${patientId}/analyze`)
+    return response.data
   }
 }
 
