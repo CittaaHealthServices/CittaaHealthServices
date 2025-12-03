@@ -122,35 +122,40 @@ async def reject_clinical_trial_participant(
     
     return {"message": f"User {user.email} rejected for clinical trial", "reason": reason}
 
+from pydantic import BaseModel
+
+class AssignPsychologistRequest(BaseModel):
+    patient_id: str
+    psychologist_id: str
+
 @router.post("/assign-psychologist")
 async def assign_psychologist_to_patient(
-    patient_id: str,
-    psychologist_id: str,
+    request: AssignPsychologistRequest,
     current_user: User = Depends(require_role(["super_admin"])),
     db: Session = Depends(get_db)
 ):
-    """Assign a psychologist to a patient"""
-    patient = db.query(User).filter(User.id == patient_id).first()
-    psychologist = db.query(User).filter(
-        User.id == psychologist_id,
-        User.role == "psychologist"
-    ).first()
+        """Assign a psychologist to a patient"""
+        patient = db.query(User).filter(User.id == request.patient_id).first()
+        psychologist = db.query(User).filter(
+            User.id == request.psychologist_id,
+            User.role == "psychologist"
+        ).first()
     
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-    if not psychologist:
-        raise HTTPException(status_code=404, detail="Psychologist not found")
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        if not psychologist:
+            raise HTTPException(status_code=404, detail="Psychologist not found")
     
-    patient.assigned_psychologist_id = psychologist_id
-    patient.assignment_date = datetime.utcnow()
+        patient.assigned_psychologist_id = request.psychologist_id
+        patient.assignment_date = datetime.utcnow()
     
-    db.commit()
+        db.commit()
     
-    return {
-        "message": f"Psychologist {psychologist.email} assigned to patient {patient.email}",
-        "patient_id": patient_id,
-        "psychologist_id": psychologist_id
-    }
+        return {
+            "message": f"Psychologist {psychologist.email} assigned to patient {patient.email}",
+            "patient_id": request.patient_id,
+            "psychologist_id": request.psychologist_id
+        }
 
 @router.get("/statistics")
 async def get_system_statistics(
