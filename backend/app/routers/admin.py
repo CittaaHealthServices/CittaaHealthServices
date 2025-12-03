@@ -21,7 +21,7 @@ async def get_all_users(
     role: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "hr_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get all users (admin only)"""
@@ -53,7 +53,7 @@ async def get_all_users(
 
 @router.get("/pending-approvals")
 async def get_pending_approvals(
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get users pending clinical trial approval"""
@@ -81,7 +81,7 @@ async def get_pending_approvals(
 @router.post("/approve-participant/{user_id}")
 async def approve_clinical_trial_participant(
     user_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Approve a user for clinical trial participation"""
@@ -105,7 +105,7 @@ async def approve_clinical_trial_participant(
 async def reject_clinical_trial_participant(
     user_id: str,
     reason: Optional[str] = None,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Reject a user for clinical trial participation"""
@@ -185,7 +185,7 @@ async def create_user(
 @router.post("/assign-psychologist")
 async def assign_psychologist_to_patient(
     request: AssignPsychologistRequest,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
         """Assign a psychologist to a patient"""
