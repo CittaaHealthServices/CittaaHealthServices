@@ -168,6 +168,13 @@ export const voiceService = {
   getSampleProgress: async () => {
     const response = await api.get('/voice/sample-progress')
     return response.data
+  },
+  
+  downloadReportPdf: async (predictionId: string) => {
+    const response = await api.get(`/voice/report/${predictionId}/pdf`, {
+      responseType: 'blob'
+    })
+    return response.data
   }
 }
 

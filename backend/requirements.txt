@@ -26,6 +26,9 @@ scipy==1.12.0
 # ML (using Gemini API for voice analysis, no local ML needed)
 scikit-learn==1.4.0
 
+# PDF Generation
+fpdf2==2.7.6
+
 # Utils
 python-dotenv==1.0.0
 httpx==0.26.0

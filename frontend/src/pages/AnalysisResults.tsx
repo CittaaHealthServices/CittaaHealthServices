@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { predictionsService, Prediction } from '../services/api'
+import { predictionsService, voiceService, Prediction } from '../services/api'
 import { 
   Activity, AlertTriangle, CheckCircle, ArrowLeft, Download,
-  Brain, Heart, Zap, Info
+  Brain, Heart, Zap, Info, Loader2
 } from 'lucide-react'
 import { 
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -16,6 +16,7 @@ export default function AnalysisResults() {
   const [prediction, setPrediction] = useState<Prediction | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     if (predictionId) {
@@ -33,6 +34,30 @@ export default function AnalysisResults() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDownloadPdf = async () => {
+    if (!predictionId) return
+    
+    try {
+      setDownloading(true)
+      const blob = await voiceService.downloadReportPdf(predictionId)
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `vocalysis_report_${predictionId.slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Failed to download PDF:', err)
+      alert('Failed to download report. Please try again.')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -96,9 +121,17 @@ export default function AnalysisResults() {
             </p>
           </div>
         </div>
-        <button className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
-          <Download className="w-4 h-4 mr-2" />
-          Download Report
+        <button 
+          onClick={handleDownloadPdf}
+          disabled={downloading}
+          className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {downloading ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
+          {downloading ? 'Downloading...' : 'Download Report'}
         </button>
       </div>
 

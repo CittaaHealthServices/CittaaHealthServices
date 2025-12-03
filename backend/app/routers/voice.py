@@ -3,6 +3,7 @@ Voice analysis router for Vocalysis API
 """
 
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, BackgroundTasks
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from datetime import datetime
 import os
@@ -18,6 +19,7 @@ from app.schemas.voice import VoiceUploadResponse, VoiceStatusResponse, VoiceSam
 from app.schemas.prediction import PredictionResponse, AnalysisResultResponse
 from app.routers.auth import get_current_user
 from app.services.voice_analysis import VoiceAnalysisService
+from app.services.pdf_service import pdf_service
 from app.utils.config import settings
 
 router = APIRouter()
@@ -351,3 +353,69 @@ async def delete_voice_sample(
     db.commit()
     
     return {"message": "Voice sample deleted successfully"}
+
+
+@router.get("/report/{prediction_id}/pdf")
+async def download_report_pdf(
+    prediction_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Download analysis report as PDF"""
+    # Get prediction
+    prediction = db.query(Prediction).filter(
+        Prediction.id == prediction_id
+    ).first()
+    
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    # Check access - user can only download their own reports
+    # (or admin/psychologist can download their patients' reports)
+    if prediction.user_id != current_user.id and current_user.role not in ['admin', 'super_admin', 'hr_admin', 'psychologist']:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get user name for the report
+    patient = db.query(User).filter(User.id == prediction.user_id).first()
+    user_name = patient.full_name if patient and patient.full_name else "Patient"
+    
+    # Convert prediction to dict for PDF generation
+    prediction_data = {
+        "id": prediction.id,
+        "predicted_at": prediction.predicted_at.isoformat() if prediction.predicted_at else None,
+        "mental_health_score": prediction.mental_health_score,
+        "overall_risk_level": prediction.overall_risk_level,
+        "confidence": prediction.confidence,
+        "normal_score": prediction.normal_score,
+        "anxiety_score": prediction.anxiety_score,
+        "depression_score": prediction.depression_score,
+        "stress_score": prediction.stress_score,
+        "phq9_score": prediction.phq9_score,
+        "phq9_severity": prediction.phq9_severity,
+        "gad7_score": prediction.gad7_score,
+        "gad7_severity": prediction.gad7_severity,
+        "pss_score": prediction.pss_score,
+        "pss_severity": prediction.pss_severity,
+        "wemwbs_score": prediction.wemwbs_score,
+        "wemwbs_severity": prediction.wemwbs_severity,
+        "interpretations": prediction.interpretations or [],
+        "recommendations": prediction.recommendations or [],
+    }
+    
+    # Generate PDF
+    try:
+        pdf_bytes = pdf_service.generate_analysis_report(prediction_data, user_name)
+        
+        # Return PDF as downloadable file
+        filename = f"vocalysis_report_{prediction_id[:8]}_{prediction.predicted_at.strftime('%Y%m%d') if prediction.predicted_at else 'report'}.pdf"
+        
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(pdf_bytes))
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
