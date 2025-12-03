@@ -1,9 +1,10 @@
 import axios from 'axios'
 
 // Use the deployed backend URL in production, fallback to proxy in development
+// Canonical backend URL for GCP Cloud Run deployment
 const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (window.location.hostname.includes('run.app') 
-    ? 'https://vocalysis-backend-6qq2i6vfjq-uc.a.run.app/api/v1'
+  (window.location.hostname.includes('run.app') || window.location.hostname.includes('cittaa.in')
+    ? 'https://vocalysis-backend-1081764900204.us-central1.run.app/api/v1'
     : '/api/v1')
 
 const api = axios.create({
