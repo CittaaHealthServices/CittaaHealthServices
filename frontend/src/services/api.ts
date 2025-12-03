@@ -317,4 +317,56 @@ export const psychologistService = {
   }
 }
 
+// Clinical Trial Service
+export const clinicalTrialService = {
+  getStatus: async () => {
+    const response = await api.get('/clinical-trial/status')
+    return response.data
+  },
+  
+  enroll: async (data: {
+    age?: number
+    gender?: string
+    phone?: string
+    institution?: string
+    preferred_language?: string
+    medical_history?: string
+    current_medications?: string
+    emergency_contact_name?: string
+    emergency_contact_phone?: string
+  }) => {
+    const params = new URLSearchParams()
+    if (data.age) params.append('age', data.age.toString())
+    if (data.gender) params.append('gender', data.gender)
+    if (data.phone) params.append('phone', data.phone)
+    if (data.institution) params.append('institution', data.institution)
+    if (data.preferred_language) params.append('preferred_language', data.preferred_language)
+    if (data.medical_history) params.append('medical_history', data.medical_history)
+    if (data.current_medications) params.append('current_medications', data.current_medications)
+    if (data.emergency_contact_name) params.append('emergency_contact_name', data.emergency_contact_name)
+    if (data.emergency_contact_phone) params.append('emergency_contact_phone', data.emergency_contact_phone)
+    const response = await api.post(`/clinical-trial/enroll?${params}`)
+    return response.data
+  },
+  
+  startSession: async (sessionType: string = 'baseline') => {
+    const response = await api.post(`/clinical-trial/session/start?session_type=${sessionType}`)
+    return response.data
+  },
+  
+  uploadSessionRecording: async (sessionId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/clinical-trial/session/${sessionId}/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+  
+  getBaseline: async () => {
+    const response = await api.get('/clinical-trial/baseline')
+    return response.data
+  }
+}
+
 export default api

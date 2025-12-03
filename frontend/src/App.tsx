@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import PatientDashboard from './pages/PatientDashboard'
 import VoiceRecording from './pages/VoiceRecording'
 import AnalysisResults from './pages/AnalysisResults'
@@ -54,9 +56,11 @@ function AppRoutes() {
   
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Login />} />
-      <Route path="/register" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Register />} />
+            {/* Public routes */}
+            <Route path="/login" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Login />} />
+            <Route path="/register" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Register />} />
+            <Route path="/forgot-password" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <ForgotPassword />} />
+            <Route path="/reset-password" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <ResetPassword />} />
       
       {/* Patient routes */}
       <Route path="/dashboard" element={
