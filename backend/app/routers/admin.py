@@ -233,7 +233,7 @@ async def assign_psychologist_to_patient(
 
 @router.get("/statistics")
 async def get_system_statistics(
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "hr_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get system-wide statistics"""
