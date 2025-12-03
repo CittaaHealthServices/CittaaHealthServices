@@ -49,6 +49,12 @@ class User(Base):
     approved_by = Column(String(36), nullable=True)
     approval_date = Column(DateTime, nullable=True)
     
+    # Multi-sample collection tracking (9-12 samples for personalization)
+    voice_samples_collected = Column(Integer, default=0)
+    target_samples = Column(Integer, default=9)  # Minimum 9 samples for baseline
+    baseline_established = Column(Boolean, default=False)
+    personalization_score = Column(Float, nullable=True)  # 0-1 based on sample quality
+    
     # Psychologist assignment
     assigned_psychologist_id = Column(String(36), nullable=True)
     assignment_date = Column(DateTime, nullable=True)

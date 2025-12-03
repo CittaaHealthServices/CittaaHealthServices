@@ -158,7 +158,25 @@ export const voiceService = {
   getUserSamples: async (limit = 10) => {
     const response = await api.get(`/voice/samples?limit=${limit}`)
     return response.data
+  },
+  
+  getSampleProgress: async () => {
+    const response = await api.get('/voice/sample-progress')
+    return response.data
   }
+}
+
+export interface SampleProgress {
+  samples_collected: number
+  target_samples: number
+  progress_percentage: number
+  baseline_established: boolean
+  personalization_score: number | null
+  today_samples: number
+  daily_target: number
+  streak_days: number
+  samples_remaining: number
+  message: string
 }
 
 // Predictions Service
