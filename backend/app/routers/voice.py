@@ -18,6 +18,7 @@ from app.schemas.voice import VoiceUploadResponse, VoiceStatusResponse, VoiceSam
 from app.schemas.prediction import PredictionResponse, AnalysisResultResponse
 from app.routers.auth import get_current_user
 from app.services.voice_analysis import VoiceAnalysisService
+from app.services.gemini_client import gemini_service
 from app.utils.config import settings
 
 router = APIRouter()
@@ -269,3 +270,70 @@ async def delete_voice_sample(
     db.commit()
     
     return {"message": "Voice sample deleted successfully"}
+
+@router.get("/insights/{prediction_id}")
+async def get_ai_insights(
+    prediction_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get AI-powered insights for a prediction using Gemini"""
+    # Get prediction
+    prediction = db.query(Prediction).filter(Prediction.id == prediction_id).first()
+    
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    # Verify access
+    if prediction.user_id != current_user.id and current_user.role not in ["super_admin", "psychologist", "hr_admin", "admin"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # If psychologist, verify they are assigned to this patient
+    if current_user.role == "psychologist":
+        patient = db.query(User).filter(User.id == prediction.user_id).first()
+        if not patient or patient.assigned_psychologist_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not assigned to this patient")
+    
+    # Build analysis data for Gemini
+    analysis_data = {
+        "risk_level": prediction.overall_risk_level,
+        "mental_health_score": prediction.mental_health_score,
+        "probabilities": [
+            prediction.normal_score or 0,
+            prediction.anxiety_score or 0,
+            prediction.depression_score or 0,
+            prediction.stress_score or 0
+        ],
+        "clinical_scores": {
+            "PHQ-9": {
+                "score": prediction.phq9_score,
+                "severity": prediction.phq9_severity,
+                "max_score": 27
+            },
+            "GAD-7": {
+                "score": prediction.gad7_score,
+                "severity": prediction.gad7_severity,
+                "max_score": 21
+            },
+            "PSS": {
+                "score": prediction.pss_score,
+                "severity": prediction.pss_severity,
+                "max_score": 40
+            },
+            "WEMWBS": {
+                "score": prediction.wemwbs_score,
+                "severity": prediction.wemwbs_severity,
+                "max_score": 70
+            }
+        },
+        "voice_features": prediction.voice_features or {}
+    }
+    
+    # Generate AI insights
+    insights = gemini_service.generate_insights(analysis_data)
+    
+    return {
+        "prediction_id": prediction_id,
+        "insights": insights,
+        "generated_at": datetime.utcnow().isoformat()
+    }

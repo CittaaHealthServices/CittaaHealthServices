@@ -162,6 +162,11 @@ export const voiceService = {
   getUserSamples: async (limit = 10) => {
     const response = await api.get(`/voice/samples?limit=${limit}`)
     return response.data
+  },
+  
+  getAIInsights: async (predictionId: string) => {
+    const response = await api.get(`/voice/insights/${predictionId}`)
+    return response.data
   }
 }
 

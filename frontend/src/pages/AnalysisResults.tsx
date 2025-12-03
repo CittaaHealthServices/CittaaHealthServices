@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { predictionsService, Prediction } from '../services/api'
+import { predictionsService, voiceService, Prediction } from '../services/api'
 import { 
   Activity, AlertTriangle, CheckCircle, ArrowLeft, Download,
-  Brain, Heart, Zap, Info
+  Brain, Heart, Zap, Info, Sparkles, RefreshCw
 } from 'lucide-react'
 import { 
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -11,11 +11,20 @@ import {
   Cell
 } from 'recharts'
 
+interface AIInsights {
+  summary: string
+  risk_factors: string
+  suggestions: string
+  disclaimer: string
+}
+
 export default function AnalysisResults() {
   const { predictionId } = useParams<{ predictionId: string }>()
   const [prediction, setPrediction] = useState<Prediction | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [aiInsights, setAiInsights] = useState<AIInsights | null>(null)
+  const [loadingInsights, setLoadingInsights] = useState(false)
 
   useEffect(() => {
     if (predictionId) {
@@ -28,11 +37,26 @@ export default function AnalysisResults() {
       setLoading(true)
       const data = await predictionsService.getPredictionDetails(predictionId!)
       setPrediction(data)
+      // Auto-load AI insights after prediction loads
+      loadAIInsights()
     } catch (err) {
       setError('Failed to load analysis results')
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadAIInsights = async () => {
+    if (!predictionId) return
+    try {
+      setLoadingInsights(true)
+      const data = await voiceService.getAIInsights(predictionId)
+      setAiInsights(data.insights)
+    } catch (err) {
+      console.error('Failed to load AI insights:', err)
+    } finally {
+      setLoadingInsights(false)
     }
   }
 
@@ -315,6 +339,60 @@ export default function AnalysisResults() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* AI-Powered Insights */}
+      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 shadow-sm border border-purple-100">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+            <Sparkles className="w-5 h-5 mr-2 text-purple-500" />
+            AI-Powered Insights
+          </h3>
+          <button 
+            onClick={loadAIInsights}
+            disabled={loadingInsights}
+            className="flex items-center px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 mr-1 ${loadingInsights ? 'animate-spin' : ''}`} />
+            {loadingInsights ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+        
+        {loadingInsights ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-pulse flex flex-col items-center">
+              <Sparkles className="w-8 h-8 text-purple-400 animate-bounce" />
+              <p className="mt-2 text-sm text-purple-600">Generating AI insights...</p>
+            </div>
+          </div>
+        ) : aiInsights ? (
+          <div className="space-y-4">
+            {/* Summary */}
+            <div className="bg-white/60 rounded-lg p-4">
+              <h4 className="font-medium text-gray-700 mb-2">Summary</h4>
+              <p className="text-sm text-gray-600">{aiInsights.summary}</p>
+            </div>
+            
+            {/* Risk Factors */}
+            <div className="bg-white/60 rounded-lg p-4">
+              <h4 className="font-medium text-gray-700 mb-2">Contributing Factors</h4>
+              <div className="text-sm text-gray-600 whitespace-pre-line">{aiInsights.risk_factors}</div>
+            </div>
+            
+            {/* Suggestions */}
+            <div className="bg-white/60 rounded-lg p-4">
+              <h4 className="font-medium text-gray-700 mb-2">Wellness Suggestions</h4>
+              <div className="text-sm text-gray-600 whitespace-pre-line">{aiInsights.suggestions}</div>
+            </div>
+            
+            {/* AI Disclaimer */}
+            <p className="text-xs text-purple-600 italic">{aiInsights.disclaimer}</p>
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <p className="text-sm text-gray-500">Click "Refresh" to generate AI-powered insights</p>
+          </div>
+        )}
       </div>
 
       {/* Disclaimer */}
