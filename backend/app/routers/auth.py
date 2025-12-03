@@ -14,6 +14,7 @@ from app.models.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserUpdate, ConsentUpdate
 from app.utils.config import settings
+from app.services.email_service import email_service
 
 router = APIRouter()
 security = HTTPBearer()
@@ -101,6 +102,17 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    # Send welcome email (async, non-blocking)
+    try:
+        if user_data.is_clinical_trial_participant:
+            email_service.send_clinical_trial_registration(user.email, user.full_name)
+        else:
+            email_service.send_registration_welcome(user.email, user.full_name)
+    except Exception as e:
+        # Log but don't fail registration if email fails
+        import logging
+        logging.error(f"Failed to send registration email: {e}")
     
     # Create token
     token = create_token(user.id, user.role)
