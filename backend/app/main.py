@@ -15,7 +15,7 @@ import jwt
 from typing import Optional
 
 from app.routers import auth, voice, predictions, dashboard, admin, psychologist
-from app.models.database import init_db, get_db, SessionLocal
+from app.models.database import init_db, get_db, SessionLocal, sync_user_to_mongodb
 from app.models.user import User
 from app.utils.config import settings
 import bcrypt
@@ -25,8 +25,9 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def seed_demo_users():
-    """Create demo users if they don't exist (idempotent)"""
+    """Create demo users if they don't exist (idempotent) and sync to MongoDB"""
     db = SessionLocal()
+    users_to_sync = []
     try:
         # Admin user
         admin_user = db.query(User).filter(User.email == "admin@cittaa.in").first()
@@ -42,6 +43,7 @@ def seed_demo_users():
                 consent_given=True
             )
             db.add(admin_user)
+            users_to_sync.append(admin_user)
             print("Created admin user: admin@cittaa.in")
         
         # Patient user
@@ -58,6 +60,7 @@ def seed_demo_users():
                 consent_given=True
             )
             db.add(patient_user)
+            users_to_sync.append(patient_user)
             print("Created patient user: patient@cittaa.in")
         
         # Psychologist user
@@ -74,9 +77,24 @@ def seed_demo_users():
                 consent_given=True
             )
             db.add(psychologist_user)
+            users_to_sync.append(psychologist_user)
             print("Created psychologist user: doctor@cittaa.in")
         
         db.commit()
+        
+        # Sync new users to MongoDB for permanent storage
+        for user in users_to_sync:
+            sync_user_to_mongodb({
+                "id": user.id,
+                "email": user.email,
+                "password_hash": user.password_hash,
+                "full_name": user.full_name,
+                "role": user.role,
+                "is_active": user.is_active,
+                "is_verified": user.is_verified,
+                "consent_given": user.consent_given
+            })
+        
         print("Demo users seeding completed")
     except Exception as e:
         print(f"Error seeding demo users: {e}")
