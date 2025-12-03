@@ -49,6 +49,11 @@ class UserResponse(BaseModel):
     is_clinical_trial_participant: bool
     trial_status: Optional[str] = None
     assigned_psychologist_id: Optional[str] = None
+    # Multi-sample collection tracking
+    voice_samples_collected: int = 0
+    target_samples: int = 9
+    baseline_established: bool = False
+    personalization_score: Optional[float] = None
     created_at: datetime
     last_login: Optional[datetime] = None
 

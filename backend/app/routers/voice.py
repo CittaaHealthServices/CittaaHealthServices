@@ -124,6 +124,21 @@ async def analyze_voice_sample(
         voice_sample.features = result.get("features", {})
         voice_sample.processed_at = datetime.utcnow()
         
+        # Update user's sample collection progress
+        current_user.voice_samples_collected = (current_user.voice_samples_collected or 0) + 1
+        
+        # Check if baseline is established (9+ samples)
+        if current_user.voice_samples_collected >= current_user.target_samples:
+            current_user.baseline_established = True
+            # Calculate personalization score based on sample quality
+            all_samples = db.query(VoiceSample).filter(
+                VoiceSample.user_id == current_user.id,
+                VoiceSample.processing_status == "completed"
+            ).all()
+            if all_samples:
+                avg_quality = sum(s.quality_score or 0 for s in all_samples) / len(all_samples)
+                current_user.personalization_score = min(1.0, avg_quality)
+        
         # Create prediction record
         prediction = Prediction(
             user_id=current_user.id,
@@ -161,6 +176,73 @@ async def analyze_voice_sample(
         voice_sample.validation_message = str(e)
         db.commit()
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@router.get("/sample-progress")
+async def get_sample_collection_progress(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's voice sample collection progress for personalization"""
+    samples_collected = current_user.voice_samples_collected or 0
+    target_samples = current_user.target_samples or 9
+    
+    # Get today's samples
+    from datetime import date
+    today_start = datetime.combine(date.today(), datetime.min.time())
+    today_samples = db.query(VoiceSample).filter(
+        VoiceSample.user_id == current_user.id,
+        VoiceSample.recorded_at >= today_start
+    ).count()
+    
+    # Calculate streak (consecutive days with recordings)
+    from sqlalchemy import func
+    daily_recordings = db.query(
+        func.date(VoiceSample.recorded_at).label('date')
+    ).filter(
+        VoiceSample.user_id == current_user.id
+    ).group_by(func.date(VoiceSample.recorded_at)).order_by(
+        func.date(VoiceSample.recorded_at).desc()
+    ).limit(30).all()
+    
+    streak = 0
+    if daily_recordings:
+        from datetime import timedelta
+        current_date = date.today()
+        for record in daily_recordings:
+            if record.date == current_date:
+                streak += 1
+                current_date -= timedelta(days=1)
+            elif record.date == current_date - timedelta(days=1):
+                streak += 1
+                current_date = record.date - timedelta(days=1)
+            else:
+                break
+    
+    return {
+        "samples_collected": samples_collected,
+        "target_samples": target_samples,
+        "progress_percentage": min(100, (samples_collected / target_samples) * 100),
+        "baseline_established": current_user.baseline_established or False,
+        "personalization_score": current_user.personalization_score,
+        "today_samples": today_samples,
+        "daily_target": 1,  # Recommended 1 sample per day
+        "streak_days": streak,
+        "samples_remaining": max(0, target_samples - samples_collected),
+        "message": _get_progress_message(samples_collected, target_samples, current_user.baseline_established)
+    }
+
+def _get_progress_message(collected: int, target: int, baseline: bool) -> str:
+    """Generate encouraging progress message"""
+    if baseline:
+        return "Baseline established! Your personalized analysis is now active."
+    elif collected == 0:
+        return f"Start your journey! Record {target} voice samples to unlock personalized analysis."
+    elif collected < target // 3:
+        return f"Great start! {target - collected} more samples to establish your baseline."
+    elif collected < target * 2 // 3:
+        return f"You're making progress! {target - collected} samples to go."
+    else:
+        return f"Almost there! Just {target - collected} more samples for personalized insights."
 
 @router.post("/demo-analyze", response_model=PredictionResponse)
 async def demo_analyze(

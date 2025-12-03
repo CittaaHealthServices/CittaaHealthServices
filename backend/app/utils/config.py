@@ -44,6 +44,17 @@ class Settings(BaseSettings):
     BRAND_WARNING: str = "#F39C12"
     BRAND_ERROR: str = "#E74C3C"
     
+    # Email settings
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "noreply@cittaa.in")
+    EMAIL_FROM_NAME: str = os.getenv("EMAIL_FROM_NAME", "Cittaa Health Services")
+    
+    # Frontend URL for email links
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://vocalysis-frontend-1081764900204.us-central1.run.app")
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

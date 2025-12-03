@@ -13,6 +13,7 @@ from app.models.user import User, UserRole
 from app.models.prediction import Prediction
 from app.models.voice_sample import VoiceSample
 from app.routers.auth import get_current_user, require_role
+from app.services.email_service import email_service
 
 router = APIRouter()
 
@@ -98,6 +99,19 @@ async def approve_clinical_trial_participant(
     user.approval_date = datetime.utcnow()
     
     db.commit()
+    
+    # Send approval email
+    try:
+        # Get assigned psychologist name if available
+        psychologist_name = None
+        if user.assigned_psychologist_id:
+            psychologist = db.query(User).filter(User.id == user.assigned_psychologist_id).first()
+            if psychologist:
+                psychologist_name = psychologist.full_name
+        
+        email_service.send_trial_approval_email(user.email, user.full_name, psychologist_name)
+    except Exception as e:
+        print(f"Failed to send approval email: {e}")
     
     return {"message": f"User {user.email} approved for clinical trial"}
 

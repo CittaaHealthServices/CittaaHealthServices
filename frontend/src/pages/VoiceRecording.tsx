@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { voiceService } from '../services/api'
+import { voiceService, SampleProgress } from '../services/api'
 import { 
   Mic, Square, Play, Pause, Upload, AlertCircle, 
-  CheckCircle, Loader, Volume2, Activity
+  CheckCircle, Loader, Volume2, Activity, Target, Flame, Award
 } from 'lucide-react'
 
 export default function VoiceRecording() {
@@ -17,6 +17,7 @@ export default function VoiceRecording() {
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [waveformData, setWaveformData] = useState<number[]>([])
+  const [sampleProgress, setSampleProgress] = useState<SampleProgress | null>(null)
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -25,12 +26,22 @@ export default function VoiceRecording() {
   const animationRef = useRef<number | null>(null)
 
   useEffect(() => {
+    loadSampleProgress()
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
       if (audioUrl) URL.revokeObjectURL(audioUrl)
     }
   }, [audioUrl])
+
+  const loadSampleProgress = async () => {
+    try {
+      const progress = await voiceService.getSampleProgress()
+      setSampleProgress(progress)
+    } catch (err) {
+      console.error('Failed to load sample progress:', err)
+    }
+  }
 
   const startRecording = async () => {
     try {
@@ -216,6 +227,90 @@ export default function VoiceRecording() {
         <h1 className="text-2xl font-bold text-gray-800">Voice Recording</h1>
         <p className="text-gray-500 mt-1">Record or upload a voice sample for mental health analysis</p>
       </div>
+
+      {/* Sample Collection Progress Card */}
+      {sampleProgress && (
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-primary-500">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                sampleProgress.baseline_established 
+                  ? 'bg-success/20 text-success' 
+                  : 'bg-primary-100 text-primary-600'
+              }`}>
+                {sampleProgress.baseline_established ? (
+                  <Award className="w-6 h-6" />
+                ) : (
+                  <Target className="w-6 h-6" />
+                )}
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">
+                  {sampleProgress.baseline_established ? 'Personalized Analysis Active' : 'Building Your Baseline'}
+                </h3>
+                <p className="text-sm text-gray-500">{sampleProgress.message}</p>
+              </div>
+            </div>
+            {sampleProgress.streak_days > 0 && (
+              <div className="flex items-center space-x-1 px-3 py-1 bg-accent-50 rounded-full">
+                <Flame className="w-4 h-4 text-accent-500" />
+                <span className="text-sm font-medium text-accent-600">{sampleProgress.streak_days} day streak</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-600">
+                Sample {sampleProgress.samples_collected} of {sampleProgress.target_samples}
+              </span>
+              <span className="font-medium text-primary-600">
+                {sampleProgress.progress_percentage.toFixed(0)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-3">
+              <div 
+                className={`h-3 rounded-full transition-all duration-500 ${
+                  sampleProgress.baseline_established 
+                    ? 'bg-success' 
+                    : 'bg-gradient-to-r from-primary-500 to-secondary-400'
+                }`}
+                style={{ width: `${sampleProgress.progress_percentage}%` }}
+              />
+            </div>
+          </div>
+          
+          {/* Stats Row */}
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-2xl font-bold text-primary-600">{sampleProgress.samples_collected}</p>
+              <p className="text-xs text-gray-500">Total Samples</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-2xl font-bold text-secondary-500">{sampleProgress.today_samples}</p>
+              <p className="text-xs text-gray-500">Today</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-2xl font-bold text-accent-500">{sampleProgress.samples_remaining}</p>
+              <p className="text-xs text-gray-500">Remaining</p>
+            </div>
+          </div>
+          
+          {/* Personalization Score (if baseline established) */}
+          {sampleProgress.baseline_established && sampleProgress.personalization_score && (
+            <div className="mt-4 p-3 bg-success/10 rounded-lg flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="w-5 h-5 text-success" />
+                <span className="text-sm text-gray-700">Personalization Quality</span>
+              </div>
+              <span className="font-semibold text-success">
+                {(sampleProgress.personalization_score * 100).toFixed(0)}%
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recording Card */}
       <div className="bg-white rounded-2xl shadow-lg p-8">

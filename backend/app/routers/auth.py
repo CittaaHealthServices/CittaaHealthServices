@@ -14,6 +14,7 @@ from app.models.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserUpdate, ConsentUpdate
 from app.utils.config import settings
+from app.services.email_service import email_service
 
 router = APIRouter()
 security = HTTPBearer()
@@ -99,6 +100,13 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    # Send welcome email
+    try:
+        email_service.send_welcome_email(user.email, user.full_name)
+    except Exception as e:
+        # Log but don't fail registration if email fails
+        print(f"Failed to send welcome email: {e}")
     
     # Create token
     token = create_token(user.id, user.role)

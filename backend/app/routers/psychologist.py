@@ -14,6 +14,7 @@ from app.models.prediction import Prediction
 from app.models.voice_sample import VoiceSample
 from app.models.clinical_assessment import ClinicalAssessment
 from app.routers.auth import get_current_user, require_role
+from app.services.email_service import email_service
 
 router = APIRouter()
 
