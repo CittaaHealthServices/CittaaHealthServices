@@ -93,7 +93,9 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
         language_preference=user_data.language_preference,
         role=user_data.role,
         organization_id=user_data.organization_id,
-        employee_id=user_data.employee_id
+        employee_id=user_data.employee_id,
+        is_clinical_trial_participant=user_data.is_clinical_trial_participant,
+        trial_status="pending" if user_data.is_clinical_trial_participant else None
     )
     
     db.add(user)
