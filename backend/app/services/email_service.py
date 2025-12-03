@@ -24,24 +24,16 @@ class EmailService:
         self.from_name = os.getenv("FROM_NAME", "CITTAA Vocalysis")
         self.enabled = bool(self.smtp_user and self.smtp_password)
         
-        # Debug logging for email service initialization
-        print(f"[EMAIL SERVICE] Initialized: enabled={self.enabled}, smtp_user={self.smtp_user}, smtp_host={self.smtp_host}, password_set={bool(self.smtp_password)}")
-        
         if not self.enabled:
-            print(f"[EMAIL SERVICE] WARNING: Email service not configured - SMTP_PASSWORD not set")
-            logger.warning("Email service not configured - SMTP_PASSWORD not set for info@cittaa.in")
+            logger.warning("Email service not configured - SMTP_PASSWORD not set")
     
     def _send_email(self, to_email: str, subject: str, html_content: str, text_content: Optional[str] = None) -> bool:
         """Send an email using SMTP"""
-        print(f"[EMAIL SERVICE] _send_email called: to={to_email}, subject={subject[:50]}..., enabled={self.enabled}")
-        
         if not self.enabled:
-            print(f"[EMAIL SERVICE] Email service disabled - would have sent email to {to_email}")
             logger.info(f"Email service disabled - would have sent email to {to_email}: {subject}")
             return False
         
         try:
-            print(f"[EMAIL SERVICE] Preparing email message...")
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
             msg["From"] = f"{self.from_name} <{self.from_email}>"
@@ -51,21 +43,15 @@ class EmailService:
                 msg.attach(MIMEText(text_content, "plain"))
             msg.attach(MIMEText(html_content, "html"))
             
-            print(f"[EMAIL SERVICE] Connecting to SMTP server {self.smtp_host}:{self.smtp_port}...")
             with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                print(f"[EMAIL SERVICE] Starting TLS...")
                 server.starttls()
-                print(f"[EMAIL SERVICE] Logging in as {self.smtp_user}...")
                 server.login(self.smtp_user, self.smtp_password)
-                print(f"[EMAIL SERVICE] Sending email...")
                 server.sendmail(self.from_email, to_email, msg.as_string())
             
-            print(f"[EMAIL SERVICE] Email sent successfully to {to_email}")
             logger.info(f"Email sent successfully to {to_email}")
             return True
             
         except Exception as e:
-            print(f"[EMAIL SERVICE] FAILED to send email to {to_email}: {str(e)}")
             logger.error(f"Failed to send email to {to_email}: {str(e)}")
             return False
     
