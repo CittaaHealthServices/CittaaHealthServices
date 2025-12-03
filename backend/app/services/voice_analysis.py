@@ -1,12 +1,20 @@
 """
 Voice Analysis Service for Vocalysis
-Integrates ML models for mental health screening from voice
+Integrates ML models and Gemini API for mental health screening from voice
 """
 
 import numpy as np
 import random
+import base64
+import json
+import httpx
+import os
+import subprocess
+import tempfile
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+
+from app.utils.config import settings
 
 class VoiceAnalysisService:
     """Service for analyzing voice samples and generating mental health predictions"""
@@ -41,6 +49,7 @@ class VoiceAnalysisService:
     def analyze_audio(self, file_path: str) -> Dict[str, Any]:
         """
         Analyze audio file and return mental health predictions
+        Uses Gemini API if available, otherwise falls back to librosa-based analysis
         
         Args:
             file_path: Path to the audio file
@@ -48,6 +57,14 @@ class VoiceAnalysisService:
         Returns:
             Dictionary containing predictions and features
         """
+        # Try Gemini API first if configured
+        if settings.GEMINI_API_KEY:
+            try:
+                return self._analyze_with_gemini(file_path)
+            except Exception as e:
+                print(f"Gemini analysis failed: {e}, falling back to local analysis")
+        
+        # Fallback to local analysis
         try:
             # Try to import audio processing libraries
             import librosa
@@ -97,6 +114,197 @@ class VoiceAnalysisService:
             return self.generate_demo_results("normal")
         except Exception as e:
             return {"error": str(e)}
+    
+    def _analyze_with_gemini(self, file_path: str) -> Dict[str, Any]:
+        """
+        Analyze audio using Google Gemini API for mental health screening
+        
+        Args:
+            file_path: Path to the audio file
+            
+        Returns:
+            Dictionary containing predictions and features
+        """
+        # Convert audio to WAV format if needed (Gemini works best with WAV)
+        wav_path = self._convert_to_wav(file_path)
+        
+        # Read and encode audio
+        with open(wav_path, "rb") as f:
+            audio_bytes = f.read()
+        
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+        
+        # Determine mime type
+        mime_type = "audio/wav"
+        if file_path.endswith(".mp3"):
+            mime_type = "audio/mp3"
+        elif file_path.endswith(".webm"):
+            mime_type = "audio/webm"
+        elif file_path.endswith(".m4a"):
+            mime_type = "audio/mp4"
+        
+        # Construct the prompt for mental health voice analysis
+        prompt = """You are an AI assistant that analyzes voice recordings to estimate mental health indicators from acoustic patterns and speech characteristics.
+
+IMPORTANT: This is for SCREENING purposes only, not clinical diagnosis.
+
+Listen to the attached audio recording and analyze the voice patterns to estimate:
+1. Probabilities for four mental health states (must sum to 1.0):
+   - normal: healthy mental state
+   - anxiety: signs of anxiety
+   - depression: signs of depression  
+   - stress: signs of stress
+
+2. Map these to clinical assessment scale equivalents:
+   - PHQ-9 (0-27): depression severity
+   - GAD-7 (0-21): anxiety severity
+   - PSS (0-40): perceived stress
+   - WEMWBS (14-70): mental wellbeing (higher is better)
+
+Consider these voice biomarkers:
+- Pitch variation and mean (low pitch, reduced variation → depression)
+- Speech rate (slow → depression, fast → anxiety)
+- Voice energy/volume (low → depression)
+- Jitter/tremor (high → anxiety, stress)
+- Pause patterns (long pauses → depression)
+- Tone and prosody
+
+Return ONLY a valid JSON object with this exact structure (no other text):
+{
+  "probabilities": {
+    "normal": 0.0,
+    "anxiety": 0.0,
+    "depression": 0.0,
+    "stress": 0.0
+  },
+  "scale_mappings": {
+    "PHQ-9": 0,
+    "GAD-7": 0,
+    "PSS": 0,
+    "WEMWBS": 50,
+    "interpretations": {
+      "PHQ-9": "severity description",
+      "GAD-7": "severity description",
+      "PSS": "severity description",
+      "WEMWBS": "wellbeing description"
+    }
+  },
+  "interpretations": ["interpretation 1", "interpretation 2"],
+  "recommendations": ["recommendation 1", "recommendation 2"]
+}"""
+
+        # Call Gemini API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL_NAME}:generateContent?key={settings.GEMINI_API_KEY}"
+        
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "inline_data": {
+                                "mime_type": mime_type,
+                                "data": audio_b64
+                            }
+                        },
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.3,
+                "maxOutputTokens": 1024
+            }
+        }
+        
+        # Make synchronous request
+        with httpx.Client(timeout=60.0) as client:
+            response = client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+        
+        # Extract text from response
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        
+        # Parse JSON from response (handle potential markdown wrapping)
+        json_str = self._extract_json(text)
+        parsed = json.loads(json_str)
+        
+        # Extract probabilities
+        probs = parsed["probabilities"]
+        probabilities = [
+            float(probs.get("normal", 0.5)),
+            float(probs.get("anxiety", 0.15)),
+            float(probs.get("depression", 0.15)),
+            float(probs.get("stress", 0.2))
+        ]
+        
+        # Normalize probabilities to sum to 1
+        total = sum(probabilities)
+        if total > 0:
+            probabilities = [p / total for p in probabilities]
+        
+        # Calculate risk level and mental health score
+        risk_level, mental_health_score = self._calculate_risk_level(probabilities)
+        
+        # Clean up temp file if created
+        if wav_path != file_path and os.path.exists(wav_path):
+            os.remove(wav_path)
+        
+        return {
+            "probabilities": probabilities,
+            "risk_level": risk_level,
+            "mental_health_score": round(mental_health_score, 1),
+            "confidence": round(max(probabilities), 3),
+            "features": {"analysis_method": "gemini_ai"},
+            "scale_mappings": parsed.get("scale_mappings", self._map_to_clinical_scales(probabilities)),
+            "interpretations": parsed.get("interpretations", self._generate_interpretations(probabilities, parsed.get("scale_mappings", {}))),
+            "recommendations": parsed.get("recommendations", self._generate_recommendations(risk_level, probabilities))
+        }
+    
+    def _convert_to_wav(self, file_path: str) -> str:
+        """Convert audio file to WAV format using ffmpeg if needed"""
+        if file_path.endswith(".wav"):
+            return file_path
+        
+        # Create temp WAV file
+        temp_wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        temp_wav.close()
+        
+        try:
+            # Use ffmpeg to convert
+            subprocess.run([
+                "ffmpeg", "-y", "-i", file_path,
+                "-ar", "16000", "-ac", "1",
+                temp_wav.name
+            ], check=True, capture_output=True)
+            return temp_wav.name
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # If ffmpeg fails, return original file
+            return file_path
+    
+    def _extract_json(self, text: str) -> str:
+        """Extract JSON from text that may contain markdown or other formatting"""
+        # Try to find JSON block
+        text = text.strip()
+        
+        # Remove markdown code blocks if present
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        
+        # Find first { and last }
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        
+        if start >= 0 and end > start:
+            return text[start:end]
+        
+        return text
     
     def _extract_features(self, audio: np.ndarray, sr: int) -> Dict[str, Any]:
         """Extract acoustic features from audio"""
