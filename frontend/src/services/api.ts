@@ -1,6 +1,10 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
+// Use the deployed backend URL in production, fallback to proxy in development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (window.location.hostname.includes('run.app') 
+    ? 'https://vocalysis-backend-6qq2i6vfjq-uc.a.run.app/api/v1'
+    : '/api/v1')
 
 const api = axios.create({
   baseURL: API_BASE_URL,

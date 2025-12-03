@@ -266,7 +266,7 @@ export default function VoiceRecording() {
                 Sample {sampleProgress.samples_collected} of {sampleProgress.target_samples}
               </span>
               <span className="font-medium text-primary-600">
-                {sampleProgress.progress_percentage.toFixed(0)}%
+                {(sampleProgress.progress_percentage ?? 0).toFixed(0)}%
               </span>
             </div>
             <div className="w-full bg-gray-100 rounded-full h-3">
@@ -305,7 +305,7 @@ export default function VoiceRecording() {
                 <span className="text-sm text-gray-700">Personalization Quality</span>
               </div>
               <span className="font-semibold text-success">
-                {(sampleProgress.personalization_score * 100).toFixed(0)}%
+                {((sampleProgress.personalization_score ?? 0) * 100).toFixed(0)}%
               </span>
             </div>
           )}
