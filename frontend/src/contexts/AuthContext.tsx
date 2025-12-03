@@ -17,6 +17,10 @@ interface RegisterData {
   full_name?: string
   phone?: string
   role?: string
+  age_range?: string
+  gender?: string
+  language_preference?: string
+  is_clinical_trial_participant?: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
