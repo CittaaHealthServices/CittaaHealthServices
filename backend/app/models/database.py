@@ -7,27 +7,73 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
+import logging
 
-# Database URL - defaults to SQLite for local development
-# For Cloud SQL, set DATABASE_URL to postgresql+psycopg2://user:password@/dbname?host=/cloudsql/INSTANCE
+logger = logging.getLogger(__name__)
+
+# Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vocalysis.db")
+CLOUD_SQL_INSTANCE = os.getenv("CLOUD_SQL_INSTANCE", "")
+DB_USER = os.getenv("DB_USER", "")
+DB_PASS = os.getenv("DB_PASS", "")
+DB_NAME = os.getenv("DB_NAME", "vocalysis")
 
-# Handle SQLite connection args
-if DATABASE_URL.startswith("sqlite"):
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False}
-    )
-else:
-    # PostgreSQL configuration for Cloud SQL
-    engine = create_engine(
-        DATABASE_URL,
-        pool_size=5,
-        max_overflow=2,
-        pool_timeout=30,
-        pool_recycle=1800,
-        pool_pre_ping=True
-    )
+def get_engine():
+    """Create database engine based on environment configuration"""
+    
+    # If Cloud SQL instance is specified, use Cloud SQL Python Connector
+    if CLOUD_SQL_INSTANCE:
+        try:
+            from google.cloud.sql.connector import Connector
+            import pg8000
+            
+            connector = Connector()
+            
+            def getconn():
+                conn = connector.connect(
+                    CLOUD_SQL_INSTANCE,
+                    "pg8000",
+                    user=DB_USER,
+                    password=DB_PASS,
+                    db=DB_NAME,
+                )
+                return conn
+            
+            logger.info(f"Using Cloud SQL connector for instance: {CLOUD_SQL_INSTANCE}")
+            return create_engine(
+                "postgresql+pg8000://",
+                creator=getconn,
+                pool_size=5,
+                max_overflow=2,
+                pool_timeout=30,
+                pool_recycle=1800,
+                pool_pre_ping=True
+            )
+        except ImportError:
+            logger.warning("Cloud SQL connector not available, falling back to DATABASE_URL")
+        except Exception as e:
+            logger.error(f"Cloud SQL connector error: {e}, falling back to DATABASE_URL")
+    
+    # Handle SQLite connection args
+    if DATABASE_URL.startswith("sqlite"):
+        logger.info("Using SQLite database")
+        return create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False}
+        )
+    else:
+        # PostgreSQL configuration
+        logger.info("Using PostgreSQL database")
+        return create_engine(
+            DATABASE_URL,
+            pool_size=5,
+            max_overflow=2,
+            pool_timeout=30,
+            pool_recycle=1800,
+            pool_pre_ping=True
+        )
+
+engine = get_engine()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -12,6 +12,8 @@ uvicorn = {extras = ["standard"], version = "^0.27.0"}
 python-multipart = "^0.0.6"
 sqlalchemy = "^2.0.25"
 psycopg2-binary = "^2.9.9"
+cloud-sql-python-connector = {extras = ["pg8000"], version = "^1.4.0"}
+pg8000 = "^1.30.0"
 pyjwt = "^2.8.0"
 bcrypt = "^4.1.2"
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
