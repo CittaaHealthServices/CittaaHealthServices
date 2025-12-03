@@ -1,5 +1,6 @@
 """
 Database configuration and session management
+Supports both SQLite (development) and PostgreSQL (production via Cloud SQL)
 """
 
 from sqlalchemy import create_engine
@@ -7,6 +8,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
+# Database URL - defaults to SQLite for local development
+# For Cloud SQL, set DATABASE_URL to postgresql+psycopg2://user:password@/dbname?host=/cloudsql/INSTANCE
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vocalysis.db")
 
 # Handle SQLite connection args
@@ -16,7 +19,15 @@ if DATABASE_URL.startswith("sqlite"):
         connect_args={"check_same_thread": False}
     )
 else:
-    engine = create_engine(DATABASE_URL)
+    # PostgreSQL configuration for Cloud SQL
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=5,
+        max_overflow=2,
+        pool_timeout=30,
+        pool_recycle=1800,
+        pool_pre_ping=True
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
