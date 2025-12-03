@@ -18,14 +18,14 @@ class EmailService:
     def __init__(self):
         self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.smtp_user = os.getenv("SMTP_USER", "")
+        self.smtp_user = os.getenv("SMTP_USER", "info@cittaa.in")
         self.smtp_password = os.getenv("SMTP_PASSWORD", "")
-        self.from_email = os.getenv("FROM_EMAIL", "noreply@cittaa.in")
+        self.from_email = os.getenv("FROM_EMAIL", "info@cittaa.in")
         self.from_name = os.getenv("FROM_NAME", "CITTAA Vocalysis")
         self.enabled = bool(self.smtp_user and self.smtp_password)
         
         if not self.enabled:
-            logger.warning("Email service not configured - SMTP_USER and SMTP_PASSWORD not set")
+            logger.warning("Email service not configured - SMTP_PASSWORD not set for info@cittaa.in")
     
     def _send_email(self, to_email: str, subject: str, html_content: str, text_content: Optional[str] = None) -> bool:
         """Send an email using SMTP"""
@@ -287,6 +287,117 @@ class EmailService:
                     <p>You can still use the standard Vocalysis features to track your mental wellness. We encourage you to continue using the platform for your personal mental health journey.</p>
                     <p>If you have any questions, please don't hesitate to contact us.</p>
                     <p>Best regards,<br>The CITTAA Clinical Research Team</p>
+                </div>
+                <div class="footer">
+                    <p>CITTAA Health Services Pvt. Ltd.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self._send_email(to_email, subject, html_content)
+
+
+    def send_password_reset(self, to_email: str, full_name: str, reset_token: str) -> bool:
+        """Send password reset email"""
+        subject = "Password Reset Request - CITTAA Vocalysis"
+        
+        reset_link = f"https://vocalysis-frontend-1081764900204.us-central1.run.app/reset-password?token={reset_token}"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+                .content {{ background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }}
+                .button {{ display: inline-block; background: #6366f1; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .warning {{ background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; }}
+                .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Password Reset</h1>
+                    <p>CITTAA Vocalysis</p>
+                </div>
+                <div class="content">
+                    <h2>Hello {full_name},</h2>
+                    <p>We received a request to reset your password for your CITTAA Vocalysis account.</p>
+                    <p>Click the button below to reset your password:</p>
+                    <a href="{reset_link}" class="button">Reset Password</a>
+                    <div class="warning">
+                        <strong>Important:</strong>
+                        <p>This link will expire in 1 hour. If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
+                    </div>
+                    <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                    <p style="word-break: break-all; color: #6366f1;">{reset_link}</p>
+                    <p>Best regards,<br>The CITTAA Team</p>
+                </div>
+                <div class="footer">
+                    <p>CITTAA Health Services Pvt. Ltd.</p>
+                    <p>This email was sent to {to_email} because a password reset was requested.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_content = f"""
+        Password Reset - CITTAA Vocalysis
+        
+        Hello {full_name},
+        
+        We received a request to reset your password for your CITTAA Vocalysis account.
+        
+        Click the link below to reset your password:
+        {reset_link}
+        
+        This link will expire in 1 hour. If you didn't request a password reset, please ignore this email.
+        
+        Best regards,
+        The CITTAA Team
+        """
+        
+        return self._send_email(to_email, subject, html_content, text_content)
+    
+    def send_password_changed_confirmation(self, to_email: str, full_name: str) -> bool:
+        """Send confirmation email after password change"""
+        subject = "Password Changed Successfully - CITTAA Vocalysis"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+                .content {{ background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }}
+                .success {{ background: #d1fae5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; }}
+                .button {{ display: inline-block; background: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Password Changed</h1>
+                    <p>CITTAA Vocalysis</p>
+                </div>
+                <div class="content">
+                    <h2>Hello {full_name},</h2>
+                    <div class="success">
+                        <strong>Your password has been successfully changed.</strong>
+                    </div>
+                    <p>You can now log in to your account with your new password.</p>
+                    <a href="https://vocalysis-frontend-1081764900204.us-central1.run.app/login" class="button">Login to Your Account</a>
+                    <p>If you did not make this change, please contact our support team immediately.</p>
+                    <p>Best regards,<br>The CITTAA Team</p>
                 </div>
                 <div class="footer">
                     <p>CITTAA Health Services Pvt. Ltd.</p>

@@ -56,6 +56,102 @@ class VoiceAnalysisService:
             "moderate": (14, 26),
             "high": (27, 40)
         }
+        
+        # Indian Demographics Optimization Parameters
+        # Regional voice characteristics for accurate analysis across all Indian demographics
+        self.indian_regional_params = {
+            "north": {
+                "name": "North India",
+                "languages": ["Hindi", "Punjabi", "Urdu", "Kashmiri", "Dogri"],
+                "pitch_range_male": (85, 180),
+                "pitch_range_female": (165, 280),
+                "speech_rate": (3.5, 5.5),  # syllables/sec
+                "pause_duration": (200, 600),  # ms
+                "formant_f1": (300, 900),
+                "formant_f2": (850, 2500),
+                "jitter_threshold": 1.5,
+                "shimmer_threshold": 4.0,
+                "hnr_threshold": 18
+            },
+            "south": {
+                "name": "South India",
+                "languages": ["Tamil", "Telugu", "Kannada", "Malayalam", "Tulu"],
+                "pitch_range_male": (90, 190),
+                "pitch_range_female": (170, 290),
+                "speech_rate": (3.8, 5.8),
+                "pause_duration": (180, 550),
+                "formant_f1": (320, 920),
+                "formant_f2": (880, 2550),
+                "jitter_threshold": 1.4,
+                "shimmer_threshold": 3.8,
+                "hnr_threshold": 19
+            },
+            "east": {
+                "name": "East India",
+                "languages": ["Bengali", "Odia", "Assamese", "Maithili", "Manipuri"],
+                "pitch_range_male": (85, 175),
+                "pitch_range_female": (165, 275),
+                "speech_rate": (3.4, 5.4),
+                "pause_duration": (220, 650),
+                "formant_f1": (290, 880),
+                "formant_f2": (830, 2450),
+                "jitter_threshold": 1.6,
+                "shimmer_threshold": 4.2,
+                "hnr_threshold": 17
+            },
+            "west": {
+                "name": "West India",
+                "languages": ["Marathi", "Gujarati", "Konkani", "Sindhi"],
+                "pitch_range_male": (88, 185),
+                "pitch_range_female": (168, 285),
+                "speech_rate": (3.6, 5.6),
+                "pause_duration": (190, 580),
+                "formant_f1": (310, 900),
+                "formant_f2": (860, 2500),
+                "jitter_threshold": 1.5,
+                "shimmer_threshold": 4.0,
+                "hnr_threshold": 18
+            },
+            "central": {
+                "name": "Central India",
+                "languages": ["Hindi", "Chhattisgarhi", "Bundeli"],
+                "pitch_range_male": (85, 180),
+                "pitch_range_female": (165, 280),
+                "speech_rate": (3.5, 5.5),
+                "pause_duration": (200, 600),
+                "formant_f1": (300, 900),
+                "formant_f2": (850, 2500),
+                "jitter_threshold": 1.5,
+                "shimmer_threshold": 4.0,
+                "hnr_threshold": 18
+            },
+            "northeast": {
+                "name": "Northeast India",
+                "languages": ["Assamese", "Bodo", "Mizo", "Nagamese", "Khasi"],
+                "pitch_range_male": (88, 178),
+                "pitch_range_female": (168, 278),
+                "speech_rate": (3.6, 5.4),
+                "pause_duration": (210, 620),
+                "formant_f1": (295, 890),
+                "formant_f2": (840, 2480),
+                "jitter_threshold": 1.5,
+                "shimmer_threshold": 4.1,
+                "hnr_threshold": 17
+            }
+        }
+        
+        # Default to pan-Indian parameters (average across regions)
+        self.default_params = {
+            "pitch_range_male": (85, 185),
+            "pitch_range_female": (165, 285),
+            "speech_rate": (3.5, 5.6),
+            "pause_duration": (180, 650),
+            "formant_f1": (290, 920),
+            "formant_f2": (830, 2550),
+            "jitter_threshold": 1.5,
+            "shimmer_threshold": 4.0,
+            "hnr_threshold": 18
+        }
     
     def analyze_audio(self, file_path: str) -> Dict[str, Any]:
         """

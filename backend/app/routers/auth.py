@@ -199,3 +199,82 @@ async def update_consent(
 async def logout(current_user: User = Depends(get_current_user)):
     """Logout user (client should discard token)"""
     return {"message": "Logged out successfully"}
+
+
+# Password reset token storage (in production, use Redis or database)
+password_reset_tokens = {}
+
+def create_reset_token(user_id: str) -> str:
+    """Create a password reset token"""
+    import secrets
+    token = secrets.token_urlsafe(32)
+    expiry = datetime.utcnow() + timedelta(hours=1)
+    password_reset_tokens[token] = {"user_id": user_id, "expiry": expiry}
+    return token
+
+def verify_reset_token(token: str) -> Optional[str]:
+    """Verify a password reset token and return user_id if valid"""
+    if token not in password_reset_tokens:
+        return None
+    
+    token_data = password_reset_tokens[token]
+    if datetime.utcnow() > token_data["expiry"]:
+        del password_reset_tokens[token]
+        return None
+    
+    return token_data["user_id"]
+
+
+@router.post("/forgot-password")
+async def forgot_password(email: str, db: Session = Depends(get_db)):
+    """Request password reset email"""
+    user = db.query(User).filter(User.email == email).first()
+    
+    # Always return success to prevent email enumeration
+    if not user:
+        return {"message": "If an account with that email exists, a password reset link has been sent."}
+    
+    # Create reset token
+    reset_token = create_reset_token(user.id)
+    
+    # Send password reset email
+    try:
+        email_service.send_password_reset(user.email, user.full_name or "User", reset_token)
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to send password reset email: {e}")
+    
+    return {"message": "If an account with that email exists, a password reset link has been sent."}
+
+
+@router.post("/reset-password")
+async def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
+    """Reset password using token"""
+    user_id = verify_reset_token(token)
+    
+    if not user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired reset token"
+        )
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update password
+    user.password_hash = hash_password(new_password)
+    user.updated_at = datetime.utcnow()
+    db.commit()
+    
+    # Remove used token
+    del password_reset_tokens[token]
+    
+    # Send confirmation email
+    try:
+        email_service.send_password_changed_confirmation(user.email, user.full_name or "User")
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to send password change confirmation email: {e}")
+    
+    return {"message": "Password has been reset successfully"}

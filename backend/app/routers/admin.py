@@ -386,3 +386,129 @@ async def deactivate_user(
     db.commit()
     
     return {"message": f"User {user.email} deactivated"}
+
+
+# Data Export Endpoints for Model Retraining and Patent Process
+from fastapi.responses import FileResponse
+from app.services.data_export import data_export_service, accuracy_logger
+
+@router.get("/export/features")
+async def export_features_to_excel(
+    limit: int = 1000,
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
+    db: Session = Depends(get_db)
+):
+    """Export all voice feature extraction data to Excel for model retraining"""
+    # Get all predictions with features
+    predictions = db.query(Prediction).filter(
+        Prediction.voice_features.isnot(None)
+    ).limit(limit).all()
+    
+    if not predictions:
+        raise HTTPException(status_code=404, detail="No feature data available for export")
+    
+    # Prepare features and metadata
+    features_list = []
+    metadata_list = []
+    
+    for p in predictions:
+        if p.voice_features:
+            features_list.append(p.voice_features)
+            metadata_list.append({
+                "prediction_id": p.id,
+                "user_id": p.user_id,
+                "predicted_at": p.predicted_at.isoformat() if p.predicted_at else None,
+                "risk_level": p.overall_risk_level,
+                "mental_health_score": p.mental_health_score,
+                "confidence": p.confidence,
+                "phq9_score": p.phq9_score,
+                "gad7_score": p.gad7_score,
+                "pss_score": p.pss_score,
+                "wemwbs_score": p.wemwbs_score,
+                "normal_score": p.normal_score,
+                "anxiety_score": p.anxiety_score,
+                "depression_score": p.depression_score,
+                "stress_score": p.stress_score
+            })
+    
+    # Export to Excel
+    filepath = data_export_service.export_features_to_excel(features_list, metadata_list)
+    
+    return FileResponse(
+        filepath,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=f"vocalysis_features_export.xlsx"
+    )
+
+
+@router.get("/export/accuracy-metrics")
+async def export_accuracy_metrics(
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
+    db: Session = Depends(get_db)
+):
+    """Export accuracy metrics and F1 scores to Excel"""
+    filepath = accuracy_logger.export_metrics_to_excel()
+    
+    return FileResponse(
+        filepath,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="vocalysis_accuracy_metrics.xlsx"
+    )
+
+
+@router.get("/metrics/accuracy")
+async def get_accuracy_metrics(
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
+    db: Session = Depends(get_db)
+):
+    """Get current accuracy metrics and F1 scores"""
+    summary = accuracy_logger.get_summary()
+    
+    return {
+        "metrics": summary,
+        "description": {
+            "accuracy": "Overall prediction accuracy (validated predictions only)",
+            "macro_f1_score": "Unweighted mean of F1 scores for all classes",
+            "weighted_f1_score": "Weighted mean of F1 scores based on class support",
+            "class_metrics": "Per-class precision, recall, and F1 scores"
+        }
+    }
+
+
+@router.post("/metrics/validate/{prediction_id}")
+async def validate_prediction(
+    prediction_id: str,
+    actual_class: str,
+    current_user: User = Depends(require_role(["super_admin", "admin", "psychologist"])),
+    db: Session = Depends(get_db)
+):
+    """Add ground truth label to a prediction for accuracy calculation (clinical validation)"""
+    valid_classes = ["normal", "anxiety", "depression", "stress"]
+    if actual_class not in valid_classes:
+        raise HTTPException(status_code=400, detail=f"Invalid class. Valid: {valid_classes}")
+    
+    # Verify prediction exists
+    prediction = db.query(Prediction).filter(Prediction.id == prediction_id).first()
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    # Add validation
+    accuracy_logger.validate_prediction(prediction_id, actual_class)
+    
+    return {
+        "message": f"Prediction {prediction_id} validated with actual class: {actual_class}",
+        "predicted_class": _get_predicted_class(prediction),
+        "actual_class": actual_class,
+        "is_correct": _get_predicted_class(prediction) == actual_class
+    }
+
+
+def _get_predicted_class(prediction: Prediction) -> str:
+    """Get the predicted class from a prediction"""
+    scores = {
+        "normal": prediction.normal_score or 0,
+        "anxiety": prediction.anxiety_score or 0,
+        "depression": prediction.depression_score or 0,
+        "stress": prediction.stress_score or 0
+    }
+    return max(scores, key=scores.get)

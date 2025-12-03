@@ -36,6 +36,7 @@ def init_db():
     from app.models.voice_sample import VoiceSample
     from app.models.prediction import Prediction
     from app.models.clinical_assessment import ClinicalAssessment
+    from app.models.clinical_trial import ClinicalTrialParticipant, VoiceSession, PersonalizedBaseline
     
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully")
