@@ -13,6 +13,9 @@ import AdminDashboard from './pages/AdminDashboard'
 import PendingApprovals from './pages/PendingApprovals'
 import UserManagement from './pages/UserManagement'
 
+// Define admin roles - accept both old 'admin' and new 'super_admin'/'hr_admin' roles
+const ADMIN_ROLES = ['super_admin', 'hr_admin', 'admin']
+
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const { user, isAuthenticated, loading } = useAuth()
   
@@ -28,8 +31,9 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
     return <Navigate to="/login" replace />
   }
   
+  // If user's role is not in allowedRoles, redirect to root (which will route to correct dashboard)
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/" replace />
   }
   
   return <>{children}</>
@@ -40,15 +44,9 @@ function AppRoutes() {
   
   const getDashboardRoute = () => {
     if (!user) return '/login'
-    switch (user.role) {
-      case 'psychologist':
-        return '/psychologist/dashboard'
-      case 'super_admin':
-      case 'hr_admin':
-        return '/admin/dashboard'
-      default:
-        return '/dashboard'
-    }
+    if (user.role === 'psychologist') return '/psychologist/dashboard'
+    if (ADMIN_ROLES.includes(user.role)) return '/admin/dashboard'
+    return '/dashboard'
   }
   
   return (
@@ -93,17 +91,17 @@ function AppRoutes() {
       
       {/* Admin routes */}
       <Route path="/admin/dashboard" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
+        <ProtectedRoute allowedRoles={ADMIN_ROLES}>
           <Layout><AdminDashboard /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/admin/approvals" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={ADMIN_ROLES}>
           <Layout><PendingApprovals /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/admin/users" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
+        <ProtectedRoute allowedRoles={ADMIN_ROLES}>
           <Layout><UserManagement /></Layout>
         </ProtectedRoute>
       } />
