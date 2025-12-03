@@ -16,6 +16,7 @@ export default function Login() {
     switch (role) {
       case 'psychologist':
         return '/psychologist/dashboard'
+      case 'admin':
       case 'super_admin':
       case 'hr_admin':
         return '/admin/dashboard'
