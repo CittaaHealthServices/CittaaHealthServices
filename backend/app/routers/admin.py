@@ -122,11 +122,65 @@ async def reject_clinical_trial_participant(
     
     return {"message": f"User {user.email} rejected for clinical trial", "reason": reason}
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 class AssignPsychologistRequest(BaseModel):
     patient_id: str
     psychologist_id: str
+
+class CreateUserRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str
+    role: str
+    phone: Optional[str] = None
+    organization_id: Optional[str] = None
+
+@router.post("/users")
+async def create_user(
+    request: CreateUserRequest,
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
+    db: Session = Depends(get_db)
+):
+    """Create a new user (admin only)"""
+    from app.routers.auth import hash_password
+    
+    valid_roles = ["patient", "psychologist", "hr_admin", "researcher", "admin"]
+    if request.role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Valid roles: {valid_roles}")
+    
+    # Check if email already exists
+    existing = db.query(User).filter(User.email == request.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create new user
+    user = User(
+        email=request.email,
+        password_hash=hash_password(request.password),
+        full_name=request.full_name,
+        role=request.role,
+        phone=request.phone,
+        organization_id=request.organization_id,
+        is_active=True,
+        is_verified=True
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "message": f"User {user.email} created successfully",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "is_active": user.is_active
+        }
+    }
 
 @router.post("/assign-psychologist")
 async def assign_psychologist_to_patient(

@@ -253,6 +253,18 @@ export const adminService = {
   deactivateUser: async (userId: string) => {
     const response = await api.delete(`/admin/users/${userId}`)
     return response.data
+  },
+  
+  createUser: async (data: {
+    email: string
+    password: string
+    full_name: string
+    role: string
+    phone?: string
+    organization_id?: string
+  }) => {
+    const response = await api.post('/admin/users', data)
+    return response.data
   }
 }
 
