@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cittaa Brand Colors -->
+    <color name="primary">#2E7D32</color>
+    <color name="primary_light">#60AD5E</color>
+    <color name="primary_dark">#005005</color>
+    
+    <color name="secondary">#1565C0</color>
+    <color name="secondary_light">#5E92F3</color>
+    <color name="secondary_dark">#003C8F</color>
+    
+    <color name="accent">#FF6F00</color>
+    <color name="accent_light">#FFA040</color>
+    <color name="accent_dark">#C43E00</color>
+    
+    <!-- Semantic Colors -->
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FFC107</color>
+    <color name="error">#E53935</color>
+    <color name="info">#2196F3</color>
+    
+    <!-- Risk Level Colors -->
+    <color name="risk_low">#4CAF50</color>
+    <color name="risk_moderate">#FFC107</color>
+    <color name="risk_high">#FF9800</color>
+    <color name="risk_critical">#E53935</color>
+    
+    <!-- Clinical Scale Colors -->
+    <color name="phq9_color">#7B1FA2</color>
+    <color name="gad7_color">#1976D2</color>
+    <color name="pss_color">#E64A19</color>
+    <color name="wemwbs_color">#00897B</color>
+    
+    <!-- Surface Colors -->
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#F5F5F5</color>
+    <color name="surface_elevated">#FAFAFA</color>
+    <color name="background">#F8FAF8</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#1A1A1A</color>
+    <color name="text_secondary">#666666</color>
+    <color name="text_tertiary">#999999</color>
+    <color name="text_on_primary">#FFFFFF</color>
+</resources>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Vocalysis</string>
+    <string name="app_name_full">Vocalysis Premium</string>
+    <string name="company_name">Cittaa Health Services</string>
+    <string name="tagline">Voice-Based Mental Health Screening</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_record">Record</string>
+    <string name="nav_trends">Trends</string>
+    <string name="nav_insights">Insights</string>
+    <string name="nav_profile">Profile</string>
+    
+    <!-- Auth -->
+    <string name="sign_in">Sign In</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="full_name">Full Name</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="create_account">Create Account</string>
+    <string name="sign_out">Sign Out</string>
+    
+    <!-- Dashboard -->
+    <string name="mental_health_score">Mental Health Score</string>
+    <string name="quick_actions">Quick Actions</string>
+    <string name="clinical_scores">Clinical Scores</string>
+    <string name="personalization_progress">Personalization Progress</string>
+    
+    <!-- Recording -->
+    <string name="voice_analysis">Voice Analysis</string>
+    <string name="start_recording">Start Recording</string>
+    <string name="stop_recording">Stop Recording</string>
+    <string name="recording_tips">Recording Tips</string>
+    <string name="language">Language</string>
+    
+    <!-- Clinical Scales -->
+    <string name="phq9">PHQ-9</string>
+    <string name="phq9_description">Depression</string>
+    <string name="gad7">GAD-7</string>
+    <string name="gad7_description">Anxiety</string>
+    <string name="pss">PSS</string>
+    <string name="pss_description">Stress</string>
+    <string name="wemwbs">WEMWBS</string>
+    <string name="wemwbs_description">Wellbeing</string>
+    
+    <!-- Risk Levels -->
+    <string name="risk_low">Low Risk</string>
+    <string name="risk_moderate">Moderate Risk</string>
+    <string name="risk_high">High Risk</string>
+    <string name="risk_critical">Critical Risk</string>
+    
+    <!-- Subscription -->
+    <string name="premium">Premium</string>
+    <string name="premium_individual">Premium Individual</string>
+    <string name="premium_plus">Premium Plus</string>
+    <string name="corporate">Corporate Wellness</string>
+    <string name="apply_coupon">Apply Coupon</string>
+    <string name="coupon_code">Coupon Code</string>
+    
+    <!-- Support -->
+    <string name="support_email">support@cittaa.in</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="terms_of_service">Terms of Service</string>
+    <string name="help_faq">Help &amp; FAQ</string>
+    
+    <!-- Languages -->
+    <string name="lang_english">English</string>
+    <string name="lang_hindi">Hindi</string>
+    <string name="lang_tamil">Tamil</string>
+    <string name="lang_telugu">Telugu</string>
+    <string name="lang_kannada">Kannada</string>
+</resources>
