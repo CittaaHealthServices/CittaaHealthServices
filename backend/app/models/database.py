@@ -127,13 +127,8 @@ def restore_from_mongodb():
         samples_updated = 0
         for sample_doc in db.voice_samples.find():
             sample_doc.pop("_id", None)
-            # Handle JSON fields
-            if "features" in sample_doc and isinstance(sample_doc["features"], dict):
-                import json
-                sample_doc["features"] = json.dumps(sample_doc["features"])
-            if "feature_vector" in sample_doc and isinstance(sample_doc["feature_vector"], list):
-                import json
-                sample_doc["feature_vector"] = json.dumps(sample_doc["feature_vector"])
+            # NOTE: SQLAlchemy JSON columns expect Python dict/list, NOT json strings
+            # Do NOT use json.dumps() here - SQLAlchemy handles serialization automatically
             
             existing = session.query(VoiceSample).filter(VoiceSample.id == sample_doc.get("id")).first()
             if not existing:
@@ -152,16 +147,16 @@ def restore_from_mongodb():
         predictions_updated = 0
         for pred_doc in db.predictions.find():
             pred_doc.pop("_id", None)
-            # Handle JSON fields
-            if "voice_features" in pred_doc and isinstance(pred_doc["voice_features"], dict):
-                import json
-                pred_doc["voice_features"] = json.dumps(pred_doc["voice_features"])
-            if "recommendations" in pred_doc and isinstance(pred_doc["recommendations"], list):
-                import json
-                pred_doc["recommendations"] = json.dumps(pred_doc["recommendations"])
-            if "interpretations" in pred_doc and isinstance(pred_doc["interpretations"], list):
-                import json
-                pred_doc["interpretations"] = json.dumps(pred_doc["interpretations"])
+            # NOTE: SQLAlchemy JSON columns expect Python dict/list, NOT json strings
+            # Do NOT use json.dumps() here - SQLAlchemy handles serialization automatically
+            # If any fields are already strings (legacy data), parse them back to dict/list
+            import json
+            for field in ["voice_features", "recommendations", "interpretations"]:
+                if field in pred_doc and isinstance(pred_doc[field], str):
+                    try:
+                        pred_doc[field] = json.loads(pred_doc[field])
+                    except Exception:
+                        pred_doc[field] = None
             
             existing = session.query(Prediction).filter(Prediction.id == pred_doc.get("id")).first()
             if not existing:
