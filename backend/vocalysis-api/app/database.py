@@ -5,16 +5,34 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional
 from app.config import settings
 
-# Global database client
-client: Optional[AsyncIOMotorClient] = None
-db = None
+# Global database client and database instance
+_client: Optional[AsyncIOMotorClient] = None
+_db = None
+
+
+class Database:
+    """Database wrapper class for proper async access"""
+    
+    @property
+    def client(self):
+        return _client
+    
+    def __getattr__(self, name):
+        """Proxy attribute access to the actual database"""
+        if _db is None:
+            raise RuntimeError("Database not connected. Call connect_to_mongodb() first.")
+        return getattr(_db, name)
+
+
+# Global database instance
+db = Database()
 
 
 async def connect_to_mongodb():
     """Connect to MongoDB"""
-    global client, db
-    client = AsyncIOMotorClient(settings.mongodb_url)
-    db = client[settings.mongodb_db_name]
+    global _client, _db
+    _client = AsyncIOMotorClient(settings.mongodb_url)
+    _db = _client[settings.mongodb_db_name]
     
     # Create indexes for better performance
     await create_indexes()
@@ -24,16 +42,16 @@ async def connect_to_mongodb():
 
 async def close_mongodb_connection():
     """Close MongoDB connection"""
-    global client
-    if client:
-        client.close()
+    global _client
+    if _client:
+        _client.close()
         print("Closed MongoDB connection")
 
 
 async def create_indexes():
     """Create database indexes for performance"""
-    global db
-    if db is None:
+    global _db
+    if _db is None:
         return
     
     # Users collection indexes

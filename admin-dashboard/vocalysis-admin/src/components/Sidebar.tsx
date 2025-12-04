@@ -8,25 +8,54 @@ import {
   LogOut,
   Mic
 } from 'lucide-react'
-import type { Page } from '../App'
+import type { Page, UserRole } from '../App'
 
 interface SidebarProps {
   currentPage: Page
   onPageChange: (page: Page) => void
   onLogout: () => void
+  userRole?: UserRole
+  userName?: string
 }
 
-const menuItems = [
-  { id: 'dashboard' as Page, label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'patients' as Page, label: 'Patient Approval', icon: UserCheck },
-  { id: 'psychologists' as Page, label: 'Psychologist Mapping', icon: Users },
-  { id: 'coupons' as Page, label: 'Coupon Management', icon: Ticket },
-  { id: 'users' as Page, label: 'User Management', icon: Users },
-  { id: 'analytics' as Page, label: 'Analytics', icon: BarChart3 },
-  { id: 'settings' as Page, label: 'Settings', icon: Settings },
-]
+// Menu items based on role
+const getMenuItems = (role: UserRole) => {
+  const adminItems = [
+    { id: 'dashboard' as Page, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'patients' as Page, label: 'Patient Approval', icon: UserCheck },
+    { id: 'psychologists' as Page, label: 'Psychologist Mapping', icon: Users },
+    { id: 'coupons' as Page, label: 'Coupon Management', icon: Ticket },
+    { id: 'users' as Page, label: 'User Management', icon: Users },
+    { id: 'analytics' as Page, label: 'Analytics', icon: BarChart3 },
+    { id: 'settings' as Page, label: 'Settings', icon: Settings },
+  ]
+  
+  const psychologistItems = [
+    { id: 'dashboard' as Page, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'psychologists' as Page, label: 'My Patients', icon: Users },
+    { id: 'analytics' as Page, label: 'Analytics', icon: BarChart3 },
+    { id: 'settings' as Page, label: 'Settings', icon: Settings },
+  ]
+  
+  const patientItems = [
+    { id: 'my-dashboard' as Page, label: 'My Dashboard', icon: LayoutDashboard },
+    { id: 'settings' as Page, label: 'Settings', icon: Settings },
+  ]
+  
+  switch (role) {
+    case 'admin':
+      return adminItems
+    case 'psychologist':
+      return psychologistItems
+    case 'patient':
+      return patientItems
+    default:
+      return adminItems
+  }
+}
 
-export function Sidebar({ currentPage, onPageChange, onLogout }: SidebarProps) {
+export function Sidebar({ currentPage, onPageChange, onLogout, userRole = 'admin', userName = 'User' }: SidebarProps) {
+  const menuItems = getMenuItems(userRole)
   return (
     <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
       {/* Logo */}
@@ -71,11 +100,11 @@ export function Sidebar({ currentPage, onPageChange, onLogout }: SidebarProps) {
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center gap-3 px-4 py-2 mb-2">
           <div className="w-8 h-8 bg-[#8B5A96]/10 rounded-full flex items-center justify-center">
-            <span className="text-sm font-medium text-[#8B5A96]">A</span>
+            <span className="text-sm font-medium text-[#8B5A96]">{userName.charAt(0).toUpperCase()}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">Admin User</p>
-            <p className="text-xs text-gray-500 truncate">admin@cittaa.in</p>
+            <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
+            <p className="text-xs text-gray-500 truncate capitalize">{userRole}</p>
           </div>
         </div>
         <button

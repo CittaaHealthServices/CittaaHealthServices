@@ -4,16 +4,11 @@ import { Mic, Eye, EyeOff, Lock, Mail } from 'lucide-react'
 type UserRole = 'admin' | 'psychologist' | 'patient' | 'researcher'
 
 interface LoginPageProps {
-  onLogin: (role: UserRole) => void
+  onLogin: (role: UserRole, token: string, user: any) => void
 }
 
-// Demo accounts with roles
-const DEMO_ACCOUNTS: Record<string, { password: string; role: UserRole }> = {
-  'admin@cittaa.in': { password: 'admin123', role: 'admin' },
-  'doctor@cittaa.in': { password: 'doctor123', role: 'psychologist' },
-  'patient@cittaa.in': { password: 'patient123', role: 'patient' },
-  'researcher@cittaa.in': { password: 'researcher123', role: 'researcher' }
-}
+// API Base URL from environment variable
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-jmhylxew.fly.dev/api/v1'
 
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('')
@@ -27,16 +22,31 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setIsLoading(true)
     setError('')
 
-    // Simulate authentication with role-based login
-    setTimeout(() => {
-      const account = DEMO_ACCOUNTS[email.toLowerCase()]
-      if (account && account.password === password) {
-        onLogin(account.role)
-      } else {
-        setError('Invalid credentials. Try admin@cittaa.in / admin123 or patient@cittaa.in / patient123')
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Login failed')
       }
+
+      const data = await response.json()
+      // Store token in localStorage
+      localStorage.setItem('token', data.access_token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      
+      onLogin(data.user.role as UserRole, data.access_token, data.user)
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials. Please try again.')
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   return (
