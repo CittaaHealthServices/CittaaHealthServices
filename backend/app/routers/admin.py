@@ -12,7 +12,7 @@ import uuid
 import secrets
 import hashlib
 
-from app.models.database import get_db
+from app.models.database import get_db, sync_user_to_mongodb
 from app.models.user import User, UserRole
 from app.models.prediction import Prediction
 from app.models.voice_sample import VoiceSample
@@ -348,8 +348,23 @@ async def update_user_role(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    old_role = user.role
     user.role = new_role
     db.commit()
+    
+    # Sync to MongoDB for permanent storage
+    sync_user_to_mongodb({
+        "id": user.id,
+        "email": user.email,
+        "password_hash": user.password_hash,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "phone": user.phone
+    })
+    
+    # Log the action
+    log_admin_action(current_user, "UPDATE_ROLE", "user", user_id, f"Changed role from {old_role} to {new_role}")
     
     return {"message": f"User role updated to {new_role}", "user_id": user_id}
 
@@ -369,6 +384,17 @@ async def deactivate_user(
     
     user.is_active = False
     db.commit()
+    
+    # Sync to MongoDB for permanent storage
+    sync_user_to_mongodb({
+        "id": user.id,
+        "email": user.email,
+        "password_hash": user.password_hash,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "phone": user.phone
+    })
     
     # Log the action
     log_admin_action(current_user, "DEACTIVATE_USER", "user", user_id, f"Deactivated user {user.email}")
@@ -412,6 +438,17 @@ async def create_user(
     db.commit()
     db.refresh(new_user)
     
+    # Sync to MongoDB for permanent storage
+    sync_user_to_mongodb({
+        "id": new_user.id,
+        "email": new_user.email,
+        "password_hash": new_user.password_hash,
+        "full_name": new_user.full_name,
+        "role": new_user.role,
+        "is_active": new_user.is_active,
+        "phone": new_user.phone
+    })
+    
     # Log the action
     log_admin_action(current_user, "CREATE_USER", "user", new_user.id, f"Created user {request.email} with role {request.role}")
     
@@ -454,6 +491,17 @@ async def update_user(
     
     db.commit()
     
+    # Sync to MongoDB for permanent storage
+    sync_user_to_mongodb({
+        "id": user.id,
+        "email": user.email,
+        "password_hash": user.password_hash,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "phone": user.phone
+    })
+    
     # Log the action
     log_admin_action(current_user, "UPDATE_USER", "user", user_id, f"Updated user {user.email}: {', '.join(changes)}")
     
@@ -476,6 +524,17 @@ async def reactivate_user(
     user.is_active = True
     db.commit()
     
+    # Sync to MongoDB for permanent storage
+    sync_user_to_mongodb({
+        "id": user.id,
+        "email": user.email,
+        "password_hash": user.password_hash,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "phone": user.phone
+    })
+    
     # Log the action
     log_admin_action(current_user, "REACTIVATE_USER", "user", user_id, f"Reactivated user {user.email}")
     
@@ -496,6 +555,17 @@ async def admin_reset_user_password(
     temp_password = secrets.token_urlsafe(12)
     user.password_hash = get_password_hash(temp_password)
     db.commit()
+    
+    # Sync to MongoDB for permanent storage
+    sync_user_to_mongodb({
+        "id": user.id,
+        "email": user.email,
+        "password_hash": user.password_hash,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "phone": user.phone
+    })
     
     # Log the action
     log_admin_action(current_user, "RESET_PASSWORD", "user", user_id, f"Reset password for user {user.email}")
