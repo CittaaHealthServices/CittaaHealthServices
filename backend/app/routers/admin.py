@@ -401,7 +401,7 @@ async def create_user(
         id=str(uuid.uuid4()),
         email=request.email,
         full_name=request.full_name,
-        hashed_password=get_password_hash(temp_password),
+        password_hash=get_password_hash(temp_password),
         role=request.role,
         phone=request.phone,
         is_active=True,
