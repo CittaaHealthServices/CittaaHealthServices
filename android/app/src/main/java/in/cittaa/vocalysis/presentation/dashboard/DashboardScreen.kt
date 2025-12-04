@@ -22,14 +22,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import `in`.cittaa.vocalysis.presentation.theme.CittaaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(
+    viewModel: DashboardViewModel = hiltViewModel()
+) {
+    val uiState = viewModel.uiState
     val scrollState = rememberScrollState()
     
-    // Animated score
+    // Animated score based on real data
     var targetScore by remember { mutableStateOf(0f) }
     val animatedScore by animateFloatAsState(
         targetValue = targetScore,
@@ -37,8 +41,9 @@ fun DashboardScreen() {
         label = "score"
     )
     
-    LaunchedEffect(Unit) {
-        targetScore = 72f // Sample score
+    // Update target score when data loads
+    LaunchedEffect(uiState.mentalHealthScore) {
+        targetScore = uiState.mentalHealthScore
     }
     
     Column(
@@ -74,7 +79,7 @@ fun DashboardScreen() {
                             color = Color.White.copy(alpha = 0.8f)
                         )
                         Text(
-                            text = "User",
+                            text = uiState.userName.ifEmpty { "User" },
                             style = MaterialTheme.typography.headlineMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Bold
@@ -129,12 +134,24 @@ fun DashboardScreen() {
                             
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = CittaaColors.RiskLow.copy(alpha = 0.1f)
+                                color = when (uiState.riskLevel.lowercase()) {
+                                    "low", "minimal" -> CittaaColors.RiskLow.copy(alpha = 0.1f)
+                                    "mild" -> CittaaColors.RiskMild.copy(alpha = 0.1f)
+                                    "moderate" -> CittaaColors.RiskModerate.copy(alpha = 0.1f)
+                                    "high", "severe" -> CittaaColors.RiskHigh.copy(alpha = 0.1f)
+                                    else -> CittaaColors.SurfaceVariant
+                                }
                             ) {
                                 Text(
-                                    text = "Low Risk",
+                                    text = uiState.riskLevel.ifEmpty { "Unknown" },
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = CittaaColors.RiskLow,
+                                    color = when (uiState.riskLevel.lowercase()) {
+                                        "low", "minimal" -> CittaaColors.RiskLow
+                                        "mild" -> CittaaColors.RiskMild
+                                        "moderate" -> CittaaColors.RiskModerate
+                                        "high", "severe" -> CittaaColors.RiskHigh
+                                        else -> CittaaColors.TextSecondary
+                                    },
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
@@ -177,7 +194,7 @@ fun DashboardScreen() {
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         Text(
-                            text = "Your mental health is in good condition",
+                            text = viewModel.getRiskLevelDescription(),
                             style = MaterialTheme.typography.bodyMedium,
                             color = CittaaColors.TextSecondary
                         )
@@ -185,7 +202,7 @@ fun DashboardScreen() {
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         Text(
-                            text = "Last analyzed: 2 hours ago",
+                            text = if (uiState.lastAnalyzed != null) "Last analyzed: ${uiState.lastAnalyzed}" else "No analysis yet",
                             style = MaterialTheme.typography.bodySmall,
                             color = CittaaColors.TextTertiary
                         )
@@ -234,33 +251,33 @@ fun DashboardScreen() {
             ClinicalScoreCard(
                 title = "PHQ-9",
                 subtitle = "Depression",
-                score = 5,
+                score = uiState.phq9Score,
                 maxScore = 27,
-                severity = "Minimal",
+                severity = uiState.phq9Severity.ifEmpty { "Unknown" },
                 color = CittaaColors.PHQ9Color
             )
             ClinicalScoreCard(
                 title = "GAD-7",
                 subtitle = "Anxiety",
-                score = 4,
+                score = uiState.gad7Score,
                 maxScore = 21,
-                severity = "Minimal",
+                severity = uiState.gad7Severity.ifEmpty { "Unknown" },
                 color = CittaaColors.GAD7Color
             )
             ClinicalScoreCard(
                 title = "PSS",
                 subtitle = "Stress",
-                score = 12,
+                score = uiState.pssScore,
                 maxScore = 40,
-                severity = "Low",
+                severity = uiState.pssSeverity.ifEmpty { "Unknown" },
                 color = CittaaColors.PSSColor
             )
             ClinicalScoreCard(
                 title = "WEMWBS",
                 subtitle = "Wellbeing",
-                score = 52,
+                score = uiState.wemwbsScore,
                 maxScore = 70,
-                severity = "Average",
+                severity = uiState.wemwbsSeverity.ifEmpty { "Unknown" },
                 color = CittaaColors.WEMWBSColor
             )
         }
@@ -304,13 +321,13 @@ fun DashboardScreen() {
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "3 of 9 samples collected",
+                        text = "${uiState.samplesCollected} of ${uiState.targetSamples} samples collected",
                         style = MaterialTheme.typography.bodySmall,
                         color = CittaaColors.TextSecondary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     LinearProgressIndicator(
-                        progress = 3f / 9f,
+                        progress = if (uiState.targetSamples > 0) uiState.samplesCollected.toFloat() / uiState.targetSamples.toFloat() else 0f,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)

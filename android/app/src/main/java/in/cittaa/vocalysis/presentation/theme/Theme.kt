@@ -44,9 +44,10 @@ object CittaaColors {
     
     // Risk Level Colors (Clinical Severity)
     val RiskLow = Color(0xFF10B981)           // Healing Green - minimal/healthy
-    val RiskModerate = Color(0xFFF59E0B)      // Warning Yellow - mild
-    val RiskHigh = Color(0xFFF97316)          // Alert Orange - moderate
-    val RiskCritical = Color(0xFFDC2626)      // Danger Red - severe
+    val RiskMild = Color(0xFFF59E0B)          // Warning Yellow - mild
+    val RiskModerate = Color(0xFFF97316)      // Alert Orange - moderate
+    val RiskHigh = Color(0xFFDC2626)          // Danger Red - severe/high
+    val RiskCritical = Color(0xFFDC2626)      // Danger Red - critical
     
     // Clinical Scale Colors
     val PHQ9Color = Color(0xFFDC2626)         // Red for Depression

@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -22,6 +23,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
+import `in`.cittaa.vocalysis.presentation.auth.AuthViewModel
 import `in`.cittaa.vocalysis.presentation.auth.LoginScreen
 import `in`.cittaa.vocalysis.presentation.dashboard.DashboardScreen
 import `in`.cittaa.vocalysis.presentation.predictions.PredictionsScreen
@@ -92,15 +94,17 @@ val bottomNavItems = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VocalysisApp() {
-    var isAuthenticated by remember { mutableStateOf(false) }
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val authState = authViewModel.uiState
     
-    if (!isAuthenticated) {
+    if (!authState.isAuthenticated) {
         LoginScreen(
-            onLoginSuccess = { isAuthenticated = true }
+            viewModel = authViewModel,
+            onLoginSuccess = { /* Navigation handled by state */ }
         )
     } else {
         MainAppContent(
-            onLogout = { isAuthenticated = false }
+            onLogout = { authViewModel.logout() }
         )
     }
 }

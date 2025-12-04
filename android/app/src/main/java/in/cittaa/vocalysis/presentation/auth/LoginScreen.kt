@@ -29,21 +29,30 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import `in`.cittaa.vocalysis.presentation.theme.CittaaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
+    viewModel: AuthViewModel = hiltViewModel(),
     onLoginSuccess: () -> Unit
 ) {
+    val uiState = viewModel.uiState
+    
+    // Navigate on successful authentication
+    LaunchedEffect(uiState.isAuthenticated) {
+        if (uiState.isAuthenticated) {
+            onLoginSuccess()
+        }
+    }
+    
     var isLoginMode by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var fullName by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
     
     val focusManager = LocalFocusManager.current
     
@@ -179,7 +188,7 @@ fun LoginScreen(
                     
                     // Error Message
                     AnimatedVisibility(
-                        visible = errorMessage != null,
+                        visible = uiState.error != null,
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()
                     ) {
@@ -202,7 +211,7 @@ fun LoginScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = errorMessage ?: "",
+                                    text = uiState.error ?: "",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = CittaaColors.Error
                                 )
@@ -321,30 +330,20 @@ fun LoginScreen(
                         }
                     }
                     
-                    // Forgot Password
-                    if (isLoginMode) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(
-                            onClick = { /* Handle forgot password */ },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Text(
-                                text = "Forgot Password?",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = CittaaColors.Primary
-                            )
-                        }
-                    }
+                    // Forgot Password - Currently not supported by backend
+                    // Hidden until backend implements password reset functionality
                     
                     Spacer(modifier = Modifier.height(24.dp))
                     
                     // Submit Button
                     Button(
                         onClick = {
-                            isLoading = true
-                            errorMessage = null
-                            // Simulate login/register
-                            onLoginSuccess()
+                            viewModel.clearError()
+                            if (isLoginMode) {
+                                viewModel.login(email, password)
+                            } else {
+                                viewModel.register(email, password, fullName, confirmPassword)
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -353,9 +352,9 @@ fun LoginScreen(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = CittaaColors.Primary
                         ),
-                        enabled = !isLoading
+                        enabled = !uiState.isLoading
                     ) {
-                        if (isLoading) {
+                        if (uiState.isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
                                 color = Color.White,
