@@ -22,8 +22,8 @@ android {
             useSupportLibrary = true
         }
         
-        // Vocalysis Backend API URL
-        buildConfigField("String", "API_BASE_URL", "\"https://app-jmhylxew.fly.dev/api/v1/\"")
+        // Vocalysis Backend API URL - Google Cloud Run
+        buildConfigField("String", "API_BASE_URL", "\"https://vocalysis-backend-1081764900204.us-central1.run.app/api/v1/\"")
         
         // Cashfree credentials - Set these in local.properties or gradle.properties
         // CASHFREE_CLIENT_ID=your_client_id

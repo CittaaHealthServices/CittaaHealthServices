@@ -29,81 +29,90 @@ interface VocalysisApiService {
     ): Response<AuthResponse>
 
     @GET("auth/me")
-    suspend fun getCurrentUser(
-        @Header("Authorization") token: String
-    ): Response<UserResponse>
+    suspend fun getCurrentUser(): Response<UserResponse>
 
-    // Voice Analysis Endpoints
+    // Voice Analysis Endpoints - Aligned with backend API
     @Multipart
-    @POST("voice/analyze")
+    @POST("voice/upload")
+    suspend fun uploadVoice(
+        @Part file: MultipartBody.Part
+    ): Response<VoiceUploadResponse>
+
+    @POST("voice/analyze/{sampleId}")
     suspend fun analyzeVoice(
-        @Header("Authorization") token: String,
-        @Part audioFile: MultipartBody.Part,
-        @Part("language") language: RequestBody
+        @Path("sampleId") sampleId: String
     ): Response<VoiceAnalysisResponse>
 
-    @GET("voice/history")
-    suspend fun getVoiceHistory(
-        @Header("Authorization") token: String,
-        @Query("limit") limit: Int = 10,
-        @Query("offset") offset: Int = 0
-    ): Response<VoiceHistoryResponse>
+    @GET("voice/samples")
+    suspend fun getVoiceSamples(
+        @Query("limit") limit: Int = 10
+    ): Response<VoiceSamplesResponse>
 
-    @GET("voice/personalization/baseline")
-    suspend fun getBaselineStatus(
-        @Header("Authorization") token: String
-    ): Response<BaselineStatusResponse>
+    @GET("voice/sample-progress")
+    suspend fun getSampleProgress(): Response<SampleProgressResponse>
 
-    @GET("voice/personalization/summary")
-    suspend fun getPersonalizationSummary(
-        @Header("Authorization") token: String
-    ): Response<PersonalizationSummaryResponse>
+    // Dashboard Endpoints - Aligned with backend API
+    @GET("dashboard/{userId}")
+    suspend fun getDashboard(
+        @Path("userId") userId: String
+    ): Response<DashboardResponse>
 
-    @GET("voice/prediction/outcome")
-    suspend fun getPredictionOutcome(
-        @Header("Authorization") token: String
-    ): Response<PredictionOutcomeResponse>
+    @GET("dashboard/{userId}/summary")
+    suspend fun getDashboardSummary(
+        @Path("userId") userId: String
+    ): Response<DashboardSummaryResponse>
 
-    @GET("voice/prediction/trends")
+    // Predictions Endpoints - Aligned with backend API
+    @GET("predictions/{userId}")
+    suspend fun getUserPredictions(
+        @Path("userId") userId: String,
+        @Query("limit") limit: Int = 10
+    ): Response<PredictionsResponse>
+
+    @GET("predictions/{userId}/latest")
+    suspend fun getLatestPrediction(
+        @Path("userId") userId: String
+    ): Response<PredictionResponse>
+
+    @GET("predictions/{userId}/trends")
     suspend fun getPredictionTrends(
-        @Header("Authorization") token: String
-    ): Response<PredictionTrendsResponse>
+        @Path("userId") userId: String,
+        @Query("days") days: Int = 30
+    ): Response<TrendsResponse>
 
     // Clinical Trial Endpoints
     @POST("trials/register")
     suspend fun registerForTrial(
-        @Header("Authorization") token: String,
         @Body request: TrialRegistrationRequest
     ): Response<TrialRegistrationResponse>
 
     @GET("trials/status")
-    suspend fun getTrialStatus(
-        @Header("Authorization") token: String
-    ): Response<TrialStatusResponse>
+    suspend fun getTrialStatus(): Response<TrialStatusResponse>
 
     // Admin Endpoints (for admin users only)
-    @GET("admin/metrics")
-    suspend fun getAdminMetrics(
-        @Header("Authorization") token: String
-    ): Response<AdminMetricsResponse>
+    @GET("admin/statistics")
+    suspend fun getAdminStatistics(): Response<AdminStatisticsResponse>
 
-    @GET("trials/pending")
-    suspend fun getPendingApprovals(
-        @Header("Authorization") token: String
-    ): Response<PendingApprovalsResponse>
+    @GET("admin/pending-approvals")
+    suspend fun getPendingApprovals(): Response<PendingApprovalsResponse>
 
-    @POST("trials/{participantId}/approve")
+    @POST("admin/approve-participant/{userId}")
     suspend fun approveParticipant(
-        @Header("Authorization") token: String,
-        @Path("participantId") participantId: String
+        @Path("userId") userId: String
     ): Response<ApprovalResponse>
 
-    @POST("trials/{participantId}/reject")
+    @POST("admin/reject-participant/{userId}")
     suspend fun rejectParticipant(
-        @Header("Authorization") token: String,
-        @Path("participantId") participantId: String,
+        @Path("userId") userId: String,
         @Body request: RejectionRequest
     ): Response<ApprovalResponse>
+
+    // Psychologist Endpoints
+    @GET("psychologist/patients")
+    suspend fun getAssignedPatients(): Response<PatientsResponse>
+
+    @GET("psychologist/dashboard")
+    suspend fun getPsychologistDashboard(): Response<PsychologistDashboardResponse>
 }
 
 // Request/Response Data Classes
@@ -125,74 +134,197 @@ data class AuthResponse(
     val user: UserResponse
 )
 
+// User Response - Aligned with backend User model
 data class UserResponse(
     val id: String,
     val email: String,
-    val full_name: String,
+    val full_name: String?,
+    val phone: String?,
+    val age_range: String?,
+    val gender: String?,
+    val language_preference: String?,
     val role: String,
+    val organization_id: String?,
+    val consent_given: Boolean?,
     val is_active: Boolean,
-    val created_at: String
+    val is_verified: Boolean?,
+    val is_clinical_trial_participant: Boolean?,
+    val trial_status: String?,
+    val assigned_psychologist_id: String?,
+    val created_at: String,
+    val last_login: String?
 )
 
+// Voice Upload Response
+data class VoiceUploadResponse(
+    val sample_id: String,
+    val status: String,
+    val message: String?
+)
+
+// Voice Analysis Response - Aligned with backend
 data class VoiceAnalysisResponse(
-    val session_id: String,
-    val mental_health_score: Float,
-    val confidence: Float,
-    val probabilities: Map<String, Float>,
-    val clinical_scores: ClinicalScores,
-    val risk_level: String,
-    val recommendations: List<String>,
-    val interpretations: List<String>,
-    val created_at: String
+    val id: String?,
+    val user_id: String?,
+    val voice_sample_id: String?,
+    val normal_score: Float?,
+    val depression_score: Float?,
+    val anxiety_score: Float?,
+    val stress_score: Float?,
+    val overall_risk_level: String?,
+    val mental_health_score: Float?,
+    val confidence: Float?,
+    val phq9_score: Int?,
+    val phq9_severity: String?,
+    val gad7_score: Int?,
+    val gad7_severity: String?,
+    val pss_score: Int?,
+    val pss_severity: String?,
+    val wemwbs_score: Int?,
+    val wemwbs_severity: String?,
+    val interpretations: List<String>?,
+    val recommendations: List<String>?,
+    val voice_features: Map<String, Float>?,
+    val predicted_at: String?
 )
 
-data class ClinicalScores(
-    val phq9: ScoreDetail,
-    val gad7: ScoreDetail,
-    val pss: ScoreDetail,
-    val wemwbs: ScoreDetail
-)
-
-data class ScoreDetail(
-    val score: Int,
-    val severity: String,
-    val interpretation: String
-)
-
-data class VoiceHistoryResponse(
-    val analyses: List<VoiceAnalysisResponse>,
+// Voice Samples Response
+data class VoiceSamplesResponse(
+    val samples: List<VoiceSample>,
     val total: Int
 )
 
-data class BaselineStatusResponse(
-    val baseline_established: Boolean,
+data class VoiceSample(
+    val id: String,
+    val user_id: String,
+    val filename: String?,
+    val duration_seconds: Float?,
+    val status: String,
+    val created_at: String
+)
+
+// Sample Progress Response - Aligned with backend
+data class SampleProgressResponse(
     val samples_collected: Int,
-    val samples_required: Int,
-    val progress_percentage: Float
+    val target_samples: Int,
+    val progress_percentage: Float,
+    val baseline_established: Boolean,
+    val personalization_score: Float?,
+    val today_samples: Int,
+    val daily_target: Int,
+    val streak_days: Int,
+    val samples_remaining: Int,
+    val message: String
 )
 
-data class PersonalizationSummaryResponse(
-    val personalization_score: Float,
-    val baseline_features: Map<String, Float>?,
-    val deviation_from_baseline: Float?
+// Dashboard Response - Aligned with backend
+data class DashboardResponse(
+    val user_id: String,
+    val current_risk_level: String?,
+    val risk_trend: String?,
+    val compliance_rate: Float?,
+    val total_recordings: Int,
+    val recent_predictions: List<PredictionResponse>,
+    val weekly_trend_data: List<TrendDataPoint>?
 )
 
-data class PredictionOutcomeResponse(
-    val risk_score: Float,
-    val predicted_trajectory: String,
-    val confidence: Float,
-    val factors: List<String>
+data class DashboardSummaryResponse(
+    val total_analyses: Int,
+    val average_score: Float?,
+    val risk_distribution: Map<String, Int>?
 )
 
-data class PredictionTrendsResponse(
-    val trends: List<TrendPoint>,
-    val overall_direction: String
+// Predictions Response - Aligned with backend
+data class PredictionsResponse(
+    val predictions: List<PredictionResponse>,
+    val total: Int
 )
 
-data class TrendPoint(
+data class PredictionResponse(
+    val id: String,
+    val user_id: String,
+    val voice_sample_id: String?,
+    val normal_score: Float?,
+    val depression_score: Float?,
+    val anxiety_score: Float?,
+    val stress_score: Float?,
+    val overall_risk_level: String?,
+    val mental_health_score: Float?,
+    val confidence: Float?,
+    val phq9_score: Int?,
+    val phq9_severity: String?,
+    val gad7_score: Int?,
+    val gad7_severity: String?,
+    val pss_score: Int?,
+    val pss_severity: String?,
+    val wemwbs_score: Int?,
+    val wemwbs_severity: String?,
+    val interpretations: List<String>?,
+    val recommendations: List<String>?,
+    val voice_features: Map<String, Float>?,
+    val predicted_at: String
+)
+
+// Trends Response
+data class TrendsResponse(
+    val trends: List<TrendDataPoint>,
+    val overall_direction: String?
+)
+
+data class TrendDataPoint(
     val date: String,
-    val score: Float,
-    val risk_level: String
+    val depression: Float?,
+    val anxiety: Float?,
+    val stress: Float?,
+    val mental_health_score: Float?,
+    val sample_count: Int?
+)
+
+// Admin Statistics Response - Aligned with backend
+data class AdminStatisticsResponse(
+    val total_users: Int,
+    val total_patients: Int,
+    val total_psychologists: Int,
+    val total_admins: Int,
+    val pending_approvals: Int,
+    val total_voice_samples: Int,
+    val total_predictions: Int,
+    val high_risk_patients: Int
+)
+
+// Patients Response for Psychologist
+data class PatientsResponse(
+    val patients: List<PatientInfo>,
+    val total: Int
+)
+
+data class PatientInfo(
+    val id: String,
+    val email: String,
+    val full_name: String?,
+    val phone: String?,
+    val age_range: String?,
+    val gender: String?,
+    val is_active: Boolean,
+    val trial_status: String?,
+    val created_at: String
+)
+
+// Psychologist Dashboard Response
+data class PsychologistDashboardResponse(
+    val total_patients: Int,
+    val high_risk_count: Int,
+    val pending_reviews: Int,
+    val recent_assessments: List<AssessmentInfo>?
+)
+
+data class AssessmentInfo(
+    val id: String,
+    val patient_id: String,
+    val patient_name: String?,
+    val phq9_score: Int?,
+    val gad7_score: Int?,
+    val created_at: String
 )
 
 data class TrialRegistrationRequest(

@@ -1,8 +1,10 @@
 package `in`.cittaa.vocalysis.data.api
 
+import android.content.Context
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -14,10 +16,19 @@ import javax.inject.Singleton
 /**
  * Hilt Module for Network Dependencies
  * Configures Retrofit with the Vocalysis Backend API
+ * Includes AuthInterceptor for automatic token injection
  */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+
+    @Provides
+    @Singleton
+    fun provideAuthInterceptor(
+        @ApplicationContext context: Context
+    ): AuthInterceptor {
+        return AuthInterceptor(context)
+    }
 
     @Provides
     @Singleton
@@ -30,9 +41,11 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
         loggingInterceptor: HttpLoggingInterceptor
     ): OkHttpClient {
         return OkHttpClient.Builder()
+            .addInterceptor(authInterceptor) // Auth interceptor first
             .addInterceptor(loggingInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS) // Voice analysis may take longer
