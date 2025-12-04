@@ -13,6 +13,7 @@ interface PatientData {
     email: string
     full_name: string
     phone: string
+    age: number | null
     age_range: string
     gender: string
     language_preference: string
@@ -22,6 +23,7 @@ interface PatientData {
   }
   predictions: Array<{
     id: string
+    report_id: string | null
     predicted_at: string
     overall_risk_level: string
     mental_health_score: number
@@ -193,8 +195,8 @@ export default function PatientDetails() {
                 )}
               </div>
               <div className="flex flex-wrap gap-2 mt-2">
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                  {patient.age_range || 'Age N/A'}
+                <span className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded font-medium">
+                  Age: {patient.age || patient.age_range || 'N/A'}
                 </span>
                 <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded capitalize">
                   {patient.gender || 'Gender N/A'}
