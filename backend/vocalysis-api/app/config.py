@@ -6,8 +6,8 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    # MongoDB Configuration
-    mongodb_url: str = "mongodb+srv://sairam_db_user:Sairam%40123@cluster0.ao9qmj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+    # MongoDB Configuration - Use environment variable for security
+    mongodb_url: str = ""  # Set via MONGODB_URL environment variable
     mongodb_db_name: str = "vocalysis_prod"
     
     # JWT Configuration
