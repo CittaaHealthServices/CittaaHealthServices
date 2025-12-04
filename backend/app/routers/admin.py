@@ -745,14 +745,14 @@ async def get_all_voice_analyses(
                 "user_id": p.user_id,
                 "user_email": user_map.get(p.user_id, "Unknown"),
                 "mental_health_score": p.mental_health_score,
-                "confidence_score": p.confidence_score,
+                "confidence": p.confidence,
                 "overall_risk_level": p.overall_risk_level,
                 "phq9_score": p.phq9_score,
                 "gad7_score": p.gad7_score,
                 "pss_score": p.pss_score,
                 "wemwbs_score": p.wemwbs_score,
                 "predicted_at": p.predicted_at.isoformat() if p.predicted_at else None,
-                "processing_time": p.processing_time
+                "processing_time_ms": p.processing_time_ms
             }
             for p in predictions
         ]
