@@ -279,6 +279,92 @@ export const adminService = {
   deactivateUser: async (userId: string) => {
     const response = await api.delete(`/admin/users/${userId}`)
     return response.data
+  },
+  
+  // New Supreme Admin Endpoints
+  createUser: async (data: {
+    email: string
+    full_name: string
+    role: string
+    phone?: string
+    send_welcome_email?: boolean
+  }) => {
+    const response = await api.post('/admin/users', data)
+    return response.data
+  },
+  
+  updateUser: async (userId: string, data: {
+    full_name?: string
+    phone?: string
+    is_active?: boolean
+  }) => {
+    const response = await api.put(`/admin/users/${userId}`, data)
+    return response.data
+  },
+  
+  reactivateUser: async (userId: string) => {
+    const response = await api.post(`/admin/users/${userId}/reactivate`)
+    return response.data
+  },
+  
+  resetUserPassword: async (userId: string) => {
+    const response = await api.post(`/admin/users/${userId}/reset-password`)
+    return response.data
+  },
+  
+  getUserDetails: async (userId: string) => {
+    const response = await api.get(`/admin/users/${userId}/details`)
+    return response.data
+  },
+  
+  getAuditLogs: async (params?: {
+    action?: string
+    entity_type?: string
+    user_email?: string
+    limit?: number
+    offset?: number
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.action) searchParams.append('action', params.action)
+    if (params?.entity_type) searchParams.append('entity_type', params.entity_type)
+    if (params?.user_email) searchParams.append('user_email', params.user_email)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    const response = await api.get(`/admin/audit-logs?${searchParams}`)
+    return response.data
+  },
+  
+  getVoiceAnalyses: async (params?: {
+    user_id?: string
+    risk_level?: string
+    limit?: number
+    offset?: number
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.user_id) searchParams.append('user_id', params.user_id)
+    if (params?.risk_level) searchParams.append('risk_level', params.risk_level)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    const response = await api.get(`/admin/voice-analyses?${searchParams}`)
+    return response.data
+  },
+  
+  getVoiceSamples: async (params?: {
+    user_id?: string
+    limit?: number
+    offset?: number
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.user_id) searchParams.append('user_id', params.user_id)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    const response = await api.get(`/admin/voice-samples?${searchParams}`)
+    return response.data
+  },
+  
+  getAllPsychologists: async () => {
+    const response = await api.get('/admin/psychologists')
+    return response.data
   }
 }
 

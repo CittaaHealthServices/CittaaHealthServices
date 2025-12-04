@@ -14,6 +14,9 @@ import PatientDetails from './pages/PatientDetails'
 import AdminDashboard from './pages/AdminDashboard'
 import PendingApprovals from './pages/PendingApprovals'
 import UserManagement from './pages/UserManagement'
+import AuditLogs from './pages/AuditLogs'
+import VoiceAnalyses from './pages/VoiceAnalyses'
+import PsychologistAssignments from './pages/PsychologistAssignments'
 
 // Define admin roles - accept both old 'admin' and new 'super_admin'/'hr_admin' roles
 const ADMIN_ROLES = ['super_admin', 'hr_admin', 'admin']
@@ -107,6 +110,21 @@ function AppRoutes() {
       <Route path="/admin/users" element={
         <ProtectedRoute allowedRoles={ADMIN_ROLES}>
           <Layout><UserManagement /></Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/assignments" element={
+        <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+          <Layout><PsychologistAssignments /></Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/analyses" element={
+        <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+          <Layout><VoiceAnalyses /></Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/audit-logs" element={
+        <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+          <Layout><AuditLogs /></Layout>
         </ProtectedRoute>
       } />
       

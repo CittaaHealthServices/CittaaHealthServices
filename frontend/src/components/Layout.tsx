@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { 
   Home, Mic, FileText, Users, Settings, LogOut, Menu, X, 
-  Activity, UserCheck, ChevronDown
+  Activity, UserCheck, ChevronDown, ClipboardList, BarChart3, UserCog
 } from 'lucide-react'
 
 interface LayoutProps {
@@ -47,6 +47,9 @@ export default function Layout({ children }: LayoutProps) {
         { path: '/admin/dashboard', icon: Home, label: 'Dashboard' },
         { path: '/admin/users', icon: Users, label: 'User Management' },
         { path: '/admin/approvals', icon: UserCheck, label: 'Pending Approvals' },
+        { path: '/admin/assignments', icon: UserCog, label: 'Psychologist Assignments' },
+        { path: '/admin/analyses', icon: BarChart3, label: 'Voice Analyses' },
+        { path: '/admin/audit-logs', icon: ClipboardList, label: 'Audit Logs' },
       ]
     }
 
