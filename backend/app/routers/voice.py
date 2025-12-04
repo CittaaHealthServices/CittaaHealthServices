@@ -11,7 +11,7 @@ import uuid
 import numpy as np
 import sys
 
-from app.models.database import get_db
+from app.models.database import get_db, sync_prediction_to_mongodb
 from app.models.user import User
 from app.models.voice_sample import VoiceSample
 from app.models.prediction import Prediction
@@ -171,6 +171,35 @@ async def analyze_voice_sample(
         db.commit()
         db.refresh(prediction)
         
+        # Sync prediction to MongoDB for permanent storage
+        sync_prediction_to_mongodb({
+            "id": prediction.id,
+            "user_id": prediction.user_id,
+            "voice_sample_id": prediction.voice_sample_id,
+            "model_version": prediction.model_version,
+            "model_type": prediction.model_type,
+            "normal_score": prediction.normal_score,
+            "anxiety_score": prediction.anxiety_score,
+            "depression_score": prediction.depression_score,
+            "stress_score": prediction.stress_score,
+            "overall_risk_level": prediction.overall_risk_level,
+            "mental_health_score": prediction.mental_health_score,
+            "confidence": prediction.confidence,
+            "phq9_score": prediction.phq9_score,
+            "phq9_severity": prediction.phq9_severity,
+            "gad7_score": prediction.gad7_score,
+            "gad7_severity": prediction.gad7_severity,
+            "pss_score": prediction.pss_score,
+            "pss_severity": prediction.pss_severity,
+            "wemwbs_score": prediction.wemwbs_score,
+            "wemwbs_severity": prediction.wemwbs_severity,
+            "interpretations": prediction.interpretations,
+            "recommendations": prediction.recommendations,
+            "voice_features": prediction.voice_features,
+            "predicted_at": prediction.predicted_at,
+            "created_at": prediction.created_at
+        })
+        
         return PredictionResponse.model_validate(prediction)
         
     except Exception as e:
@@ -286,6 +315,35 @@ async def demo_analyze(
     db.add(prediction)
     db.commit()
     db.refresh(prediction)
+    
+    # Sync prediction to MongoDB for permanent storage
+    sync_prediction_to_mongodb({
+        "id": prediction.id,
+        "user_id": prediction.user_id,
+        "voice_sample_id": prediction.voice_sample_id,
+        "model_version": prediction.model_version,
+        "model_type": prediction.model_type,
+        "normal_score": prediction.normal_score,
+        "anxiety_score": prediction.anxiety_score,
+        "depression_score": prediction.depression_score,
+        "stress_score": prediction.stress_score,
+        "overall_risk_level": prediction.overall_risk_level,
+        "mental_health_score": prediction.mental_health_score,
+        "confidence": prediction.confidence,
+        "phq9_score": prediction.phq9_score,
+        "phq9_severity": prediction.phq9_severity,
+        "gad7_score": prediction.gad7_score,
+        "gad7_severity": prediction.gad7_severity,
+        "pss_score": prediction.pss_score,
+        "pss_severity": prediction.pss_severity,
+        "wemwbs_score": prediction.wemwbs_score,
+        "wemwbs_severity": prediction.wemwbs_severity,
+        "interpretations": prediction.interpretations,
+        "recommendations": prediction.recommendations,
+        "voice_features": prediction.voice_features,
+        "predicted_at": prediction.predicted_at,
+        "created_at": prediction.created_at
+    })
     
     return PredictionResponse.model_validate(prediction)
 
