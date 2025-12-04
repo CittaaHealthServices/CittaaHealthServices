@@ -12,6 +12,7 @@ import PatientDetails from './pages/PatientDetails'
 import AdminDashboard from './pages/AdminDashboard'
 import PendingApprovals from './pages/PendingApprovals'
 import UserManagement from './pages/UserManagement'
+import CouponManagement from './pages/CouponManagement'
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const { user, isAuthenticated, loading } = useAuth()
@@ -105,6 +106,11 @@ function AppRoutes() {
       <Route path="/admin/users" element={
         <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
           <Layout><UserManagement /></Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/coupons" element={
+        <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
+          <Layout><CouponManagement /></Layout>
         </ProtectedRoute>
       } />
       

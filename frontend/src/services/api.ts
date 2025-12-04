@@ -270,6 +270,75 @@ export const adminService = {
   }
 }
 
+// Coupon Service
+export interface Coupon {
+  id: string
+  code: string
+  discount_type: 'percentage' | 'fixed_amount' | 'free_trial'
+  discount_value: number
+  description?: string
+  max_uses?: number
+  current_uses: number
+  valid_from: string
+  valid_until?: string
+  is_active: boolean
+  applicable_plans?: string[]
+  created_by?: string
+  created_at: string
+  updated_at?: string
+}
+
+export const couponService = {
+  getAllCoupons: async () => {
+    const response = await api.get('/admin/coupons')
+    return response.data
+  },
+  
+  getCoupon: async (couponId: string) => {
+    const response = await api.get(`/admin/coupons/${couponId}`)
+    return response.data
+  },
+  
+  createCoupon: async (data: {
+    code: string
+    discount_type: 'percentage' | 'fixed_amount' | 'free_trial'
+    discount_value: number
+    description?: string
+    max_uses?: number
+    valid_from?: string
+    valid_until?: string
+    applicable_plans?: string[]
+  }) => {
+    const response = await api.post('/admin/coupons', data)
+    return response.data
+  },
+  
+  updateCoupon: async (couponId: string, data: Partial<Coupon>) => {
+    const response = await api.put(`/admin/coupons/${couponId}`, data)
+    return response.data
+  },
+  
+  deleteCoupon: async (couponId: string) => {
+    const response = await api.delete(`/admin/coupons/${couponId}`)
+    return response.data
+  },
+  
+  toggleCouponStatus: async (couponId: string) => {
+    const response = await api.post(`/admin/coupons/${couponId}/toggle`)
+    return response.data
+  },
+  
+  validateCoupon: async (code: string) => {
+    const response = await api.post('/coupons/validate', { code })
+    return response.data
+  },
+  
+  applyCoupon: async (code: string, planId: string) => {
+    const response = await api.post('/coupons/apply', { code, plan_id: planId })
+    return response.data
+  }
+}
+
 // Psychologist Service
 export const psychologistService = {
   getAssignedPatients: async () => {

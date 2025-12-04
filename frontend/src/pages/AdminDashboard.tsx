@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { adminService } from '../services/api'
 import { 
   Users, UserCheck, Activity,
-  ChevronRight, BarChart3, Shield
+  ChevronRight, BarChart3, Shield, Ticket
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 
@@ -230,16 +230,19 @@ export default function AdminDashboard() {
             <ChevronRight className="w-5 h-5 text-gray-400 ml-auto" />
           </Link>
 
-          <div className="flex items-center p-4 rounded-lg border-2 border-dashed border-secondary-200 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-200 cursor-pointer">
-            <div className="w-12 h-12 bg-secondary-100 rounded-lg flex items-center justify-center mr-4">
-              <Shield className="w-6 h-6 text-secondary-500" />
+          <Link
+            to="/admin/coupons"
+            className="flex items-center p-4 rounded-lg border-2 border-dashed border-accent-200 hover:border-accent-400 hover:bg-accent-50 transition-all duration-200"
+          >
+            <div className="w-12 h-12 bg-accent-100 rounded-lg flex items-center justify-center mr-4">
+              <Ticket className="w-6 h-6 text-accent-500" />
             </div>
             <div>
-              <p className="font-medium text-gray-800">System Settings</p>
-              <p className="text-sm text-gray-500">Configure system</p>
+              <p className="font-medium text-gray-800">Coupon Management</p>
+              <p className="text-sm text-gray-500">Create & manage coupons</p>
             </div>
             <ChevronRight className="w-5 h-5 text-gray-400 ml-auto" />
-          </div>
+          </Link>
         </div>
       </div>
 
