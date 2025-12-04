@@ -7,20 +7,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.21" apply false
 }
 
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
 tasks.register("clean", Delete::class) {
-    delete(rootProject.buildDir)
+    delete(rootProject.layout.buildDirectory)
 }
