@@ -1,13 +1,35 @@
-/* Cittaa Brand Colors */
+/* CITTAA Brand Colors (Brand Kit v1.0) */
 :root {
-  --cittaa-primary: #2E7D32;
-  --cittaa-primary-light: #60AD5E;
-  --cittaa-primary-dark: #005005;
-  --cittaa-secondary: #1565C0;
-  --cittaa-accent: #FF6F00;
-  --cittaa-success: #4CAF50;
-  --cittaa-warning: #FFC107;
-  --cittaa-error: #E53935;
+  /* Primary Brand Colors */
+  --cittaa-primary: #8B5A96;
+  --cittaa-primary-light: #B085BA;
+  --cittaa-primary-dark: #5D3D66;
+  --cittaa-secondary: #7BB3A8;
+  --cittaa-secondary-light: #A8D4CB;
+  --cittaa-secondary-dark: #4E8A7D;
+  --cittaa-accent: #1E3A8A;
+  --cittaa-accent-light: #3B5998;
+  
+  /* Semantic Colors (Mental Health States) */
+  --cittaa-success: #10B981;
+  --cittaa-warning: #F59E0B;
+  --cittaa-error: #DC2626;
+  --cittaa-alert-orange: #F97316;
+  
+  /* Clinical Scale Colors */
+  --cittaa-phq9: #DC2626;
+  --cittaa-gad7: #F59E0B;
+  --cittaa-pss: #F97316;
+  --cittaa-wemwbs: #10B981;
+  
+  /* Text Colors */
+  --cittaa-text-primary: #1F2937;
+  --cittaa-text-secondary: #6B7280;
+  --cittaa-text-tertiary: #9CA3AF;
+  
+  /* Background Colors */
+  --cittaa-bg-light: #F3F4F6;
+  --cittaa-bg-white: #FFFFFF;
 }
 
 /* Custom scrollbar */

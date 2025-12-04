@@ -10,6 +10,27 @@ export default {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
+  			// CITTAA Brand Colors (Brand Kit v1.0)
+  			cittaa: {
+  				purple: '#8B5A96',
+  				'purple-light': '#B085BA',
+  				'purple-dark': '#5D3D66',
+  				teal: '#7BB3A8',
+  				'teal-light': '#A8D4CB',
+  				'teal-dark': '#4E8A7D',
+  				blue: '#1E3A8A',
+  				'blue-light': '#3B5998',
+  			},
+  			// Semantic Colors (Mental Health States)
+  			'healing-green': '#10B981',
+  			'warning-yellow': '#F59E0B',
+  			'alert-orange': '#F97316',
+  			'danger-red': '#DC2626',
+  			// Clinical Scale Colors
+  			'phq9': '#DC2626',
+  			'gad7': '#F59E0B',
+  			'pss': '#F97316',
+  			'wemwbs': '#10B981',
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',

@@ -111,41 +111,74 @@ struct MainTabView: View {
     }
 }
 
-// MARK: - Cittaa Brand Colors
+// MARK: - CITTAA Brand Colors (Brand Kit v1.0)
 
 struct CittaaColors {
-    // Primary brand colors
-    static let primary = Color(hex: "2E7D32")      // Green - main brand color
-    static let secondary = Color(hex: "1565C0")    // Blue - secondary accent
-    static let accent = Color(hex: "FF6F00")       // Orange - highlights
+    // Primary Brand Colors
+    static let primary = Color(hex: "8B5A96")      // CITTAA Purple - main brand color
+    static let primaryLight = Color(hex: "B085BA")
+    static let primaryDark = Color(hex: "5D3D66")
     
-    // Semantic colors
-    static let success = Color(hex: "4CAF50")
-    static let warning = Color(hex: "FF9800")
-    static let error = Color(hex: "F44336")
-    static let info = Color(hex: "2196F3")
+    static let secondary = Color(hex: "7BB3A8")    // CITTAA Teal - secondary accent
+    static let secondaryLight = Color(hex: "A8D4CB")
+    static let secondaryDark = Color(hex: "4E8A7D")
     
-    // Risk level colors
-    static let riskLow = Color(hex: "4CAF50")
-    static let riskModerate = Color(hex: "FFC107")
-    static let riskHigh = Color(hex: "FF9800")
-    static let riskCritical = Color(hex: "F44336")
+    static let accent = Color(hex: "1E3A8A")       // Deep Blue - trust indicators
+    static let accentLight = Color(hex: "3B5998")
+    static let accentDark = Color(hex: "0F1F4D")
     
-    // Background colors
-    static let background = Color(hex: "F5F5F5")
-    static let cardBackground = Color.white
-    static let surfaceLight = Color(hex: "E8F5E9")
+    // Semantic Colors (Mental Health States)
+    static let success = Color(hex: "10B981")      // Healing Green - positive states
+    static let warning = Color(hex: "F59E0B")      // Warning Yellow - mild
+    static let error = Color(hex: "DC2626")        // Danger Red - severe
+    static let info = Color(hex: "1E3A8A")         // Deep Blue - info
+    static let alertOrange = Color(hex: "F97316")  // Alert Orange - moderate
     
-    // Text colors
-    static let textPrimary = Color(hex: "212121")
-    static let textSecondary = Color(hex: "757575")
+    // Risk Level Colors (Clinical Severity)
+    static let riskLow = Color(hex: "10B981")      // Healing Green - minimal/healthy
+    static let riskModerate = Color(hex: "F59E0B") // Warning Yellow - mild
+    static let riskHigh = Color(hex: "F97316")     // Alert Orange - moderate
+    static let riskCritical = Color(hex: "DC2626") // Danger Red - severe
+    
+    // Background & Surface Colors
+    static let background = Color(hex: "F3F4F6")   // Light Gray
+    static let cardBackground = Color.white        // Pure White
+    static let surfaceLight = Color(hex: "F3F4F6") // Light Gray
+    static let surfaceElevated = Color(hex: "FAFAFA")
+    
+    // Text Colors
+    static let textPrimary = Color(hex: "1F2937")  // Dark Text
+    static let textSecondary = Color(hex: "6B7280") // Warm Gray
+    static let textTertiary = Color(hex: "9CA3AF")
     static let textLight = Color.white
     
-    // Clinical scale colors
-    static let phq9Color = Color(hex: "7B1FA2")    // Purple for depression
-    static let gad7Color = Color(hex: "1976D2")    // Blue for anxiety
-    static let pssColor = Color(hex: "E64A19")     // Deep orange for stress
-    static let wemwbsColor = Color(hex: "00796B")  // Teal for wellbeing
+    // Clinical Scale Colors
+    static let phq9Color = Color(hex: "DC2626")    // Red for Depression
+    static let gad7Color = Color(hex: "F59E0B")    // Orange for Anxiety
+    static let pssColor = Color(hex: "F97316")     // Orange for Stress
+    static let wemwbsColor = Color(hex: "10B981")  // Green for Wellbeing
+    
+    // Gradient Colors
+    static let gradientStart = Color(hex: "8B5A96") // CITTAA Purple
+    static let gradientEnd = Color(hex: "7BB3A8")   // CITTAA Teal
+    
+    // Brand Gradient
+    static var brandGradient: LinearGradient {
+        LinearGradient(
+            colors: [gradientStart, gradientEnd],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
+    // Success Gradient
+    static var successGradient: LinearGradient {
+        LinearGradient(
+            colors: [success, secondary],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
 }
 
 // MARK: - Color Extension

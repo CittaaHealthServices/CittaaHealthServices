@@ -19,55 +19,56 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
 /**
- * Cittaa Brand Colors - Premium Healthcare Design System
+ * CITTAA Brand Colors - Premium Healthcare Design System (Brand Kit v1.0)
  */
 object CittaaColors {
     // Primary Brand Colors
-    val Primary = Color(0xFF2E7D32)          // Cittaa Green
-    val PrimaryLight = Color(0xFF60AD5E)
-    val PrimaryDark = Color(0xFF005005)
+    val Primary = Color(0xFF8B5A96)          // CITTAA Purple - main brand color
+    val PrimaryLight = Color(0xFFB085BA)
+    val PrimaryDark = Color(0xFF5D3D66)
     
-    val Secondary = Color(0xFF1565C0)         // Trust Blue
-    val SecondaryLight = Color(0xFF5E92F3)
-    val SecondaryDark = Color(0xFF003C8F)
+    val Secondary = Color(0xFF7BB3A8)         // CITTAA Teal - secondary accent
+    val SecondaryLight = Color(0xFFA8D4CB)
+    val SecondaryDark = Color(0xFF4E8A7D)
     
-    val Accent = Color(0xFFFF6F00)            // Energy Orange
-    val AccentLight = Color(0xFFFFA040)
-    val AccentDark = Color(0xFFC43E00)
+    val Accent = Color(0xFF1E3A8A)            // Deep Blue - trust indicators
+    val AccentLight = Color(0xFF3B5998)
+    val AccentDark = Color(0xFF0F1F4D)
     
-    // Semantic Colors
-    val Success = Color(0xFF4CAF50)
-    val Warning = Color(0xFFFFC107)
-    val Error = Color(0xFFE53935)
-    val Info = Color(0xFF2196F3)
+    // Semantic Colors (Mental Health States)
+    val Success = Color(0xFF10B981)           // Healing Green - positive states
+    val Warning = Color(0xFFF59E0B)           // Warning Yellow - mild
+    val Error = Color(0xFFDC2626)             // Danger Red - severe
+    val Info = Color(0xFF1E3A8A)              // Deep Blue - info
+    val AlertOrange = Color(0xFFF97316)       // Alert Orange - moderate
     
-    // Risk Level Colors
-    val RiskLow = Color(0xFF4CAF50)
-    val RiskModerate = Color(0xFFFFC107)
-    val RiskHigh = Color(0xFFFF9800)
-    val RiskCritical = Color(0xFFE53935)
+    // Risk Level Colors (Clinical Severity)
+    val RiskLow = Color(0xFF10B981)           // Healing Green - minimal/healthy
+    val RiskModerate = Color(0xFFF59E0B)      // Warning Yellow - mild
+    val RiskHigh = Color(0xFFF97316)          // Alert Orange - moderate
+    val RiskCritical = Color(0xFFDC2626)      // Danger Red - severe
     
     // Clinical Scale Colors
-    val PHQ9Color = Color(0xFF7B1FA2)         // Purple for Depression
-    val GAD7Color = Color(0xFF1976D2)         // Blue for Anxiety
-    val PSSColor = Color(0xFFE64A19)          // Deep Orange for Stress
-    val WEMWBSColor = Color(0xFF00897B)       // Teal for Wellbeing
+    val PHQ9Color = Color(0xFFDC2626)         // Red for Depression
+    val GAD7Color = Color(0xFFF59E0B)         // Orange for Anxiety
+    val PSSColor = Color(0xFFF97316)          // Orange for Stress
+    val WEMWBSColor = Color(0xFF10B981)       // Green for Wellbeing
     
     // Surface Colors
-    val Surface = Color(0xFFFFFFFF)
-    val SurfaceVariant = Color(0xFFF5F5F5)
+    val Surface = Color(0xFFFFFFFF)           // Pure White
+    val SurfaceVariant = Color(0xFFF3F4F6)    // Light Gray
     val SurfaceElevated = Color(0xFFFAFAFA)
-    val Background = Color(0xFFF8FAF8)
+    val Background = Color(0xFFF3F4F6)        // Light Gray
     
     // Text Colors
-    val TextPrimary = Color(0xFF1A1A1A)
-    val TextSecondary = Color(0xFF666666)
-    val TextTertiary = Color(0xFF999999)
+    val TextPrimary = Color(0xFF1F2937)       // Dark Text
+    val TextSecondary = Color(0xFF6B7280)     // Warm Gray
+    val TextTertiary = Color(0xFF9CA3AF)
     val TextOnPrimary = Color(0xFFFFFFFF)
     
     // Gradient Colors
-    val GradientStart = Color(0xFF2E7D32)
-    val GradientEnd = Color(0xFF1565C0)
+    val GradientStart = Color(0xFF8B5A96)     // CITTAA Purple
+    val GradientEnd = Color(0xFF7BB3A8)       // CITTAA Teal
 }
 
 // Premium Light Color Scheme

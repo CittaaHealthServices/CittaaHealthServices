@@ -29,14 +29,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#8B5A96]/10 via-white to-[#7BB3A8]/10 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8 animate-fade-in">
-          <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#8B5A96] to-[#7BB3A8] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Mic className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-green-700" style={{ fontFamily: 'cursive' }}>
+          <h1 className="text-3xl font-bold text-[#8B5A96]" style={{ fontFamily: 'cursive' }}>
             Cittaa
           </h1>
           <p className="text-gray-600 mt-1">Vocalysis Admin Dashboard</p>
@@ -63,7 +63,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#8B5A96] focus:border-[#8B5A96] transition-colors"
                   placeholder="admin@cittaa.in"
                   required
                 />
@@ -80,7 +80,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#8B5A96] focus:border-[#8B5A96] transition-colors"
                   placeholder="••••••••"
                   required
                 />
@@ -96,10 +96,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
             <div className="flex items-center justify-between">
               <label className="flex items-center">
-                <input type="checkbox" className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500" />
+                <input type="checkbox" className="w-4 h-4 text-[#8B5A96] border-gray-300 rounded focus:ring-[#8B5A96]" />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
-              <a href="#" className="text-sm text-green-600 hover:text-green-700">
+              <a href="#" className="text-sm text-[#8B5A96] hover:text-[#5D3D66]">
                 Forgot password?
               </a>
             </div>
@@ -107,7 +107,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg font-medium hover:from-green-700 hover:to-green-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full bg-gradient-to-r from-[#8B5A96] to-[#7BB3A8] text-white py-3 rounded-lg font-medium hover:from-[#5D3D66] hover:to-[#4E8A7D] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

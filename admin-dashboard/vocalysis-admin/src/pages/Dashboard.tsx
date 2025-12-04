@@ -31,7 +31,7 @@ const statsCards = [
     change: '+12.5%', 
     isPositive: true,
     icon: Users,
-    color: 'bg-blue-500'
+    color: 'bg-[#8B5A96]'
   },
   { 
     title: 'Voice Analyses', 
@@ -39,7 +39,7 @@ const statsCards = [
     change: '+8.2%', 
     isPositive: true,
     icon: Mic,
-    color: 'bg-green-500'
+    color: 'bg-[#7BB3A8]'
   },
   { 
     title: 'Active Subscriptions', 
@@ -47,7 +47,7 @@ const statsCards = [
     change: '+15.3%', 
     isPositive: true,
     icon: TrendingUp,
-    color: 'bg-purple-500'
+    color: 'bg-[#1E3A8A]'
   },
   { 
     title: 'AI Accuracy', 
@@ -55,7 +55,7 @@ const statsCards = [
     change: '-0.3%', 
     isPositive: false,
     icon: Activity,
-    color: 'bg-orange-500'
+    color: 'bg-[#F97316]'
   },
 ]
 
@@ -70,10 +70,10 @@ const analysisData = [
 ]
 
 const riskDistribution = [
-  { name: 'Low Risk', value: 65, color: '#4CAF50' },
-  { name: 'Moderate', value: 25, color: '#FFC107' },
-  { name: 'High Risk', value: 8, color: '#FF9800' },
-  { name: 'Critical', value: 2, color: '#E53935' },
+  { name: 'Low Risk', value: 65, color: '#10B981' },
+  { name: 'Moderate', value: 25, color: '#F59E0B' },
+  { name: 'High Risk', value: 8, color: '#F97316' },
+  { name: 'Critical', value: 2, color: '#DC2626' },
 ]
 
 const platformData = [
@@ -110,7 +110,7 @@ export function Dashboard() {
                 <div>
                   <p className="text-sm text-gray-600">{stat.title}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                  <div className={`flex items-center mt-2 text-sm ${stat.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className={`flex items-center mt-2 text-sm ${stat.isPositive ? 'text-[#10B981]' : 'text-[#DC2626]'}`}>
                     {stat.isPositive ? (
                       <ArrowUpRight className="w-4 h-4 mr-1" />
                     ) : (
@@ -142,16 +142,16 @@ export function Dashboard() {
               <Line 
                 type="monotone" 
                 dataKey="analyses" 
-                stroke="#2E7D32" 
+                stroke="#8B5A96" 
                 strokeWidth={2}
-                dot={{ fill: '#2E7D32' }}
+                dot={{ fill: '#8B5A96' }}
               />
               <Line 
                 type="monotone" 
                 dataKey="users" 
-                stroke="#1565C0" 
+                stroke="#7BB3A8" 
                 strokeWidth={2}
-                dot={{ fill: '#1565C0' }}
+                dot={{ fill: '#7BB3A8' }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -200,7 +200,7 @@ export function Dashboard() {
               <XAxis dataKey="name" stroke="#9ca3af" />
               <YAxis stroke="#9ca3af" />
               <Tooltip />
-              <Bar dataKey="users" fill="#2E7D32" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="users" fill="#8B5A96" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
