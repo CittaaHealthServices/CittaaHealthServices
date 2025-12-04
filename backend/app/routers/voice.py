@@ -776,3 +776,291 @@ async def analyze_with_personalization(
         voice_sample.validation_message = str(e)
         db.commit()
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+# ============================================
+# CONTINUOUS LEARNING - Clinician Feedback Endpoints
+# ============================================
+
+from pydantic import BaseModel
+from typing import Optional
+
+class ClinicianReviewRequest(BaseModel):
+    """Request model for clinician review submission"""
+    clinician_phq9: Optional[float] = None
+    clinician_gad7: Optional[float] = None
+    clinician_pss: Optional[float] = None
+    clinician_wemwbs: Optional[float] = None
+    clinician_risk_level: Optional[str] = None  # low, mild, moderate, high
+    clinician_comment: Optional[str] = None
+    prediction_agreed: Optional[bool] = None
+
+class OutcomeTrackingRequest(BaseModel):
+    """Request model for outcome tracking"""
+    followup_phq9: Optional[float] = None
+    followup_gad7: Optional[float] = None
+    followup_pss: Optional[float] = None
+    followup_wemwbs: Optional[float] = None
+    followup_mental_health_score: Optional[float] = None
+    deteriorated_within_window: Optional[bool] = None
+    improved_within_window: Optional[bool] = None
+    crisis_event_occurred: Optional[bool] = False
+    crisis_event_type: Optional[str] = None
+
+class PatientFeedbackRequest(BaseModel):
+    """Request model for patient feedback"""
+    accuracy_rating: int  # 1-5 scale
+    feedback: Optional[str] = None
+
+
+@router.post("/reports/{prediction_id}/clinician-review")
+async def submit_clinician_review(
+    prediction_id: str,
+    review: ClinicianReviewRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Submit clinician review for a prediction.
+    Only psychologists and admins can submit reviews.
+    This provides ground truth labels for model training.
+    """
+    # Check if user is a clinician (psychologist or admin)
+    if current_user.role not in ["psychologist", "admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Only clinicians can submit reviews"
+        )
+    
+    # Get prediction
+    prediction = db.query(Prediction).filter(Prediction.id == prediction_id).first()
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    # Update prediction with clinician review
+    prediction.clinician_reviewed = True
+    prediction.clinician_id = current_user.id
+    prediction.clinician_review_date = datetime.utcnow()
+    
+    if review.clinician_phq9 is not None:
+        prediction.clinician_phq9 = review.clinician_phq9
+    if review.clinician_gad7 is not None:
+        prediction.clinician_gad7 = review.clinician_gad7
+    if review.clinician_pss is not None:
+        prediction.clinician_pss = review.clinician_pss
+    if review.clinician_wemwbs is not None:
+        prediction.clinician_wemwbs = review.clinician_wemwbs
+    if review.clinician_risk_level is not None:
+        prediction.clinician_risk_level = review.clinician_risk_level
+    if review.clinician_comment is not None:
+        prediction.clinician_comment = review.clinician_comment
+    if review.prediction_agreed is not None:
+        prediction.prediction_agreed = review.prediction_agreed
+    
+    prediction.updated_at = datetime.utcnow()
+    db.commit()
+    
+    # Sync to MongoDB
+    sync_prediction_to_mongodb({
+        "id": prediction.id,
+        "clinician_reviewed": prediction.clinician_reviewed,
+        "clinician_id": prediction.clinician_id,
+        "clinician_review_date": prediction.clinician_review_date,
+        "clinician_phq9": prediction.clinician_phq9,
+        "clinician_gad7": prediction.clinician_gad7,
+        "clinician_pss": prediction.clinician_pss,
+        "clinician_wemwbs": prediction.clinician_wemwbs,
+        "clinician_risk_level": prediction.clinician_risk_level,
+        "clinician_comment": prediction.clinician_comment,
+        "prediction_agreed": prediction.prediction_agreed,
+        "updated_at": prediction.updated_at
+    })
+    
+    return {
+        "message": "Clinician review submitted successfully",
+        "prediction_id": prediction_id,
+        "reviewed_by": current_user.email,
+        "reviewed_at": prediction.clinician_review_date
+    }
+
+
+@router.post("/reports/{prediction_id}/outcome")
+async def track_outcome(
+    prediction_id: str,
+    outcome: OutcomeTrackingRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Track follow-up outcome for a prediction.
+    Used to validate prediction accuracy over time.
+    Only clinicians can track outcomes.
+    """
+    # Check if user is a clinician
+    if current_user.role not in ["psychologist", "admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Only clinicians can track outcomes"
+        )
+    
+    # Get prediction
+    prediction = db.query(Prediction).filter(Prediction.id == prediction_id).first()
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    # Update prediction with outcome data
+    prediction.outcome_tracked = True
+    prediction.followup_date = datetime.utcnow()
+    
+    if outcome.followup_phq9 is not None:
+        prediction.followup_phq9 = outcome.followup_phq9
+    if outcome.followup_gad7 is not None:
+        prediction.followup_gad7 = outcome.followup_gad7
+    if outcome.followup_pss is not None:
+        prediction.followup_pss = outcome.followup_pss
+    if outcome.followup_wemwbs is not None:
+        prediction.followup_wemwbs = outcome.followup_wemwbs
+    if outcome.followup_mental_health_score is not None:
+        prediction.followup_mental_health_score = outcome.followup_mental_health_score
+    if outcome.deteriorated_within_window is not None:
+        prediction.deteriorated_within_window = outcome.deteriorated_within_window
+    if outcome.improved_within_window is not None:
+        prediction.improved_within_window = outcome.improved_within_window
+    if outcome.crisis_event_occurred:
+        prediction.crisis_event_occurred = True
+        prediction.crisis_event_type = outcome.crisis_event_type
+        prediction.crisis_event_date = datetime.utcnow()
+    
+    prediction.updated_at = datetime.utcnow()
+    db.commit()
+    
+    # Sync to MongoDB
+    sync_prediction_to_mongodb({
+        "id": prediction.id,
+        "outcome_tracked": prediction.outcome_tracked,
+        "followup_date": prediction.followup_date,
+        "followup_phq9": prediction.followup_phq9,
+        "followup_gad7": prediction.followup_gad7,
+        "followup_pss": prediction.followup_pss,
+        "followup_wemwbs": prediction.followup_wemwbs,
+        "followup_mental_health_score": prediction.followup_mental_health_score,
+        "deteriorated_within_window": prediction.deteriorated_within_window,
+        "improved_within_window": prediction.improved_within_window,
+        "crisis_event_occurred": prediction.crisis_event_occurred,
+        "crisis_event_type": prediction.crisis_event_type,
+        "crisis_event_date": prediction.crisis_event_date,
+        "updated_at": prediction.updated_at
+    })
+    
+    return {
+        "message": "Outcome tracked successfully",
+        "prediction_id": prediction_id,
+        "tracked_at": prediction.followup_date,
+        "deteriorated": prediction.deteriorated_within_window,
+        "improved": prediction.improved_within_window
+    }
+
+
+@router.post("/reports/{prediction_id}/patient-feedback")
+async def submit_patient_feedback(
+    prediction_id: str,
+    feedback: PatientFeedbackRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Submit patient feedback on prediction accuracy.
+    Patients can rate how accurate they feel the prediction was.
+    """
+    # Get prediction
+    prediction = db.query(Prediction).filter(
+        Prediction.id == prediction_id,
+        Prediction.user_id == current_user.id
+    ).first()
+    
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    
+    # Validate rating
+    if feedback.accuracy_rating < 1 or feedback.accuracy_rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+    
+    # Update prediction with patient feedback
+    prediction.patient_accuracy_rating = feedback.accuracy_rating
+    prediction.patient_feedback = feedback.feedback
+    prediction.updated_at = datetime.utcnow()
+    db.commit()
+    
+    # Sync to MongoDB
+    sync_prediction_to_mongodb({
+        "id": prediction.id,
+        "patient_accuracy_rating": prediction.patient_accuracy_rating,
+        "patient_feedback": prediction.patient_feedback,
+        "updated_at": prediction.updated_at
+    })
+    
+    return {
+        "message": "Feedback submitted successfully",
+        "prediction_id": prediction_id,
+        "rating": feedback.accuracy_rating
+    }
+
+
+@router.get("/training-data/stats")
+async def get_training_data_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get statistics about available training data.
+    Only admins can view training data stats.
+    """
+    if current_user.role not in ["admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Count predictions with clinician reviews
+    total_predictions = db.query(Prediction).count()
+    reviewed_predictions = db.query(Prediction).filter(
+        Prediction.clinician_reviewed == True
+    ).count()
+    
+    # Count predictions with outcome tracking
+    outcome_tracked = db.query(Prediction).filter(
+        Prediction.outcome_tracked == True
+    ).count()
+    
+    # Count predictions with patient feedback
+    with_patient_feedback = db.query(Prediction).filter(
+        Prediction.patient_accuracy_rating != None
+    ).count()
+    
+    # Count predictions used for training
+    used_for_training = db.query(Prediction).filter(
+        Prediction.used_for_training == True
+    ).count()
+    
+    # Count by agreement status
+    agreed = db.query(Prediction).filter(
+        Prediction.prediction_agreed == True
+    ).count()
+    disagreed = db.query(Prediction).filter(
+        Prediction.prediction_agreed == False
+    ).count()
+    
+    return {
+        "total_predictions": total_predictions,
+        "clinician_reviewed": reviewed_predictions,
+        "outcome_tracked": outcome_tracked,
+        "with_patient_feedback": with_patient_feedback,
+        "used_for_training": used_for_training,
+        "agreement_stats": {
+            "agreed": agreed,
+            "disagreed": disagreed,
+            "pending_review": total_predictions - reviewed_predictions
+        },
+        "training_readiness": {
+            "min_samples_for_training": 100,
+            "current_labeled_samples": reviewed_predictions,
+            "ready_for_training": reviewed_predictions >= 100
+        }
+    }
