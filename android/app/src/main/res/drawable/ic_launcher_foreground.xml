@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Microphone icon for Vocalysis voice analysis app -->
+    <group android:translateX="27" android:translateY="27">
+        <!-- Microphone body -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,18c0,-4.97 -4.03,-9 -9,-9s-9,4.03 -9,9v12c0,4.97 4.03,9 9,9s9,-4.03 9,-9V18z"/>
+        <!-- Microphone stand -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M33,30c0,7.72 -5.61,14.14 -13,15.36V51h8v4H8v-4h8v-5.64C8.61,44.14 3,37.72 3,30h4c0,6.08 4.92,11 11,11s11,-4.92 11,-11h4z"/>
+        <!-- Sound waves -->
+        <path
+            android:fillColor="#7BB3A8"
+            android:strokeWidth="2"
+            android:strokeColor="#7BB3A8"
+            android:pathData="M40,24c2.5,3 4,7 4,12s-1.5,9 -4,12"/>
+        <path
+            android:fillColor="#7BB3A8"
+            android:strokeWidth="2"
+            android:strokeColor="#7BB3A8"
+            android:pathData="M-4,24c-2.5,3 -4,7 -4,12s1.5,9 4,12"/>
+    </group>
+</vector>
