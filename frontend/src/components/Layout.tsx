@@ -42,7 +42,7 @@ export default function Layout({ children }: LayoutProps) {
       ]
     }
 
-    if (user?.role === 'super_admin' || user?.role === 'hr_admin') {
+    if (user?.role === 'super_admin' || user?.role === 'hr_admin' || user?.role === 'admin') {
       return [
         { path: '/admin/dashboard', icon: Home, label: 'Dashboard' },
         { path: '/admin/users', icon: Users, label: 'User Management' },
