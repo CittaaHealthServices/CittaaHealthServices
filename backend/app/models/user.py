@@ -59,6 +59,10 @@ class User(Base):
     assigned_psychologist_id = Column(String(36), nullable=True)
     assignment_date = Column(DateTime, nullable=True)
     
+    # Password reset
+    reset_token = Column(String(100), nullable=True)
+    reset_token_expires_at = Column(DateTime, nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

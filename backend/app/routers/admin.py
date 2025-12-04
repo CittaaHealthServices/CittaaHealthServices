@@ -22,7 +22,7 @@ async def get_all_users(
     role: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "hr_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get all users (admin only)"""
@@ -54,7 +54,7 @@ async def get_all_users(
 
 @router.get("/pending-approvals")
 async def get_pending_approvals(
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get users pending clinical trial approval"""
@@ -82,7 +82,7 @@ async def get_pending_approvals(
 @router.post("/approve-participant/{user_id}")
 async def approve_clinical_trial_participant(
     user_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Approve a user for clinical trial participation"""
@@ -119,7 +119,7 @@ async def approve_clinical_trial_participant(
 async def reject_clinical_trial_participant(
     user_id: str,
     reason: Optional[str] = None,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Reject a user for clinical trial participation"""
@@ -140,7 +140,7 @@ async def reject_clinical_trial_participant(
 async def assign_psychologist_to_patient(
     patient_id: str,
     psychologist_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Assign a psychologist to a patient"""
@@ -168,7 +168,7 @@ async def assign_psychologist_to_patient(
 
 @router.get("/statistics")
 async def get_system_statistics(
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "hr_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get system-wide statistics"""
@@ -236,7 +236,7 @@ async def get_system_statistics(
 @router.get("/organization/{org_id}/metrics")
 async def get_organization_metrics(
     org_id: str,
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "hr_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Get aggregated metrics for an organization (HR view)"""
@@ -286,7 +286,7 @@ async def get_organization_metrics(
 async def update_user_role(
     user_id: str,
     new_role: str,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Update user role (super admin only)"""
@@ -306,7 +306,7 @@ async def update_user_role(
 @router.delete("/users/{user_id}")
 async def deactivate_user(
     user_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
+    current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Deactivate a user (super admin only)"""

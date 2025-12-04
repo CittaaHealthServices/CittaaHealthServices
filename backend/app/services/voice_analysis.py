@@ -118,6 +118,7 @@ class VoiceAnalysisService:
     def _analyze_with_gemini(self, file_path: str) -> Dict[str, Any]:
         """
         Analyze audio using Google Gemini API for mental health screening
+        Also extracts acoustic features using librosa for model training
         
         Args:
             file_path: Path to the audio file
@@ -127,6 +128,17 @@ class VoiceAnalysisService:
         """
         # Convert audio to WAV format if needed (Gemini works best with WAV)
         wav_path = self._convert_to_wav(file_path)
+        
+        # Extract acoustic features for model training using librosa
+        features = {"analysis_method": "gemini_ai"}
+        try:
+            import librosa
+            audio, sr = librosa.load(wav_path, sr=16000)
+            features = self._extract_features(audio, sr)
+            features["analysis_method"] = "gemini_ai"
+        except Exception as e:
+            print(f"Feature extraction failed: {e}, using basic features")
+            features = {"analysis_method": "gemini_ai", "feature_extraction_error": str(e)}
         
         # Read and encode audio
         with open(wav_path, "rb") as f:
@@ -257,7 +269,7 @@ Return ONLY a valid JSON object with this exact structure (no other text):
             "risk_level": risk_level,
             "mental_health_score": round(mental_health_score, 1),
             "confidence": round(max(probabilities), 3),
-            "features": {"analysis_method": "gemini_ai"},
+            "features": features,
             "scale_mappings": parsed.get("scale_mappings", self._map_to_clinical_scales(probabilities)),
             "interpretations": parsed.get("interpretations", self._generate_interpretations(probabilities, parsed.get("scale_mappings", {}))),
             "recommendations": parsed.get("recommendations", self._generate_recommendations(risk_level, probabilities))

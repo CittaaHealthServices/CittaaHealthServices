@@ -8,13 +8,21 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import jwt
 import bcrypt
+import secrets
 from typing import Optional
+from pydantic import BaseModel
 
 from app.models.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserUpdate, ConsentUpdate
 from app.utils.config import settings
 from app.services.email_service import email_service
+
+
+class PasswordResetRequest(BaseModel):
+    """Request model for password reset"""
+    token: str
+    new_password: str
 
 router = APIRouter()
 security = HTTPBearer()
@@ -193,3 +201,67 @@ async def update_consent(
 async def logout(current_user: User = Depends(get_current_user)):
     """Logout user (client should discard token)"""
     return {"message": "Logged out successfully"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(email: str, db: Session = Depends(get_db)):
+    """
+    Request password reset - sends email with reset link
+    Always returns success to prevent email enumeration
+    """
+    user = db.query(User).filter(User.email == email).first()
+    
+    if user:
+        # Generate secure reset token
+        reset_token = secrets.token_urlsafe(32)
+        
+        # Set token and expiry (1 hour)
+        user.reset_token = reset_token
+        user.reset_token_expires_at = datetime.utcnow() + timedelta(hours=1)
+        db.commit()
+        
+        # Send password reset email
+        try:
+            email_service.send_password_reset_email(
+                to_email=user.email,
+                reset_token=reset_token,
+                full_name=user.full_name
+            )
+        except Exception as e:
+            print(f"Failed to send password reset email: {e}")
+    
+    # Always return success to prevent email enumeration
+    return {"message": "If an account exists with this email, a password reset link has been sent."}
+
+
+@router.post("/reset-password")
+async def reset_password(request: PasswordResetRequest, db: Session = Depends(get_db)):
+    """
+    Reset password using token from email
+    """
+    # Find user with valid token
+    user = db.query(User).filter(
+        User.reset_token == request.token,
+        User.reset_token_expires_at > datetime.utcnow()
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired reset token"
+        )
+    
+    # Validate new password
+    if len(request.new_password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 8 characters long"
+        )
+    
+    # Update password and clear reset token
+    user.password_hash = hash_password(request.new_password)
+    user.reset_token = None
+    user.reset_token_expires_at = None
+    db.commit()
+    
+    return {"message": "Password has been reset successfully. You can now log in with your new password."}
