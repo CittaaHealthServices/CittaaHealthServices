@@ -494,7 +494,7 @@ async def admin_reset_user_password(
     
     # Generate new temporary password
     temp_password = secrets.token_urlsafe(12)
-    user.hashed_password = get_password_hash(temp_password)
+    user.password_hash = get_password_hash(temp_password)
     db.commit()
     
     # Log the action
