@@ -68,9 +68,9 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     
-    # Relationships
+    # Relationships - specify foreign_keys to disambiguate multiple FKs from Prediction table
     voice_samples = relationship("VoiceSample", back_populates="user")
-    predictions = relationship("Prediction", back_populates="user")
+    predictions = relationship("Prediction", foreign_keys="[Prediction.user_id]", back_populates="user")
     clinical_assessments = relationship("ClinicalAssessment", back_populates="user")
     
     def __repr__(self):

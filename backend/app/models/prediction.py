@@ -110,8 +110,9 @@ class Prediction(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationships
-    user = relationship("User", back_populates="predictions")
+    # Relationships - specify foreign_keys to disambiguate multiple FKs to User table
+    user = relationship("User", foreign_keys=[user_id], back_populates="predictions")
+    clinician = relationship("User", foreign_keys=[clinician_id], backref="reviewed_predictions")
     voice_sample = relationship("VoiceSample", back_populates="prediction")
     
     def __repr__(self):
