@@ -246,15 +246,30 @@ async def get_sample_collection_progress(
     db: Session = Depends(get_db)
 ):
     """Get user's voice sample collection progress for personalization"""
-    samples_collected = current_user.voice_samples_collected or 0
+    # Query VoiceSample table directly for accurate count (not user field which may be stale)
+    samples_collected = db.query(VoiceSample).filter(
+        VoiceSample.user_id == current_user.id
+    ).count()
     target_samples = current_user.target_samples or 9
     
-    # Get today's samples
-    from datetime import date
-    today_start = datetime.combine(date.today(), datetime.min.time())
+    # Keep user aggregate in sync
+    if current_user.voice_samples_collected != samples_collected:
+        current_user.voice_samples_collected = samples_collected
+        # Also update baseline_established when threshold reached
+        if not current_user.baseline_established and samples_collected >= target_samples:
+            current_user.baseline_established = True
+        db.commit()
+    
+    # Get today's samples using IST timezone (UTC+5:30) for Indian users
+    from datetime import date, timedelta, timezone
+    IST = timezone(timedelta(hours=5, minutes=30))
+    now_ist = datetime.now(IST)
+    today_start_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start_utc = today_start_ist.astimezone(timezone.utc).replace(tzinfo=None)  # Convert to naive UTC
+    
     today_samples = db.query(VoiceSample).filter(
         VoiceSample.user_id == current_user.id,
-        VoiceSample.recorded_at >= today_start
+        VoiceSample.recorded_at >= today_start_utc
     ).count()
     
     # Calculate streak (consecutive days with recordings)
