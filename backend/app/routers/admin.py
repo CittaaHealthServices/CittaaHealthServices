@@ -34,6 +34,10 @@ class UpdateUserRequest(BaseModel):
     phone: Optional[str] = None
     is_active: Optional[bool] = None
 
+class AssignPsychologistRequest(BaseModel):
+    patient_id: str
+    psychologist_id: str
+
 class AuditLog(BaseModel):
     id: str
     user_id: str
@@ -188,12 +192,24 @@ async def reject_clinical_trial_participant(
 
 @router.post("/assign-psychologist")
 async def assign_psychologist_to_patient(
-    patient_id: str,
-    psychologist_id: str,
+    request: Optional[AssignPsychologistRequest] = None,
+    patient_id: Optional[str] = None,
+    psychologist_id: Optional[str] = None,
     current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
     """Assign a psychologist to a patient"""
+    # Prefer JSON body, fallback to query params for backward compatibility
+    if request is not None:
+        patient_id = request.patient_id
+        psychologist_id = request.psychologist_id
+    
+    if not patient_id or not psychologist_id:
+        raise HTTPException(
+            status_code=400,
+            detail="patient_id and psychologist_id are required"
+        )
+    
     patient = db.query(User).filter(User.id == patient_id).first()
     psychologist = db.query(User).filter(
         User.id == psychologist_id,
@@ -209,6 +225,27 @@ async def assign_psychologist_to_patient(
     patient.assignment_date = datetime.utcnow()
     
     db.commit()
+    
+    # Sync to MongoDB for permanent storage
+    sync_user_to_mongodb({
+        "id": patient.id,
+        "email": patient.email,
+        "password_hash": patient.password_hash,
+        "full_name": patient.full_name,
+        "role": patient.role,
+        "is_active": patient.is_active,
+        "phone": patient.phone,
+        "assigned_psychologist_id": patient.assigned_psychologist_id
+    })
+    
+    # Log the admin action
+    log_admin_action(
+        current_user,
+        "ASSIGN_PSYCHOLOGIST",
+        "user",
+        patient_id,
+        f"Assigned psychologist {psychologist.email} to patient {patient.email}"
+    )
     
     return {
         "message": f"Psychologist {psychologist.email} assigned to patient {patient.email}",
