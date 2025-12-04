@@ -112,6 +112,8 @@ async def get_all_users(
                 "is_active": u.is_active,
                 "is_clinical_trial_participant": u.is_clinical_trial_participant,
                 "trial_status": u.trial_status,
+                "assigned_psychologist_id": u.assigned_psychologist_id,
+                "assignment_date": u.assignment_date.isoformat() if u.assignment_date else None,
                 "created_at": u.created_at.isoformat() if u.created_at else None,
                 "last_login": u.last_login.isoformat() if u.last_login else None
             }
