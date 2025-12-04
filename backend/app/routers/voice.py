@@ -155,10 +155,18 @@ async def analyze_voice_sample(
                 avg_quality = sum(s.quality_score or 0 for s in all_samples) / len(all_samples)
                 current_user.personalization_score = min(1.0, avg_quality)
         
+        # Generate sequential report ID
+        from sqlalchemy import func
+        max_seq = db.query(func.max(Prediction.report_sequence)).scalar() or 0
+        next_seq = max_seq + 1
+        report_id = f"CITTVOC{next_seq:03d}"
+        
         # Create prediction record
         prediction = Prediction(
             user_id=current_user.id,
             voice_sample_id=sample_id,
+            report_id=report_id,
+            report_sequence=next_seq,
             model_version="v1.0",
             model_type="ensemble",
             normal_score=float(result["probabilities"][0]),
@@ -188,6 +196,8 @@ async def analyze_voice_sample(
         # Sync prediction to MongoDB for permanent storage
         sync_prediction_to_mongodb({
             "id": prediction.id,
+            "report_id": prediction.report_id,
+            "report_sequence": prediction.report_sequence,
             "user_id": prediction.user_id,
             "voice_sample_id": prediction.voice_sample_id,
             "model_version": prediction.model_version,
@@ -334,9 +344,17 @@ async def demo_analyze(
     # Generate demo results
     result = voice_service.generate_demo_results(demo_type)
     
+    # Generate sequential report ID
+    from sqlalchemy import func
+    max_seq = db.query(func.max(Prediction.report_sequence)).scalar() or 0
+    next_seq = max_seq + 1
+    report_id = f"CITTVOC{next_seq:03d}"
+    
     # Create prediction record
     prediction = Prediction(
         user_id=current_user.id,
+        report_id=report_id,
+        report_sequence=next_seq,
         model_version="v1.0-demo",
         model_type="demo",
         normal_score=float(result["probabilities"][0]),
@@ -366,6 +384,8 @@ async def demo_analyze(
     # Sync prediction to MongoDB for permanent storage
     sync_prediction_to_mongodb({
         "id": prediction.id,
+        "report_id": prediction.report_id,
+        "report_sequence": prediction.report_sequence,
         "user_id": prediction.user_id,
         "voice_sample_id": prediction.voice_sample_id,
         "model_version": prediction.model_version,

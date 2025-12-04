@@ -79,6 +79,7 @@ async def get_assigned_patients(
             "email": patient.email,
             "full_name": patient.full_name,
             "phone": patient.phone,
+            "age": patient.age,
             "age_range": patient.age_range,
             "gender": patient.gender,
             "assignment_date": patient.assignment_date.isoformat() if patient.assignment_date else None,
@@ -125,6 +126,7 @@ async def get_patient_details(
             "email": patient.email,
             "full_name": patient.full_name,
             "phone": patient.phone,
+            "age": patient.age,
             "age_range": patient.age_range,
             "gender": patient.gender,
             "language_preference": patient.language_preference,
@@ -135,6 +137,7 @@ async def get_patient_details(
         "predictions": [
             {
                 "id": p.id,
+                "report_id": p.report_id,
                 "predicted_at": p.predicted_at.isoformat(),
                 "overall_risk_level": p.overall_risk_level,
                 "mental_health_score": p.mental_health_score,

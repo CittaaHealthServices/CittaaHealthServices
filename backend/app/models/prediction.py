@@ -9,11 +9,29 @@ import uuid
 
 from app.models.database import Base
 
+# Counter for generating sequential report IDs
+_report_counter = 0
+
+def generate_report_id():
+    """Generate a sequential report ID in format CITTVOCXXX"""
+    global _report_counter
+    _report_counter += 1
+    return f"CITTVOC{_report_counter:03d}"
+
+def init_report_counter(db_session):
+    """Initialize the report counter from the database"""
+    global _report_counter
+    from sqlalchemy import func
+    max_id = db_session.query(func.max(Prediction.report_sequence)).scalar()
+    _report_counter = max_id if max_id else 0
+
 class Prediction(Base):
     """Prediction model for mental health analysis results with continuous learning support"""
     __tablename__ = "predictions"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    report_id = Column(String(20), unique=True, nullable=True, index=True)  # CITTVOCXXX format
+    report_sequence = Column(Integer, nullable=True, index=True)  # Sequential number for report ID
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     voice_sample_id = Column(String(36), ForeignKey("voice_samples.id"), nullable=True, index=True)
     

@@ -28,7 +28,8 @@ class User(Base):
     # Profile information
     full_name = Column(String(255), nullable=True)
     phone = Column(String(20), nullable=True)
-    age_range = Column(String(20), nullable=True)
+    age = Column(Integer, nullable=True)  # Exact age for psychologist view
+    age_range = Column(String(20), nullable=True)  # Age range for privacy
     gender = Column(String(20), nullable=True)
     language_preference = Column(String(20), default="english")
     
