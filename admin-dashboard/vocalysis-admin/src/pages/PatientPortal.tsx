@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
   Mic, 
-  TrendingUp, 
   Calendar, 
   Activity,
   Heart,
@@ -9,7 +8,6 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  FileText,
   Download
 } from 'lucide-react';
 
@@ -97,9 +95,7 @@ const getSeverityLabel = (scale: string, score: number) => {
 };
 
 export default function PatientPortal() {
-  const [analysisHistory, setAnalysisHistory] = useState(mockAnalysisHistory);
-  const [selectedAnalysis, setSelectedAnalysis] = useState(mockAnalysisHistory[0]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [analysisHistory] = useState(mockAnalysisHistory);
 
   // In production, this would fetch from the API
   useEffect(() => {
@@ -269,8 +265,7 @@ export default function PatientPortal() {
           {analysisHistory.map((analysis) => (
             <div 
               key={analysis.id}
-              className="p-5 hover:bg-gray-50 transition-colors cursor-pointer"
-              onClick={() => setSelectedAnalysis(analysis)}
+              className="p-5 hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
