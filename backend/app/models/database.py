@@ -79,6 +79,19 @@ def sync_prediction_to_mongodb(prediction_dict):
         except Exception as e:
             print(f"Error syncing prediction to MongoDB: {e}")
 
+def sync_voice_sample_to_mongodb(sample_dict):
+    """Sync a voice sample record to MongoDB for permanent storage (metadata only, not audio)"""
+    db = get_mongo_client()
+    if db is not None:
+        try:
+            db.voice_samples.update_one(
+                {"id": sample_dict["id"]},
+                {"$set": sample_dict},
+                upsert=True
+            )
+        except Exception as e:
+            print(f"Error syncing voice sample to MongoDB: {e}")
+
 def restore_from_mongodb():
     """Restore data from MongoDB to SQLite on startup"""
     db = get_mongo_client()
@@ -88,6 +101,7 @@ def restore_from_mongodb():
     
     from app.models.user import User
     from app.models.prediction import Prediction
+    from app.models.voice_sample import VoiceSample
     
     session = SessionLocal()
     try:
@@ -107,6 +121,31 @@ def restore_from_mongodb():
                     if hasattr(existing, key) and key != "id":
                         setattr(existing, key, value)
                 users_updated += 1
+        
+        # Restore voice samples - both create new and update existing
+        samples_restored = 0
+        samples_updated = 0
+        for sample_doc in db.voice_samples.find():
+            sample_doc.pop("_id", None)
+            # Handle JSON fields
+            if "features" in sample_doc and isinstance(sample_doc["features"], dict):
+                import json
+                sample_doc["features"] = json.dumps(sample_doc["features"])
+            if "feature_vector" in sample_doc and isinstance(sample_doc["feature_vector"], list):
+                import json
+                sample_doc["feature_vector"] = json.dumps(sample_doc["feature_vector"])
+            
+            existing = session.query(VoiceSample).filter(VoiceSample.id == sample_doc.get("id")).first()
+            if not existing:
+                sample = VoiceSample(**sample_doc)
+                session.add(sample)
+                samples_restored += 1
+            else:
+                # Update existing sample with MongoDB data
+                for key, value in sample_doc.items():
+                    if hasattr(existing, key) and key != "id":
+                        setattr(existing, key, value)
+                samples_updated += 1
         
         # Restore predictions - both create new and update existing
         predictions_restored = 0
@@ -137,7 +176,7 @@ def restore_from_mongodb():
                 predictions_updated += 1
         
         session.commit()
-        print(f"Restored from MongoDB: {users_restored} new users, {users_updated} updated users, {predictions_restored} new predictions, {predictions_updated} updated predictions")
+        print(f"Restored from MongoDB: {users_restored} new users, {users_updated} updated users, {samples_restored} new voice samples, {samples_updated} updated voice samples, {predictions_restored} new predictions, {predictions_updated} updated predictions")
     except Exception as e:
         print(f"Error restoring from MongoDB: {e}")
         session.rollback()

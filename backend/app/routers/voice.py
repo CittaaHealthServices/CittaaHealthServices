@@ -11,7 +11,7 @@ import uuid
 import numpy as np
 import sys
 
-from app.models.database import get_db, sync_prediction_to_mongodb
+from app.models.database import get_db, sync_prediction_to_mongodb, sync_voice_sample_to_mongodb
 from app.models.user import User
 from app.models.voice_sample import VoiceSample
 from app.models.prediction import Prediction
@@ -80,6 +80,20 @@ async def upload_voice_sample(
     
     db.add(voice_sample)
     db.commit()
+    
+    # Sync voice sample to MongoDB for permanent storage
+    sync_voice_sample_to_mongodb({
+        "id": voice_sample.id,
+        "user_id": voice_sample.user_id,
+        "file_path": voice_sample.file_path,
+        "file_name": voice_sample.file_name,
+        "audio_format": voice_sample.audio_format,
+        "file_size": voice_sample.file_size,
+        "processing_status": voice_sample.processing_status,
+        "recorded_via": voice_sample.recorded_via,
+        "recorded_at": voice_sample.recorded_at,
+        "created_at": voice_sample.created_at
+    })
     
     return VoiceUploadResponse(
         sample_id=sample_id,
@@ -198,6 +212,24 @@ async def analyze_voice_sample(
             "voice_features": prediction.voice_features,
             "predicted_at": prediction.predicted_at,
             "created_at": prediction.created_at
+        })
+        
+        # Sync updated voice sample to MongoDB (with analysis results)
+        sync_voice_sample_to_mongodb({
+            "id": voice_sample.id,
+            "user_id": voice_sample.user_id,
+            "file_path": voice_sample.file_path,
+            "file_name": voice_sample.file_name,
+            "audio_format": voice_sample.audio_format,
+            "duration_seconds": voice_sample.duration_seconds,
+            "file_size": voice_sample.file_size,
+            "processing_status": voice_sample.processing_status,
+            "quality_score": voice_sample.quality_score,
+            "features": voice_sample.features,
+            "recorded_via": voice_sample.recorded_via,
+            "recorded_at": voice_sample.recorded_at,
+            "processed_at": voice_sample.processed_at,
+            "created_at": voice_sample.created_at
         })
         
         return PredictionResponse.model_validate(prediction)
