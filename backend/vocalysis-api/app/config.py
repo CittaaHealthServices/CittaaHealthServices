@@ -7,7 +7,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # MongoDB Configuration
-    mongodb_url: str = "mongodb+srv://cluster0.mongodb.net/"
+    mongodb_url: str = "mongodb+srv://sairam_db_user:Sairam%40123@cluster0.ao9qmj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
     mongodb_db_name: str = "vocalysis_prod"
     
     # JWT Configuration
