@@ -1,8 +1,18 @@
 import { useState } from 'react'
 import { Mic, Eye, EyeOff, Lock, Mail } from 'lucide-react'
 
+type UserRole = 'admin' | 'psychologist' | 'patient' | 'researcher'
+
 interface LoginPageProps {
-  onLogin: () => void
+  onLogin: (role: UserRole) => void
+}
+
+// Demo accounts with roles
+const DEMO_ACCOUNTS: Record<string, { password: string; role: UserRole }> = {
+  'admin@cittaa.in': { password: 'admin123', role: 'admin' },
+  'doctor@cittaa.in': { password: 'doctor123', role: 'psychologist' },
+  'patient@cittaa.in': { password: 'patient123', role: 'patient' },
+  'researcher@cittaa.in': { password: 'researcher123', role: 'researcher' }
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
@@ -17,12 +27,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setIsLoading(true)
     setError('')
 
-    // Simulate authentication
+    // Simulate authentication with role-based login
     setTimeout(() => {
-      if (email === 'admin@cittaa.in' && password === 'admin123') {
-        onLogin()
+      const account = DEMO_ACCOUNTS[email.toLowerCase()]
+      if (account && account.password === password) {
+        onLogin(account.role)
       } else {
-        setError('Invalid credentials. Use admin@cittaa.in / admin123')
+        setError('Invalid credentials. Try admin@cittaa.in / admin123 or patient@cittaa.in / patient123')
       }
       setIsLoading(false)
     }, 1000)
@@ -118,7 +129,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </form>
 
           <div className="mt-6 text-center text-sm text-gray-500">
-            <p>Demo credentials: admin@cittaa.in / admin123</p>
+            <p className="font-medium mb-2">Demo Accounts:</p>
+            <div className="space-y-1 text-xs">
+              <p><span className="text-[#8B5A96]">Admin:</span> admin@cittaa.in / admin123</p>
+              <p><span className="text-[#7BB3A8]">Patient:</span> patient@cittaa.in / patient123</p>
+              <p><span className="text-[#1E3A8A]">Doctor:</span> doctor@cittaa.in / doctor123</p>
+            </div>
           </div>
         </div>
 

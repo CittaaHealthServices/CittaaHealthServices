@@ -8,16 +8,30 @@ import { UserManagement } from './pages/UserManagement'
 import { Analytics } from './pages/Analytics'
 import { Settings } from './pages/Settings'
 import { LoginPage } from './pages/LoginPage'
+import PatientPortal from './pages/PatientPortal'
 import './App.css'
 
-export type Page = 'dashboard' | 'patients' | 'psychologists' | 'coupons' | 'users' | 'analytics' | 'settings'
+export type Page = 'dashboard' | 'patients' | 'psychologists' | 'coupons' | 'users' | 'analytics' | 'settings' | 'my-dashboard'
+export type UserRole = 'admin' | 'psychologist' | 'patient' | 'researcher'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
+  const [userRole, setUserRole] = useState<UserRole>('admin')
+
+  const handleLogin = (role: UserRole = 'admin') => {
+    setIsAuthenticated(true)
+    setUserRole(role)
+    // Set default page based on role
+    if (role === 'patient') {
+      setCurrentPage('my-dashboard')
+    } else {
+      setCurrentPage('dashboard')
+    }
+  }
 
   if (!isAuthenticated) {
-    return <LoginPage onLogin={() => setIsAuthenticated(true)} />
+    return <LoginPage onLogin={handleLogin} />
   }
 
   const renderPage = () => {
@@ -36,8 +50,11 @@ function App() {
         return <Analytics />
       case 'settings':
         return <Settings />
+      case 'my-dashboard':
+        return <PatientPortal />
       default:
-        return <Dashboard />
+        // Default based on role
+        return userRole === 'patient' ? <PatientPortal /> : <Dashboard />
     }
   }
 
