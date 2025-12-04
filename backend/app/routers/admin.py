@@ -164,10 +164,17 @@ async def approve_clinical_trial_participant(
         raise HTTPException(status_code=400, detail="User has not registered for clinical trial")
     
     user.trial_status = "approved"
+    user.is_active = True  # Activate user upon approval
     user.approved_by = current_user.id
     user.approval_date = datetime.utcnow()
     
     db.commit()
+    
+    # Sync to MongoDB
+    try:
+        sync_user_to_mongodb(user)
+    except Exception as e:
+        print(f"Failed to sync user to MongoDB: {e}")
     
     # Send approval email
     try:

@@ -12,9 +12,9 @@ import secrets
 from typing import Optional
 from pydantic import BaseModel
 
-from app.models.database import get_db
+from app.models.database import get_db, sync_user_to_mongodb
 from app.models.user import User, UserRole
-from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserUpdate, ConsentUpdate
+from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserUpdate, ConsentUpdate, ClinicalTrialRegistration
 from app.utils.config import settings
 from app.services.email_service import email_service
 
@@ -268,3 +268,62 @@ async def reset_password(request: PasswordResetRequest, db: Session = Depends(ge
     db.commit()
     
     return {"message": "Password has been reset successfully. You can now log in with your new password."}
+
+
+@router.post("/register-clinical-trial", response_model=Token)
+async def register_clinical_trial(user_data: UserCreate, db: Session = Depends(get_db)):
+    """
+    Register a new user for clinical trial participation.
+    Sets is_clinical_trial_participant=True and trial_status='pending'.
+    User must be approved by admin before they can access the platform.
+    """
+    # Check if email already exists
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+    
+    # Create new user with clinical trial flags
+    user = User(
+        email=user_data.email,
+        password_hash=hash_password(user_data.password),
+        full_name=user_data.full_name,
+        phone=user_data.phone,
+        age_range=user_data.age_range,
+        gender=user_data.gender,
+        language_preference=user_data.language_preference,
+        role="patient",  # Clinical trial participants are always patients
+        organization_id=user_data.organization_id,
+        employee_id=user_data.employee_id,
+        # Clinical trial specific fields
+        is_clinical_trial_participant=True,
+        trial_status="pending",
+        is_active=False  # User is inactive until approved by admin
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    # Sync to MongoDB for persistence
+    try:
+        sync_user_to_mongodb(user)
+    except Exception as e:
+        print(f"Failed to sync user to MongoDB: {e}")
+    
+    # Send clinical trial registration email
+    try:
+        email_service.send_clinical_trial_registration_email(user.email, user.full_name)
+    except Exception as e:
+        # Log but don't fail registration if email fails
+        print(f"Failed to send clinical trial registration email: {e}")
+    
+    # Create token (user can view their status but not access features until approved)
+    token = create_token(user.id, user.role)
+    
+    return Token(
+        access_token=token,
+        user=UserResponse.model_validate(user)
+    )
