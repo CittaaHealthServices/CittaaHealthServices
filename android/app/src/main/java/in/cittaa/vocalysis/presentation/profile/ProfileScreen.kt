@@ -158,7 +158,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     LinearProgressIndicator(
-                        progress = { 0.33f },
+                        progress = 0.33f,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)

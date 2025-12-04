@@ -358,7 +358,7 @@ fun RiskFactorItem(
             )
             Spacer(modifier = Modifier.height(4.dp))
             LinearProgressIndicator(
-                progress = { contribution / 100f },
+                progress = contribution / 100f,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)

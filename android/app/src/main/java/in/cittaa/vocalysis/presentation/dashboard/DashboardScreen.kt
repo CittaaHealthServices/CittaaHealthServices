@@ -148,13 +148,13 @@ fun DashboardScreen() {
                             contentAlignment = Alignment.Center
                         ) {
                             CircularProgressIndicator(
-                                progress = { 1f },
+                                progress = 1f,
                                 modifier = Modifier.fillMaxSize(),
                                 color = CittaaColors.SurfaceVariant,
                                 strokeWidth = 12.dp
                             )
                             CircularProgressIndicator(
-                                progress = { animatedScore / 100f },
+                                progress = animatedScore / 100f,
                                 modifier = Modifier.fillMaxSize(),
                                 color = CittaaColors.Primary,
                                 strokeWidth = 12.dp
@@ -310,7 +310,7 @@ fun DashboardScreen() {
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     LinearProgressIndicator(
-                        progress = { 3f / 9f },
+                        progress = 3f / 9f,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
