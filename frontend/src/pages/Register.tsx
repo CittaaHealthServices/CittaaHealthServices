@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Activity, Mail, Lock, User, Phone, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Activity, Mail, Lock, User, Phone, Eye, EyeOff, AlertCircle, CheckCircle, Clock } from 'lucide-react'
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -18,8 +18,8 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { register } = useAuth()
-  const navigate = useNavigate()
+  const [registrationComplete, setRegistrationComplete] = useState(false)
+  const { registerClinicalTrial } = useAuth()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -51,14 +51,16 @@ export default function Register() {
     setLoading(true)
 
     try {
-      await register({
+      await registerClinicalTrial({
         email: formData.email,
         password: formData.password,
         full_name: formData.full_name,
         phone: formData.phone,
-        role: 'patient'
+        age_range: formData.age_range,
+        gender: formData.gender
       })
-      navigate('/dashboard')
+      // Show pending approval message instead of navigating to dashboard
+      setRegistrationComplete(true)
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 
@@ -67,6 +69,55 @@ export default function Register() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show pending approval message after successful registration
+  if (registrationComplete) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-background to-secondary-50 flex items-center justify-center p-4 py-8">
+        <div className="w-full max-w-lg">
+          {/* Logo and Title */}
+          <div className="text-center mb-6 animate-slideUp">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-400 rounded-2xl shadow-lg mb-3">
+              <Activity className="w-7 h-7 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-primary-500">Vocalysis</h1>
+            <p className="text-gray-500 text-sm">Voice-based Mental Health Screening</p>
+          </div>
+
+          {/* Success Message */}
+          <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 animate-slideUp" style={{ animationDelay: '0.1s' }}>
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">Registration Successful!</h2>
+              <div className="flex items-center justify-center space-x-2 text-amber-600 bg-amber-50 rounded-lg p-3 mb-4">
+                <Clock className="w-5 h-5" />
+                <span className="text-sm font-medium">Pending Admin Approval</span>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Thank you for registering for the Vocalysis clinical trial. Your account has been created and is pending approval from our admin team.
+              </p>
+              <p className="text-gray-500 text-sm mb-6">
+                You will receive an email notification once your account has been approved. After approval, you can log in and start using the platform.
+              </p>
+              <Link
+                to="/login"
+                className="inline-block w-full py-3 px-4 rounded-lg font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 focus:ring-4 focus:ring-primary-200 transition-all duration-200 text-center"
+              >
+                Go to Login
+              </Link>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <p className="text-center text-gray-400 text-xs mt-4">
+            &copy; 2024 CITTAA Health Services Private Limited
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -78,12 +129,13 @@ export default function Register() {
             <Activity className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-primary-500">Vocalysis</h1>
-          <p className="text-gray-500 text-sm">Voice-based Mental Health Screening</p>
+          <p className="text-gray-500 text-sm">Clinical Trial Registration</p>
         </div>
 
         {/* Registration Form */}
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 animate-slideUp" style={{ animationDelay: '0.1s' }}>
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Create Your Account</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Register for Clinical Trial</h2>
+          <p className="text-gray-500 text-sm mb-4">Your registration will be reviewed by our admin team before you can access the platform.</p>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2 text-red-600 animate-fadeIn">

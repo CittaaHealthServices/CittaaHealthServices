@@ -118,6 +118,18 @@ export const authService = {
     return response.data
   },
   
+  registerClinicalTrial: async (data: {
+    email: string
+    password: string
+    full_name?: string
+    phone?: string
+    age_range?: string
+    gender?: string
+  }) => {
+    const response = await api.post('/auth/register-clinical-trial', data)
+    return response.data
+  },
+  
   getProfile: async () => {
     const response = await api.get('/auth/me')
     return response.data
