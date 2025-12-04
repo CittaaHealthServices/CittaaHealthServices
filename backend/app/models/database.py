@@ -91,36 +91,53 @@ def restore_from_mongodb():
     
     session = SessionLocal()
     try:
-        # Restore users
+        # Restore users - both create new and update existing
         users_restored = 0
+        users_updated = 0
         for user_doc in db.users.find():
+            user_doc.pop("_id", None)  # Remove MongoDB _id field
             existing = session.query(User).filter(User.id == user_doc.get("id")).first()
             if not existing:
-                # Remove MongoDB _id field
-                user_doc.pop("_id", None)
                 user = User(**user_doc)
                 session.add(user)
                 users_restored += 1
+            else:
+                # Update existing user with MongoDB data (MongoDB is source of truth)
+                for key, value in user_doc.items():
+                    if hasattr(existing, key) and key != "id":
+                        setattr(existing, key, value)
+                users_updated += 1
         
-        # Restore predictions
+        # Restore predictions - both create new and update existing
         predictions_restored = 0
+        predictions_updated = 0
         for pred_doc in db.predictions.find():
+            pred_doc.pop("_id", None)
+            # Handle JSON fields
+            if "voice_features" in pred_doc and isinstance(pred_doc["voice_features"], dict):
+                import json
+                pred_doc["voice_features"] = json.dumps(pred_doc["voice_features"])
+            if "recommendations" in pred_doc and isinstance(pred_doc["recommendations"], list):
+                import json
+                pred_doc["recommendations"] = json.dumps(pred_doc["recommendations"])
+            if "interpretations" in pred_doc and isinstance(pred_doc["interpretations"], list):
+                import json
+                pred_doc["interpretations"] = json.dumps(pred_doc["interpretations"])
+            
             existing = session.query(Prediction).filter(Prediction.id == pred_doc.get("id")).first()
             if not existing:
-                pred_doc.pop("_id", None)
-                # Handle JSON fields
-                if "voice_features" in pred_doc and isinstance(pred_doc["voice_features"], dict):
-                    import json
-                    pred_doc["voice_features"] = json.dumps(pred_doc["voice_features"])
-                if "recommendations" in pred_doc and isinstance(pred_doc["recommendations"], list):
-                    import json
-                    pred_doc["recommendations"] = json.dumps(pred_doc["recommendations"])
                 prediction = Prediction(**pred_doc)
                 session.add(prediction)
                 predictions_restored += 1
+            else:
+                # Update existing prediction with MongoDB data
+                for key, value in pred_doc.items():
+                    if hasattr(existing, key) and key != "id":
+                        setattr(existing, key, value)
+                predictions_updated += 1
         
         session.commit()
-        print(f"Restored from MongoDB: {users_restored} users, {predictions_restored} predictions")
+        print(f"Restored from MongoDB: {users_restored} new users, {users_updated} updated users, {predictions_restored} new predictions, {predictions_updated} updated predictions")
     except Exception as e:
         print(f"Error restoring from MongoDB: {e}")
         session.rollback()

@@ -12,7 +12,7 @@ import uuid
 import secrets
 import hashlib
 
-from app.models.database import get_db, sync_user_to_mongodb
+from app.models.database import get_db, sync_user_to_mongodb, get_mongo_client
 from app.models.user import User, UserRole
 from app.models.prediction import Prediction
 from app.models.voice_sample import VoiceSample
@@ -49,11 +49,11 @@ class AuditLog(BaseModel):
     ip_address: Optional[str]
     timestamp: datetime
 
-# In-memory audit log storage (in production, use MongoDB)
+# In-memory audit log storage (fallback if MongoDB unavailable)
 audit_logs = []
 
 def log_admin_action(admin_user: User, action: str, entity_type: str, entity_id: str = None, details: str = None):
-    """Log an admin action for audit trail"""
+    """Log an admin action for audit trail - persists to MongoDB"""
     log_entry = {
         "id": str(uuid.uuid4()),
         "user_id": admin_user.id,
@@ -65,10 +65,23 @@ def log_admin_action(admin_user: User, action: str, entity_type: str, entity_id:
         "ip_address": None,
         "timestamp": datetime.utcnow()
     }
-    audit_logs.append(log_entry)
-    # Keep only last 1000 logs in memory
-    if len(audit_logs) > 1000:
-        audit_logs.pop(0)
+    
+    # Persist to MongoDB for permanent storage
+    db = get_mongo_client()
+    if db is not None:
+        try:
+            db.audit_logs.insert_one(log_entry.copy())
+            print(f"[AUDIT LOG] Saved to MongoDB: {action} by {admin_user.email}")
+        except Exception as e:
+            print(f"[AUDIT LOG] MongoDB save failed: {e}")
+            # Fallback to in-memory
+            audit_logs.append(log_entry)
+    else:
+        # Fallback to in-memory if MongoDB not available
+        audit_logs.append(log_entry)
+        if len(audit_logs) > 1000:
+            audit_logs.pop(0)
+    
     return log_entry
 
 @router.get("/users")
@@ -628,7 +641,49 @@ async def get_audit_logs(
     current_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db)
 ):
-    """Get audit logs with optional filtering"""
+    """Get audit logs with optional filtering - reads from MongoDB"""
+    mongo_db = get_mongo_client()
+    
+    if mongo_db is not None:
+        try:
+            # Build MongoDB query
+            query = {}
+            if action:
+                query["action"] = action
+            if entity_type:
+                query["entity_type"] = entity_type
+            if user_email:
+                query["user_email"] = {"$regex": user_email, "$options": "i"}
+            
+            # Get total count
+            total = mongo_db.audit_logs.count_documents(query)
+            
+            # Get paginated logs sorted by timestamp descending
+            cursor = mongo_db.audit_logs.find(query).sort("timestamp", -1).skip(offset).limit(limit)
+            logs_list = list(cursor)
+            
+            return {
+                "total": total,
+                "logs": [
+                    {
+                        "id": log.get("id", str(log.get("_id", ""))),
+                        "user_id": log.get("user_id"),
+                        "user_email": log.get("user_email"),
+                        "action": log.get("action"),
+                        "entity_type": log.get("entity_type"),
+                        "entity_id": log.get("entity_id"),
+                        "details": log.get("details"),
+                        "ip_address": log.get("ip_address"),
+                        "timestamp": log["timestamp"].isoformat() if isinstance(log.get("timestamp"), datetime) else log.get("timestamp")
+                    }
+                    for log in logs_list
+                ]
+            }
+        except Exception as e:
+            print(f"[AUDIT LOG] MongoDB read failed: {e}")
+            # Fall through to in-memory fallback
+    
+    # Fallback to in-memory logs if MongoDB unavailable
     filtered_logs = audit_logs.copy()
     
     if action:
