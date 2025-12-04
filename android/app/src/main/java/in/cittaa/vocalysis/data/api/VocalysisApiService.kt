@@ -7,17 +7,18 @@ import retrofit2.http.*
 
 /**
  * Vocalysis API Service
- * Backend URL: https://app-jmhylxew.fly.dev/api/v1
+ * Backend URL: https://vocalysis-backend-1081764900204.us-central1.run.app/api/v1
+ * Deployed on Google Cloud Run
  */
 interface VocalysisApiService {
 
     companion object {
-        // Use BuildConfig.API_BASE_URL in production
-        const val BASE_URL = "https://app-jmhylxew.fly.dev/api/v1/"
+        // Google Cloud Run Backend URL
+        const val BASE_URL = "https://vocalysis-backend-1081764900204.us-central1.run.app/api/v1/"
     }
 
     // Authentication Endpoints
-    @POST("auth/register")
+    @POST("auth/register-clinical-trial")
     suspend fun register(
         @Body request: RegisterRequest
     ): Response<AuthResponse>
