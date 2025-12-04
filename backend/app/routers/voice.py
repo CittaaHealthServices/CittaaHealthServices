@@ -477,3 +477,270 @@ async def download_report_pdf(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
+
+
+# ============================================
+# Personalization & Outcome Prediction Endpoints
+# ============================================
+
+@router.get("/personalization/baseline")
+async def get_personalization_baseline(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get user's personalized baseline from their voice samples.
+    Requires minimum 9 samples to establish baseline.
+    """
+    from app.services.personalization_service import PersonalizationService
+    
+    personalization_service = PersonalizationService(db)
+    baseline = personalization_service.get_user_baseline(current_user.id)
+    
+    if not baseline:
+        sample_count = db.query(Prediction).filter(
+            Prediction.user_id == current_user.id
+        ).count()
+        return {
+            "baseline_established": False,
+            "samples_collected": sample_count,
+            "samples_required": 9,
+            "message": f"Collect {max(0, 9 - sample_count)} more samples to establish your personal baseline"
+        }
+    
+    return baseline
+
+
+@router.get("/personalization/summary")
+async def get_personalization_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get complete personalization summary including baseline and outcome prediction.
+    """
+    from app.services.personalization_service import PersonalizationService
+    
+    personalization_service = PersonalizationService(db)
+    return personalization_service.get_personalization_summary(current_user.id)
+
+
+@router.get("/prediction/outcome")
+async def get_outcome_prediction(
+    days: int = 7,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Predict mental health outcome/deterioration risk based on recent trends.
+    
+    Args:
+        days: Number of days to look back for trend analysis (default: 7)
+    """
+    from app.services.personalization_service import PersonalizationService
+    
+    personalization_service = PersonalizationService(db)
+    return personalization_service.predict_outcome(current_user.id, days)
+
+
+@router.get("/prediction/trends")
+async def get_trend_analysis(
+    days: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get detailed trend analysis for mental health metrics over time.
+    
+    Args:
+        days: Number of days to analyze (default: 30)
+    """
+    from datetime import timedelta
+    from sqlalchemy import desc
+    
+    # Get predictions within the time period
+    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    predictions = db.query(Prediction).filter(
+        Prediction.user_id == current_user.id,
+        Prediction.created_at >= cutoff_date
+    ).order_by(Prediction.created_at).all()
+    
+    if len(predictions) < 2:
+        return {
+            "trend_available": False,
+            "message": "Need at least 2 samples for trend analysis",
+            "samples_in_period": len(predictions)
+        }
+    
+    # Build time series data
+    time_series = []
+    for pred in predictions:
+        time_series.append({
+            "date": pred.created_at.isoformat(),
+            "mental_health_score": pred.mental_health_score,
+            "phq9": pred.phq9_score,
+            "gad7": pred.gad7_score,
+            "pss": pred.pss_score,
+            "wemwbs": pred.wemwbs_score,
+            "risk_level": pred.overall_risk_level,
+            "normal": pred.normal_score,
+            "anxiety": pred.anxiety_score,
+            "depression": pred.depression_score,
+            "stress": pred.stress_score
+        })
+    
+    # Calculate summary statistics
+    import numpy as np
+    
+    mh_scores = [p.mental_health_score for p in predictions if p.mental_health_score is not None]
+    
+    summary = {
+        "period_days": days,
+        "total_samples": len(predictions),
+        "first_sample": predictions[0].created_at.isoformat(),
+        "last_sample": predictions[-1].created_at.isoformat()
+    }
+    
+    if mh_scores:
+        summary["mental_health_score"] = {
+            "current": mh_scores[-1],
+            "average": round(np.mean(mh_scores), 1),
+            "min": round(min(mh_scores), 1),
+            "max": round(max(mh_scores), 1),
+            "change": round(mh_scores[-1] - mh_scores[0], 1) if len(mh_scores) > 1 else 0
+        }
+    
+    return {
+        "trend_available": True,
+        "summary": summary,
+        "time_series": time_series
+    }
+
+
+@router.post("/analyze-with-personalization/{sample_id}")
+async def analyze_with_personalization(
+    sample_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Analyze voice sample with personalized baseline comparison.
+    Returns enhanced analysis with deviation from personal baseline.
+    """
+    from app.services.personalization_service import PersonalizationService
+    
+    # Get voice sample
+    voice_sample = db.query(VoiceSample).filter(
+        VoiceSample.id == sample_id,
+        VoiceSample.user_id == current_user.id
+    ).first()
+    
+    if not voice_sample:
+        raise HTTPException(status_code=404, detail="Voice sample not found")
+    
+    # Update status
+    voice_sample.processing_status = "processing"
+    db.commit()
+    
+    try:
+        # Run standard analysis
+        result = voice_service.analyze_audio(voice_sample.file_path)
+        
+        if "error" in result:
+            voice_sample.processing_status = "failed"
+            voice_sample.validation_message = result["error"]
+            db.commit()
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        # Enhance with personalization
+        personalization_service = PersonalizationService(db)
+        enhanced_result = personalization_service.analyze_with_personalization(
+            current_user.id, result
+        )
+        
+        # Update voice sample
+        voice_sample.processing_status = "completed"
+        voice_sample.duration_seconds = result.get("features", {}).get("duration", 0)
+        voice_sample.quality_score = result.get("confidence", 0)
+        voice_sample.features = result.get("features", {})
+        voice_sample.processed_at = datetime.utcnow()
+        
+        # Update user's sample collection progress
+        current_user.voice_samples_collected = (current_user.voice_samples_collected or 0) + 1
+        
+        # Check if baseline is established (9+ samples)
+        if current_user.voice_samples_collected >= current_user.target_samples:
+            current_user.baseline_established = True
+        
+        # Create prediction record with personalization data
+        personalization_data = enhanced_result.get("personalization", {})
+        
+        prediction = Prediction(
+            user_id=current_user.id,
+            voice_sample_id=sample_id,
+            model_version="v1.0-personalized",
+            model_type="ensemble_personalized",
+            normal_score=float(result["probabilities"][0]),
+            anxiety_score=float(result["probabilities"][1]),
+            depression_score=float(result["probabilities"][2]),
+            stress_score=float(result["probabilities"][3]),
+            overall_risk_level=personalization_data.get("adjusted_risk_level", result.get("risk_level", "low")),
+            mental_health_score=result.get("mental_health_score", 0),
+            confidence=result.get("confidence", 0),
+            phq9_score=result.get("scale_mappings", {}).get("PHQ-9", 0),
+            phq9_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PHQ-9", ""),
+            gad7_score=result.get("scale_mappings", {}).get("GAD-7", 0),
+            gad7_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("GAD-7", ""),
+            pss_score=result.get("scale_mappings", {}).get("PSS", 0),
+            pss_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PSS", ""),
+            wemwbs_score=result.get("scale_mappings", {}).get("WEMWBS", 0),
+            wemwbs_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("WEMWBS", ""),
+            interpretations=result.get("interpretations", []),
+            recommendations=result.get("recommendations", []),
+            voice_features=result.get("features", {})
+        )
+        
+        db.add(prediction)
+        db.commit()
+        db.refresh(prediction)
+        
+        # Sync to MongoDB
+        sync_prediction_to_mongodb({
+            "id": prediction.id,
+            "user_id": prediction.user_id,
+            "voice_sample_id": prediction.voice_sample_id,
+            "model_version": prediction.model_version,
+            "model_type": prediction.model_type,
+            "normal_score": prediction.normal_score,
+            "anxiety_score": prediction.anxiety_score,
+            "depression_score": prediction.depression_score,
+            "stress_score": prediction.stress_score,
+            "overall_risk_level": prediction.overall_risk_level,
+            "mental_health_score": prediction.mental_health_score,
+            "confidence": prediction.confidence,
+            "phq9_score": prediction.phq9_score,
+            "phq9_severity": prediction.phq9_severity,
+            "gad7_score": prediction.gad7_score,
+            "gad7_severity": prediction.gad7_severity,
+            "pss_score": prediction.pss_score,
+            "pss_severity": prediction.pss_severity,
+            "wemwbs_score": prediction.wemwbs_score,
+            "wemwbs_severity": prediction.wemwbs_severity,
+            "interpretations": prediction.interpretations,
+            "recommendations": prediction.recommendations,
+            "voice_features": prediction.voice_features,
+            "predicted_at": prediction.predicted_at,
+            "created_at": prediction.created_at
+        })
+        
+        # Return enhanced result with prediction ID
+        enhanced_result["prediction_id"] = prediction.id
+        return enhanced_result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        voice_sample.processing_status = "failed"
+        voice_sample.validation_message = str(e)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
