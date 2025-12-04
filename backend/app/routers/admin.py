@@ -290,7 +290,7 @@ async def update_user_role(
     db: Session = Depends(get_db)
 ):
     """Update user role (super admin only)"""
-    valid_roles = ["patient", "psychologist", "hr_admin", "super_admin", "researcher"]
+    valid_roles = ["patient", "psychologist", "hr_admin", "super_admin", "admin", "researcher"]
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Invalid role. Valid roles: {valid_roles}")
     

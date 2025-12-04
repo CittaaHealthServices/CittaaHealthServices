@@ -68,6 +68,7 @@ export default function UserManagement() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'super_admin': return 'bg-error/10 text-error'
+      case 'admin': return 'bg-error/10 text-error'
       case 'hr_admin': return 'bg-warning/10 text-warning'
       case 'psychologist': return 'bg-primary-100 text-primary-600'
       case 'researcher': return 'bg-secondary-100 text-secondary-600'
@@ -149,6 +150,7 @@ export default function UserManagement() {
               <option value="">All Roles</option>
               <option value="patient">Patient</option>
               <option value="psychologist">Psychologist</option>
+              <option value="admin">Admin</option>
               <option value="hr_admin">HR Admin</option>
               <option value="super_admin">Super Admin</option>
               <option value="researcher">Researcher</option>
@@ -256,7 +258,7 @@ export default function UserManagement() {
                               <div className="px-3 py-2 border-b border-gray-100">
                                 <p className="text-xs text-gray-500">Change Role</p>
                               </div>
-                              {['patient', 'psychologist', 'hr_admin', 'researcher'].map((role) => (
+                              {['patient', 'psychologist', 'admin', 'hr_admin', 'researcher'].map((role) => (
                                 <button
                                   key={role}
                                   onClick={() => handleRoleChange(user.id, role)}
