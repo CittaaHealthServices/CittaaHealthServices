@@ -37,10 +37,10 @@ fun VoiceRecordingScreen(
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = if (isRecording) 1.15f else 1.05f,
+        targetValue = if (uiState.isRecording) 1.15f else 1.05f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = if (isRecording) 500 else 2000,
+                durationMillis = if (uiState.isRecording) 500 else 2000,
                 easing = EaseInOutSine
             ),
             repeatMode = RepeatMode.Reverse
@@ -50,10 +50,10 @@ fun VoiceRecordingScreen(
     
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
-        targetValue = if (isRecording) 0.6f else 0.1f,
+        targetValue = if (uiState.isRecording) 0.6f else 0.1f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = if (isRecording) 500 else 2000,
+                durationMillis = if (uiState.isRecording) 500 else 2000,
                 easing = EaseInOutSine
             ),
             repeatMode = RepeatMode.Reverse
@@ -131,7 +131,49 @@ fun VoiceRecordingScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Error Card
+        AnimatedVisibility(
+            visible = uiState.error != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = CittaaColors.Error.copy(alpha = 0.1f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Error,
+                        contentDescription = null,
+                        tint = CittaaColors.Error
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = uiState.error ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = CittaaColors.Error,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { viewModel.clearError() }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Dismiss",
+                            tint = CittaaColors.Error
+                        )
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
         
         // Recording Visualization
         Box(
@@ -145,7 +187,7 @@ fun VoiceRecordingScreen(
                     .scale(pulseScale)
                     .clip(CircleShape)
                     .background(
-                        if (isRecording) CittaaColors.Error.copy(alpha = pulseAlpha)
+                        if (uiState.isRecording) CittaaColors.Error.copy(alpha = pulseAlpha)
                         else CittaaColors.Primary.copy(alpha = pulseAlpha)
                     )
             )
@@ -160,9 +202,9 @@ fun VoiceRecordingScreen(
             )
             
             // Waveform visualization
-            if (isRecording) {
+            if (uiState.isRecording) {
                 WaveformVisualization(
-                    audioLevel = audioLevel,
+                    audioLevel = uiState.audioLevel,
                     modifier = Modifier.size(200.dp)
                 )
             }
@@ -174,7 +216,7 @@ fun VoiceRecordingScreen(
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
-                            colors = if (isRecording) 
+                            colors = if (uiState.isRecording) 
                                 listOf(CittaaColors.Error, CittaaColors.Accent)
                             else 
                                 listOf(CittaaColors.Primary, CittaaColors.Secondary)
@@ -182,27 +224,59 @@ fun VoiceRecordingScreen(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (isRecording) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = formatDuration(recordingDuration),
-                            style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Recording...",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.8f)
+                when {
+                    uiState.isUploading -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                progress = { uiState.uploadProgress },
+                                color = Color.White,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Uploading...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                    uiState.isAnalyzing -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Analyzing...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                    uiState.isRecording -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = formatDuration(uiState.recordingDuration),
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Recording...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                    else -> {
+                        Icon(
+                            imageVector = Icons.Filled.Mic,
+                            contentDescription = "Record",
+                            tint = Color.White,
+                            modifier = Modifier.size(64.dp)
                         )
                     }
-                } else {
-                    Icon(
-                        imageVector = Icons.Filled.Mic,
-                        contentDescription = "Record",
-                        tint = Color.White,
-                        modifier = Modifier.size(64.dp)
-                    )
                 }
             }
         }
@@ -211,7 +285,7 @@ fun VoiceRecordingScreen(
         
         // Recording Status
         AnimatedVisibility(
-            visible = isRecording,
+            visible = uiState.isRecording,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically()
         ) {
@@ -219,7 +293,7 @@ fun VoiceRecordingScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (recordingDuration < 30) 
+                    containerColor = if (uiState.recordingDuration < 10) 
                         CittaaColors.Warning.copy(alpha = 0.1f)
                     else 
                         CittaaColors.Success.copy(alpha = 0.1f)
@@ -230,19 +304,69 @@ fun VoiceRecordingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = if (recordingDuration < 30) Icons.Filled.Info else Icons.Filled.CheckCircle,
+                        imageVector = if (uiState.recordingDuration < 10) Icons.Filled.Info else Icons.Filled.CheckCircle,
                         contentDescription = null,
-                        tint = if (recordingDuration < 30) CittaaColors.Warning else CittaaColors.Success
+                        tint = if (uiState.recordingDuration < 10) CittaaColors.Warning else CittaaColors.Success
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = if (recordingDuration < 30) 
-                            "Keep recording... ${30 - recordingDuration}s more needed"
+                        text = if (uiState.recordingDuration < 10) 
+                            "Keep recording... ${10 - uiState.recordingDuration}s more needed"
                         else 
                             "Ready to analyze! You can stop now.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (recordingDuration < 30) CittaaColors.Warning else CittaaColors.Success
+                        color = if (uiState.recordingDuration < 10) CittaaColors.Warning else CittaaColors.Success
                     )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Analysis Result Card
+        AnimatedVisibility(
+            visible = uiState.analysisResult != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            uiState.analysisResult?.let { result ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Analysis Results",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        ResultRow("Depression", result.depression_score, CittaaColors.Error)
+                        ResultRow("Anxiety", result.anxiety_score, CittaaColors.Warning)
+                        ResultRow("Stress", result.stress_score, CittaaColors.Accent)
+                        ResultRow("Normal", result.normal_score, CittaaColors.Success)
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Confidence",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = CittaaColors.TextSecondary
+                            )
+                            Text(
+                                text = "${(result.confidence * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -255,52 +379,68 @@ fun VoiceRecordingScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isRecording) {
-                // Stop Button
-                Button(
-                    onClick = {
-                        isRecording = false
-                        if (recordingDuration >= 30) {
-                            showResults = true
-                        }
-                    },
-                    modifier = Modifier
-                        .height(56.dp)
-                        .weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = CittaaColors.Error
-                    )
-                ) {
-                    Icon(Icons.Filled.Stop, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (recordingDuration >= 30) "Stop & Analyze" else "Stop",
-                        fontWeight = FontWeight.SemiBold
-                    )
+            when {
+                uiState.isUploading || uiState.isAnalyzing -> {
+                    // Show disabled button while processing
+                    Button(
+                        onClick = { },
+                        enabled = false,
+                        modifier = Modifier
+                            .height(56.dp)
+                            .fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (uiState.isUploading) "Uploading..." else "Analyzing...",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
-            } else {
-                // Start Recording Button
-                Button(
-                    onClick = {
-                        isRecording = true
-                        recordingDuration = 0
-                        showResults = false
-                    },
-                    modifier = Modifier
-                        .height(56.dp)
-                        .fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = CittaaColors.Primary
-                    )
-                ) {
-                    Icon(Icons.Filled.Mic, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Start Recording",
-                        fontWeight = FontWeight.SemiBold
-                    )
+                uiState.isRecording -> {
+                    // Stop Button
+                    Button(
+                        onClick = { viewModel.stopRecording() },
+                        modifier = Modifier
+                            .height(56.dp)
+                            .fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CittaaColors.Error
+                        )
+                    ) {
+                        Icon(Icons.Filled.Stop, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (uiState.recordingDuration >= 10) "Stop & Analyze" else "Stop",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                else -> {
+                    // Start Recording Button
+                    Button(
+                        onClick = { viewModel.startRecording() },
+                        modifier = Modifier
+                            .height(56.dp)
+                            .fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CittaaColors.Primary
+                        )
+                    ) {
+                        Icon(Icons.Filled.Mic, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Start Recording",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
@@ -342,6 +482,37 @@ fun VoiceRecordingScreen(
         }
         
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun ResultRow(label: String, score: Float, color: Color) {
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = "${(score * 100).toInt()}%",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = color
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = { score },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp)),
+            color = color,
+            trackColor = color.copy(alpha = 0.2f)
+        )
     }
 }
 
