@@ -34,12 +34,24 @@ fun PredictionsScreen(
     var selectedWindow by remember { mutableStateOf(14) }
     val predictionWindows = listOf(7, 14, 30)
     
+    // Refresh predictions data when screen becomes visible
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+    
     // Animated risk percentage from real data
     val animatedRisk by animateFloatAsState(
         targetValue = uiState.riskPercentage,
         animationSpec = tween(1500, easing = EaseOutCubic),
         label = "risk"
     )
+    
+    // Show error if any
+    uiState.error?.let { error ->
+        LaunchedEffect(error) {
+            // Error will be shown in UI
+        }
+    }
     
     Column(
         modifier = Modifier

@@ -33,6 +33,11 @@ fun TrendsScreen(
     
     val metrics = listOf("Overall", "PHQ-9", "GAD-7", "PSS", "WEMWBS")
     
+    // Refresh trends data when screen becomes visible
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -131,11 +136,12 @@ fun TrendsScreen(
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                // Chart
+                // Chart - pass real data from ViewModel
                 TrendChart(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp),
+                    dataPoints = uiState.trendData.mapNotNull { it.mental_health_score?.times(100) },
                     color = CittaaColors.Primary
                 )
                 
@@ -200,8 +206,8 @@ fun TrendsScreen(
                 
                 ScoreComparisonBar(
                     label = "PHQ-9",
-                    currentScore = 5,
-                    previousScore = 7,
+                    currentScore = uiState.currentPhq9,
+                    previousScore = uiState.previousPhq9,
                     maxScore = 27,
                     color = CittaaColors.PHQ9Color
                 )
@@ -210,8 +216,8 @@ fun TrendsScreen(
                 
                 ScoreComparisonBar(
                     label = "GAD-7",
-                    currentScore = 4,
-                    previousScore = 6,
+                    currentScore = uiState.currentGad7,
+                    previousScore = uiState.previousGad7,
                     maxScore = 21,
                     color = CittaaColors.GAD7Color
                 )
@@ -220,8 +226,8 @@ fun TrendsScreen(
                 
                 ScoreComparisonBar(
                     label = "PSS",
-                    currentScore = 12,
-                    previousScore = 15,
+                    currentScore = uiState.currentPss,
+                    previousScore = uiState.previousPss,
                     maxScore = 40,
                     color = CittaaColors.PSSColor
                 )
@@ -230,8 +236,8 @@ fun TrendsScreen(
                 
                 ScoreComparisonBar(
                     label = "WEMWBS",
-                    currentScore = 52,
-                    previousScore = 48,
+                    currentScore = uiState.currentWemwbs,
+                    previousScore = uiState.previousWemwbs,
                     maxScore = 70,
                     color = CittaaColors.WEMWBSColor
                 )
@@ -327,10 +333,11 @@ fun PeriodChip(
 @Composable
 fun TrendChart(
     modifier: Modifier = Modifier,
+    dataPoints: List<Float> = emptyList(),
     color: Color
 ) {
-    // Sample data points
-    val dataPoints = listOf(65f, 70f, 68f, 72f, 75f, 73f, 78f, 76f, 80f, 72f)
+    // Use real data if available, otherwise show placeholder
+    val chartData = if (dataPoints.isNotEmpty()) dataPoints else listOf(50f)
     
     Canvas(modifier = modifier) {
         val width = size.width
@@ -341,8 +348,11 @@ fun TrendChart(
         val path = Path()
         val fillPath = Path()
         
-        dataPoints.forEachIndexed { index, value ->
-            val x = (index.toFloat() / (dataPoints.size - 1)) * width
+        // Handle single data point case
+        val pointCount = chartData.size.coerceAtLeast(1)
+        
+        chartData.forEachIndexed { index, value ->
+            val x = if (pointCount > 1) (index.toFloat() / (pointCount - 1)) * width else width / 2
             val y = height - ((value - minValue) / (maxValue - minValue)) * height
             
             if (index == 0) {
@@ -377,8 +387,8 @@ fun TrendChart(
         )
         
         // Draw points
-        dataPoints.forEachIndexed { index, value ->
-            val x = (index.toFloat() / (dataPoints.size - 1)) * width
+        chartData.forEachIndexed { index, value ->
+            val x = if (pointCount > 1) (index.toFloat() / (pointCount - 1)) * width else width / 2
             val y = height - ((value - minValue) / (maxValue - minValue)) * height
             
             drawCircle(

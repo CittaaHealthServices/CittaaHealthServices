@@ -33,6 +33,11 @@ fun DashboardScreen(
     val uiState = viewModel.uiState
     val scrollState = rememberScrollState()
     
+    // Refresh dashboard data when screen becomes visible
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+    
     // Animated score based on real data
     var targetScore by remember { mutableStateOf(0f) }
     val animatedScore by animateFloatAsState(
