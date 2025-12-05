@@ -154,8 +154,8 @@ fun ProfileScreen(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
-                    val samplesCollected = uiState.sampleProgress?.samples_collected ?: uiState.user?.voice_samples_collected ?: 0
-                    val targetSamples = uiState.sampleProgress?.target_samples ?: uiState.user?.target_samples ?: 9
+                    val samplesCollected = uiState.sampleProgress?.samples_collected ?: 0
+                    val targetSamples = uiState.sampleProgress?.target_samples ?: 9
                     val progress = if (targetSamples > 0) samplesCollected.toFloat() / targetSamples else 0f
                     val percentComplete = (progress * 100).toInt()
                     Text(
