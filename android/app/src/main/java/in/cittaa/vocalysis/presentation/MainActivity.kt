@@ -21,20 +21,25 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import dagger.hilt.android.AndroidEntryPoint
 import `in`.cittaa.vocalysis.presentation.auth.AuthViewModel
 import `in`.cittaa.vocalysis.presentation.auth.LoginScreen
 import `in`.cittaa.vocalysis.presentation.dashboard.DashboardScreen
 import `in`.cittaa.vocalysis.presentation.predictions.PredictionsScreen
 import `in`.cittaa.vocalysis.presentation.profile.ProfileScreen
+import `in`.cittaa.vocalysis.presentation.psychologist.PatientDetailScreen
 import `in`.cittaa.vocalysis.presentation.psychologist.PsychologistDashboardScreen
 import `in`.cittaa.vocalysis.presentation.recording.VoiceRecordingScreen
 import `in`.cittaa.vocalysis.presentation.theme.VocalysisTheme
 import `in`.cittaa.vocalysis.presentation.trends.TrendsScreen
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -323,13 +328,33 @@ fun PsychologistAppContent(
             }
         ) {
             composable(PsychologistScreen.Dashboard.route) {
-                PsychologistDashboardScreen()
+                PsychologistDashboardScreen(
+                    onPatientClick = { patientId ->
+                        navController.navigate("patient_detail/$patientId")
+                    }
+                )
             }
             composable(PsychologistScreen.Patients.route) {
-                PsychologistDashboardScreen() // Reuse for now, shows patients list
+                PsychologistDashboardScreen(
+                    onPatientClick = { patientId ->
+                        navController.navigate("patient_detail/$patientId")
+                    }
+                )
             }
             composable(PsychologistScreen.Profile.route) {
                 ProfileScreen(onLogout = onLogout)
+            }
+            
+            // Patient Detail Screen
+            composable(
+                route = "patient_detail/{patientId}",
+                arguments = listOf(
+                    navArgument("patientId") { type = NavType.StringType }
+                )
+            ) {
+                PatientDetailScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
             }
         }
     }
