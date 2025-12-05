@@ -19,7 +19,9 @@ data class AuthUiState(
     val error: String? = null,
     val userName: String? = null,
     val userEmail: String? = null,
-    val userRole: String? = null
+    val userRole: String? = null,
+    val forgotPasswordSuccess: Boolean = false,
+    val forgotPasswordMessage: String? = null
 )
 
 @HiltViewModel
@@ -192,5 +194,47 @@ class AuthViewModel @Inject constructor(
 
     fun clearError() {
         uiState = uiState.copy(error = null)
+    }
+
+    fun forgotPassword(email: String) {
+        if (email.isBlank()) {
+            uiState = uiState.copy(error = "Please enter your email address")
+            return
+        }
+
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, error = null, forgotPasswordSuccess = false)
+            
+            try {
+                val response = api.forgotPassword(email)
+                
+                if (response.isSuccessful) {
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        forgotPasswordSuccess = true,
+                        forgotPasswordMessage = "Password reset link sent to your email",
+                        error = null
+                    )
+                } else {
+                    // Backend always returns success to prevent email enumeration
+                    // So we show success message regardless
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        forgotPasswordSuccess = true,
+                        forgotPasswordMessage = "If an account exists with this email, you will receive a password reset link",
+                        error = null
+                    )
+                }
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isLoading = false,
+                    error = "Network error: ${e.message ?: "Please check your connection"}"
+                )
+            }
+        }
+    }
+
+    fun clearForgotPasswordState() {
+        uiState = uiState.copy(forgotPasswordSuccess = false, forgotPasswordMessage = null)
     }
 }

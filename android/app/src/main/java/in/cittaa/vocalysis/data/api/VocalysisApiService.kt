@@ -31,6 +31,11 @@ interface VocalysisApiService {
     @GET("auth/me")
     suspend fun getCurrentUser(): Response<UserResponse>
 
+    @POST("auth/forgot-password")
+    suspend fun forgotPassword(
+        @Query("email") email: String
+    ): Response<ForgotPasswordResponse>
+
     // Voice Analysis Endpoints - Aligned with backend API
     @Multipart
     @POST("voice/upload")
@@ -387,4 +392,9 @@ data class ApprovalResponse(
 
 data class RejectionRequest(
     val reason: String
+)
+
+// Forgot Password Response
+data class ForgotPasswordResponse(
+    val message: String
 )

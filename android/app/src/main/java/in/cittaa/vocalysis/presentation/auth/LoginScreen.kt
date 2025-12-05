@@ -53,8 +53,18 @@ fun LoginScreen(
     var fullName by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showForgotPasswordDialog by remember { mutableStateOf(false) }
+    var forgotPasswordEmail by remember { mutableStateOf("") }
     
     val focusManager = LocalFocusManager.current
+    
+    // Handle forgot password success
+    LaunchedEffect(uiState.forgotPasswordSuccess) {
+        if (uiState.forgotPasswordSuccess) {
+            showForgotPasswordDialog = false
+            forgotPasswordEmail = ""
+        }
+    }
     
     // Animated logo pulse
     val infiniteTransition = rememberInfiniteTransition(label = "logo")
@@ -330,10 +340,28 @@ fun LoginScreen(
                         }
                     }
                     
-                    // Forgot Password - Currently not supported by backend
-                    // Hidden until backend implements password reset functionality
+                    // Forgot Password Button - Only show in login mode
+                    AnimatedVisibility(
+                        visible = isLoginMode,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        TextButton(
+                            onClick = { 
+                                forgotPasswordEmail = email
+                                showForgotPasswordDialog = true 
+                            },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text(
+                                text = "Forgot Password?",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = CittaaColors.Primary
+                            )
+                        }
+                    }
                     
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     
                     // Submit Button
                     Button(
@@ -439,6 +467,120 @@ fun LoginScreen(
             )
             
             Spacer(modifier = Modifier.height(32.dp))
+        }
+        
+        // Forgot Password Dialog
+        if (showForgotPasswordDialog) {
+            AlertDialog(
+                onDismissRequest = { 
+                    showForgotPasswordDialog = false
+                    viewModel.clearForgotPasswordState()
+                },
+                title = {
+                    Text(
+                        text = "Reset Password",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = "Enter your email address and we'll send you a link to reset your password.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = CittaaColors.TextSecondary
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Success message
+                        if (uiState.forgotPasswordSuccess) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = CittaaColors.Success.copy(alpha = 0.1f)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = null,
+                                        tint = CittaaColors.Success,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = uiState.forgotPasswordMessage ?: "Email sent!",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = CittaaColors.Success
+                                    )
+                                }
+                            }
+                        } else {
+                            OutlinedTextField(
+                                value = forgotPasswordEmail,
+                                onValueChange = { forgotPasswordEmail = it },
+                                label = { Text("Email") },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Email, contentDescription = null)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Email,
+                                    imeAction = ImeAction.Done
+                                ),
+                                singleLine = true
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    if (uiState.forgotPasswordSuccess) {
+                        TextButton(
+                            onClick = { 
+                                showForgotPasswordDialog = false
+                                viewModel.clearForgotPasswordState()
+                            }
+                        ) {
+                            Text("Done", color = CittaaColors.Primary)
+                        }
+                    } else {
+                        Button(
+                            onClick = { viewModel.forgotPassword(forgotPasswordEmail) },
+                            enabled = !uiState.isLoading && forgotPasswordEmail.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = CittaaColors.Primary)
+                        ) {
+                            if (uiState.isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Send Reset Link")
+                            }
+                        }
+                    }
+                },
+                dismissButton = {
+                    if (!uiState.forgotPasswordSuccess) {
+                        TextButton(
+                            onClick = { 
+                                showForgotPasswordDialog = false
+                                viewModel.clearForgotPasswordState()
+                            }
+                        ) {
+                            Text("Cancel", color = CittaaColors.TextSecondary)
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(16.dp)
+            )
         }
     }
 }
