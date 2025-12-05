@@ -200,6 +200,12 @@ class VoiceRecordingViewModel @Inject constructor(
     fun clearResult() {
         uiState = uiState.copy(analysisResult = null)
     }
+    
+    fun onMicrophonePermissionDenied() {
+        uiState = uiState.copy(
+            error = "Microphone permission is required to record audio. Please grant permission in Settings."
+        )
+    }
 
     override fun onCleared() {
         super.onCleared()

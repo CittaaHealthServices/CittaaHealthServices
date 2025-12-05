@@ -19,13 +19,16 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import `in`.cittaa.vocalysis.data.models.TrendPeriod
 import `in`.cittaa.vocalysis.presentation.theme.CittaaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrendsScreen() {
-    var selectedPeriod by remember { mutableStateOf(TrendPeriod.MONTH) }
+fun TrendsScreen(
+    viewModel: TrendsViewModel = hiltViewModel()
+) {
+    val uiState = viewModel.uiState
     var selectedMetric by remember { mutableStateOf("Overall") }
     
     val metrics = listOf("Overall", "PHQ-9", "GAD-7", "PSS", "WEMWBS")
@@ -66,8 +69,8 @@ fun TrendsScreen() {
             TrendPeriod.entries.forEach { period ->
                 PeriodChip(
                     text = period.displayName,
-                    selected = selectedPeriod == period,
-                    onClick = { selectedPeriod = period }
+                    selected = uiState.selectedPeriod == period,
+                    onClick = { viewModel.selectPeriod(period) }
                 )
             }
         }
@@ -94,7 +97,7 @@ fun TrendsScreen() {
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "Last ${selectedPeriod.days} days",
+                            text = "Last ${uiState.selectedPeriod.days} days",
                             style = MaterialTheme.typography.bodySmall,
                             color = CittaaColors.TextSecondary
                         )
@@ -138,14 +141,14 @@ fun TrendsScreen() {
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Stats Row
+                // Stats Row - use real data from ViewModel
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    StatItem(label = "Average", value = "72", color = CittaaColors.Primary)
-                    StatItem(label = "Highest", value = "85", color = CittaaColors.Success)
-                    StatItem(label = "Lowest", value = "58", color = CittaaColors.Warning)
+                    StatItem(label = "Average", value = "${uiState.averageScore.toInt()}", color = CittaaColors.Primary)
+                    StatItem(label = "Highest", value = "${uiState.highestScore.toInt()}", color = CittaaColors.Success)
+                    StatItem(label = "Lowest", value = "${uiState.lowestScore.toInt()}", color = CittaaColors.Warning)
                 }
             }
         }

@@ -1,5 +1,9 @@
 package `in`.cittaa.vocalysis.presentation.recording
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -17,9 +21,11 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import `in`.cittaa.vocalysis.data.models.SupportedLanguage
 import `in`.cittaa.vocalysis.presentation.theme.CittaaColors
@@ -30,8 +36,34 @@ fun VoiceRecordingScreen(
     viewModel: VoiceRecordingViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.uiState
+    val context = LocalContext.current
     var selectedLanguage by remember { mutableStateOf(SupportedLanguage.ENGLISH) }
     var showLanguageDropdown by remember { mutableStateOf(false) }
+    
+    // Permission launcher for RECORD_AUDIO
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.startRecording()
+        } else {
+            viewModel.onMicrophonePermissionDenied()
+        }
+    }
+    
+    // Function to handle recording with permission check
+    fun startRecordingWithPermission() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        
+        if (hasPermission) {
+            viewModel.startRecording()
+        } else {
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
     
     // Pulsating animation for record button
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -424,7 +456,7 @@ fun VoiceRecordingScreen(
                 else -> {
                     // Start Recording Button
                     Button(
-                        onClick = { viewModel.startRecording() },
+                        onClick = { startRecordingWithPermission() },
                         modifier = Modifier
                             .height(56.dp)
                             .fillMaxWidth(),

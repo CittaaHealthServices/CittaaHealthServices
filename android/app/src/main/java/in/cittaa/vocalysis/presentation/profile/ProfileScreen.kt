@@ -18,13 +18,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import `in`.cittaa.vocalysis.presentation.theme.CittaaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    viewModel: ProfileViewModel = hiltViewModel()
 ) {
+    val uiState = viewModel.uiState
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showCouponSheet by remember { mutableStateOf(false) }
     var couponCode by remember { mutableStateOf("") }
@@ -72,14 +75,14 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = "User Name",
+                    text = uiState.userName,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 
                 Text(
-                    text = "user@example.com",
+                    text = uiState.userEmail,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -151,14 +154,18 @@ fun ProfileScreen(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
+                    val samplesCollected = uiState.sampleProgress?.samples_collected ?: uiState.user?.voice_samples_collected ?: 0
+                    val targetSamples = uiState.sampleProgress?.target_samples ?: uiState.user?.target_samples ?: 9
+                    val progress = if (targetSamples > 0) samplesCollected.toFloat() / targetSamples else 0f
+                    val percentComplete = (progress * 100).toInt()
                     Text(
-                        text = "3 of 9 samples • 33% complete",
+                        text = "$samplesCollected of $targetSamples samples • $percentComplete% complete",
                         style = MaterialTheme.typography.bodySmall,
                         color = CittaaColors.TextSecondary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     LinearProgressIndicator(
-                        progress = 0.33f,
+                        progress = progress.coerceIn(0f, 1f),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)

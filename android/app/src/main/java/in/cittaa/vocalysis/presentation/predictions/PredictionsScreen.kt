@@ -22,25 +22,24 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import `in`.cittaa.vocalysis.presentation.theme.CittaaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PredictionsScreen() {
+fun PredictionsScreen(
+    viewModel: PredictionsViewModel = hiltViewModel()
+) {
+    val uiState = viewModel.uiState
     var selectedWindow by remember { mutableStateOf(14) }
     val predictionWindows = listOf(7, 14, 30)
     
-    // Animated risk percentage
-    var targetRisk by remember { mutableStateOf(0f) }
+    // Animated risk percentage from real data
     val animatedRisk by animateFloatAsState(
-        targetValue = targetRisk,
+        targetValue = uiState.riskPercentage,
         animationSpec = tween(1500, easing = EaseOutCubic),
         label = "risk"
     )
-    
-    LaunchedEffect(Unit) {
-        targetRisk = 18f // Sample low risk
-    }
     
     Column(
         modifier = Modifier
@@ -141,7 +140,7 @@ fun PredictionsScreen() {
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Confidence
+                // Confidence - use real data
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
@@ -154,7 +153,7 @@ fun PredictionsScreen() {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "87% Model Confidence",
+                        text = "${uiState.modelConfidence.toInt()}% Model Confidence",
                         style = MaterialTheme.typography.bodySmall,
                         color = CittaaColors.TextSecondary
                     )
