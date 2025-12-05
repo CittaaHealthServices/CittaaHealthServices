@@ -385,7 +385,7 @@ private fun RiskLevelCard(uiState: PatientDetailUiState) {
 
             // Progress bar
             LinearProgressIndicator(
-                progress = { uiState.mentalHealthScore },
+                progress = uiState.mentalHealthScore.coerceIn(0f, 1f),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
@@ -535,7 +535,7 @@ private fun ScoreRow(
         Spacer(modifier = Modifier.height(4.dp))
 
         LinearProgressIndicator(
-            progress = { (score.toFloat() / maxScore).coerceIn(0f, 1f) },
+            progress = (score.toFloat() / maxScore).coerceIn(0f, 1f),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(6.dp)
