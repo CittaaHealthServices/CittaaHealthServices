@@ -504,7 +504,7 @@ fun ResultRow(label: String, score: Float, color: Color) {
         }
         Spacer(modifier = Modifier.height(4.dp))
         LinearProgressIndicator(
-            progress = { score },
+            progress = score,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(6.dp)
