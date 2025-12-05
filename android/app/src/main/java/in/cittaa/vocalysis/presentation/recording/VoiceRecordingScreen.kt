@@ -228,7 +228,6 @@ fun VoiceRecordingScreen(
                     uiState.isUploading -> {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(
-                                progress = { uiState.uploadProgress },
                                 color = Color.White,
                                 modifier = Modifier.size(48.dp)
                             )
@@ -344,10 +343,10 @@ fun VoiceRecordingScreen(
                         
                         Spacer(modifier = Modifier.height(16.dp))
                         
-                        ResultRow("Depression", result.depression_score, CittaaColors.Error)
-                        ResultRow("Anxiety", result.anxiety_score, CittaaColors.Warning)
-                        ResultRow("Stress", result.stress_score, CittaaColors.Accent)
-                        ResultRow("Normal", result.normal_score, CittaaColors.Success)
+                        ResultRow("Depression", result.depression_score ?: 0f, CittaaColors.Error)
+                        ResultRow("Anxiety", result.anxiety_score ?: 0f, CittaaColors.Warning)
+                        ResultRow("Stress", result.stress_score ?: 0f, CittaaColors.Accent)
+                        ResultRow("Normal", result.normal_score ?: 0f, CittaaColors.Success)
                         
                         Spacer(modifier = Modifier.height(12.dp))
                         
@@ -361,7 +360,7 @@ fun VoiceRecordingScreen(
                                 color = CittaaColors.TextSecondary
                             )
                             Text(
-                                text = "${(result.confidence * 100).toInt()}%",
+                                text = "${((result.confidence ?: 0f) * 100).toInt()}%",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
