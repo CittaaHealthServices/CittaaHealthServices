@@ -20,31 +20,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
+import androidx.hilt.navigation.compose.hiltViewModel
 import `in`.cittaa.vocalysis.data.models.SupportedLanguage
 import `in`.cittaa.vocalysis.presentation.theme.CittaaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VoiceRecordingScreen() {
-    var isRecording by remember { mutableStateOf(false) }
-    var recordingDuration by remember { mutableStateOf(0) }
+fun VoiceRecordingScreen(
+    viewModel: VoiceRecordingViewModel = hiltViewModel()
+) {
+    val uiState = viewModel.uiState
     var selectedLanguage by remember { mutableStateOf(SupportedLanguage.ENGLISH) }
     var showLanguageDropdown by remember { mutableStateOf(false) }
-    var audioLevel by remember { mutableStateOf(0f) }
-    var showResults by remember { mutableStateOf(false) }
-    
-    // Recording timer
-    LaunchedEffect(isRecording) {
-        if (isRecording) {
-            while (isRecording) {
-                delay(1000)
-                recordingDuration++
-                // Simulate audio level changes
-                audioLevel = (0.3f + Math.random().toFloat() * 0.7f)
-            }
-        }
-    }
     
     // Pulsating animation for record button
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
