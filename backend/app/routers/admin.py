@@ -87,7 +87,7 @@ def log_admin_action(admin_user: User, action: str, entity_type: str, entity_id:
 @router.get("/users")
 async def get_all_users(
     role: Optional[str] = None,
-    limit: int = 100,
+    limit: int = 500,
     offset: int = 0,
     current_user: User = Depends(require_role(["super_admin", "hr_admin", "admin"])),
     db: Session = Depends(get_db)

@@ -49,19 +49,19 @@ export default function UserManagement() {
     loadUsers()
   }, [roleFilter])
 
-  const loadUsers = async () => {
-    try {
-      setLoading(true)
-      const data = await adminService.getAllUsers(roleFilter || undefined, 100, 0)
-      setUsers(data.users || [])
-      setTotalUsers(data.total || 0)
-    } catch (err) {
-      setError('Failed to load users')
-      console.error(err)
-    } finally {
-      setLoading(false)
+    const loadUsers = async () => {
+      try {
+        setLoading(true)
+        const data = await adminService.getAllUsers(roleFilter || undefined, 500, 0)
+        setUsers(data.users || [])
+        setTotalUsers(data.total || 0)
+      } catch (err) {
+        setError('Failed to load users')
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {

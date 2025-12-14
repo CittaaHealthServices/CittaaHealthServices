@@ -225,7 +225,7 @@ Return ONLY a valid JSON object with this exact structure (no other text):
                 }
             ],
             "generationConfig": {
-                "temperature": 0.3,
+                "temperature": 0.5,
                 "maxOutputTokens": 1024
             }
         }
@@ -382,45 +382,134 @@ Return ONLY a valid JSON object with this exact structure (no other text):
         """
         Run ML prediction on extracted features
         Returns probabilities for [normal, anxiety, depression, stress]
-        """
-        # Feature-based heuristic prediction
-        # In production, this would use the trained BiLSTM model
         
+        Uses continuous feature-based scoring for more varied results
+        based on actual voice characteristics.
+        """
+        # Extract features with defaults
         pitch_mean = features.get("pitch_mean", 150)
         pitch_std = features.get("pitch_std", 30)
+        pitch_range = features.get("pitch_range", 80)
         speech_rate = features.get("speech_rate", 3)
         rms_mean = features.get("rms_mean", 0.1)
+        rms_std = features.get("rms_std", 0.04)
         jitter = features.get("jitter_mean", 0.02)
         hnr = features.get("hnr", 15)
+        zcr_mean = features.get("zcr_mean", 0.08)
+        spectral_centroid = features.get("spectral_centroid_mean", 2000)
+        mfcc_mean = features.get("mfcc_mean", -15)
+        mfcc_std = features.get("mfcc_std", 10)
         
-        # Initialize scores
-        normal_score = 0.6
-        anxiety_score = 0.1
-        depression_score = 0.1
-        stress_score = 0.1
+        # Initialize base scores - start more neutral for varied results
+        normal_score = 0.4
+        anxiety_score = 0.2
+        depression_score = 0.2
+        stress_score = 0.2
         
-        # Anxiety indicators: high pitch variability, fast speech rate
-        if pitch_std > 40 or speech_rate > 4:
-            anxiety_score += 0.2
-            normal_score -= 0.1
+        # === ANXIETY INDICATORS (continuous scoring) ===
+        # High pitch variability indicates anxiety
+        if pitch_std > 25:
+            anxiety_adjustment = min(0.3, (pitch_std - 25) / 50)
+            anxiety_score += anxiety_adjustment
+            normal_score -= anxiety_adjustment * 0.5
         
-        # Depression indicators: low pitch, slow speech, low energy
-        if pitch_mean < 120 or speech_rate < 2 or rms_mean < 0.05:
-            depression_score += 0.2
-            normal_score -= 0.1
+        # Fast speech rate indicates anxiety
+        if speech_rate > 3.5:
+            anxiety_adjustment = min(0.25, (speech_rate - 3.5) / 3)
+            anxiety_score += anxiety_adjustment
+            normal_score -= anxiety_adjustment * 0.4
         
-        # Stress indicators: high jitter, irregular patterns
-        if jitter > 0.03 or hnr < 10:
-            stress_score += 0.2
-            normal_score -= 0.1
+        # High pitch range indicates emotional volatility/anxiety
+        if pitch_range > 100:
+            anxiety_adjustment = min(0.15, (pitch_range - 100) / 100)
+            anxiety_score += anxiety_adjustment
+        
+        # High spectral centroid (brighter voice) can indicate anxiety
+        if spectral_centroid > 2500:
+            anxiety_adjustment = min(0.1, (spectral_centroid - 2500) / 2000)
+            anxiety_score += anxiety_adjustment
+        
+        # === DEPRESSION INDICATORS (continuous scoring) ===
+        # Low pitch indicates depression
+        if pitch_mean < 140:
+            depression_adjustment = min(0.3, (140 - pitch_mean) / 80)
+            depression_score += depression_adjustment
+            normal_score -= depression_adjustment * 0.5
+        
+        # Slow speech rate indicates depression
+        if speech_rate < 2.5:
+            depression_adjustment = min(0.25, (2.5 - speech_rate) / 2)
+            depression_score += depression_adjustment
+            normal_score -= depression_adjustment * 0.4
+        
+        # Low energy/volume indicates depression
+        if rms_mean < 0.08:
+            depression_adjustment = min(0.2, (0.08 - rms_mean) / 0.06)
+            depression_score += depression_adjustment
+        
+        # Low pitch variability (monotone) indicates depression
+        if pitch_std < 20:
+            depression_adjustment = min(0.15, (20 - pitch_std) / 15)
+            depression_score += depression_adjustment
+        
+        # Low spectral centroid (darker voice) indicates depression
+        if spectral_centroid < 1800:
+            depression_adjustment = min(0.1, (1800 - spectral_centroid) / 800)
+            depression_score += depression_adjustment
+        
+        # === STRESS INDICATORS (continuous scoring) ===
+        # High jitter indicates stress/tension
+        if jitter > 0.02:
+            stress_adjustment = min(0.3, (jitter - 0.02) / 0.03)
+            stress_score += stress_adjustment
+            normal_score -= stress_adjustment * 0.4
+        
+        # Low HNR (more noise in voice) indicates stress
+        if hnr < 15:
+            stress_adjustment = min(0.25, (15 - hnr) / 10)
+            stress_score += stress_adjustment
+            normal_score -= stress_adjustment * 0.3
+        
+        # High energy variability indicates stress
+        if rms_std > 0.05:
+            stress_adjustment = min(0.15, (rms_std - 0.05) / 0.05)
+            stress_score += stress_adjustment
+        
+        # High zero crossing rate indicates tension
+        if zcr_mean > 0.1:
+            stress_adjustment = min(0.1, (zcr_mean - 0.1) / 0.1)
+            stress_score += stress_adjustment
+        
+        # === NORMAL/HEALTHY INDICATORS ===
+        # Moderate pitch in healthy range
+        if 140 <= pitch_mean <= 200:
+            normal_score += 0.15
+        
+        # Moderate speech rate
+        if 2.5 <= speech_rate <= 3.5:
+            normal_score += 0.1
+        
+        # Good HNR (clear voice)
+        if hnr > 18:
+            normal_score += 0.1
+        
+        # Low jitter (stable voice)
+        if jitter < 0.015:
+            normal_score += 0.1
+        
+        # Ensure all scores are positive
+        normal_score = max(0.05, normal_score)
+        anxiety_score = max(0.05, anxiety_score)
+        depression_score = max(0.05, depression_score)
+        stress_score = max(0.05, stress_score)
         
         # Normalize to sum to 1
         total = normal_score + anxiety_score + depression_score + stress_score
         probabilities = [
-            max(0, normal_score / total),
-            max(0, anxiety_score / total),
-            max(0, depression_score / total),
-            max(0, stress_score / total)
+            round(normal_score / total, 4),
+            round(anxiety_score / total, 4),
+            round(depression_score / total, 4),
+            round(stress_score / total, 4)
         ]
         
         return probabilities
