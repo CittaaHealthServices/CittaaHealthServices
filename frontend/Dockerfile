@@ -7,9 +7,9 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies including devDependencies for build
-RUN npm ci --include=dev
+RUN npm install
 
-# Copy source code
+# Copy source code (node_modules excluded via .dockerignore)
 COPY . .
 
 # Build the application
