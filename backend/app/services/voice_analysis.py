@@ -1,19 +1,25 @@
 """
 Voice Analysis Service for Vocalysis
 Integrates trained ML models for mental health screening from voice
-Version 2.0 - Uses trained ensemble model with Indian voice optimization
+Version 2.1 - Uses trained ensemble model with Indian voice optimization and Gemini 3 AI reports
 """
 
 import numpy as np
 import random
 import os
 import json
+import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 # ML imports
 import torch
 import torch.nn as nn
+
+# Gemini AI service for clinical report generation
+from app.services.gemini_service import get_gemini_service, GeminiService
+
+logger = logging.getLogger(__name__)
 
 
 class MentalHealthModel(nn.Module):
@@ -592,6 +598,88 @@ class VoiceAnalysisService:
             return self.generate_demo_results("normal")
         except Exception as e:
             return {"error": str(e)}
+    
+    async def analyze_audio_with_report(
+        self, 
+        file_path: str, 
+        user_id: Optional[str] = None,
+        generate_report: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Analyze audio and optionally generate a Gemini 3 AI clinical report.
+        
+        Args:
+            file_path: Path to the audio file
+            user_id: Optional user ID for personalized analysis
+            generate_report: Whether to generate a Gemini 3 clinical report
+            
+        Returns:
+            Dictionary containing predictions, features, and optional clinical report
+        """
+        # Get analysis results (personalized if user_id provided)
+        if user_id:
+            result = self.analyze_audio_personalized(file_path, user_id)
+        else:
+            result = self.analyze_audio(file_path)
+        
+        if "error" in result:
+            return result
+        
+        # Generate clinical report using Gemini 3 if requested
+        if generate_report:
+            try:
+                gemini_service = get_gemini_service()
+                
+                # Prepare data for report generation
+                analysis_result = {
+                    "probabilities": {
+                        "normal": result["probabilities"][0] if isinstance(result["probabilities"], list) else result["probabilities"].get("normal", 0),
+                        "anxiety": result["probabilities"][1] if isinstance(result["probabilities"], list) else result["probabilities"].get("anxiety", 0),
+                        "depression": result["probabilities"][2] if isinstance(result["probabilities"], list) else result["probabilities"].get("depression", 0),
+                        "stress": result["probabilities"][3] if isinstance(result["probabilities"], list) else result["probabilities"].get("stress", 0),
+                    },
+                    "clinical_scores": result.get("scale_mappings", {})
+                }
+                
+                # Extract voice features for report
+                features = result.get("features", {})
+                voice_features = {
+                    "pitch_mean": features.get("pitch_mean", 0),
+                    "pitch_std": features.get("pitch_std", 0),
+                    "speech_rate": features.get("speech_rate", 0),
+                    "energy": features.get("rms_mean", 0),
+                    "voice_quality": features.get("hnr", 0),
+                }
+                
+                # Get personalization data if available
+                personalization_data = None
+                if user_id and user_id in self.user_baselines:
+                    baseline = self.user_baselines[user_id]
+                    personalization_data = {
+                        "samples_collected": len(baseline.samples),
+                        "target_samples": UserVoiceBaseline.MAX_SAMPLES,
+                        "baseline_established": baseline.is_calibrated,
+                        "deviation_score": result.get("personalization", {}).get("baseline_deviation", 0),
+                    }
+                
+                # Generate report using Gemini 3
+                report_result = await gemini_service.generate_clinical_report(
+                    analysis_result=analysis_result,
+                    voice_features=voice_features,
+                    personalization_data=personalization_data
+                )
+                
+                result["clinical_report"] = report_result
+                logger.info(f"Generated clinical report using {report_result.get('generation_method', 'unknown')}")
+                
+            except Exception as e:
+                logger.error(f"Failed to generate clinical report: {e}")
+                result["clinical_report"] = {
+                    "error": str(e),
+                    "generation_method": "failed"
+                }
+        
+        return result
     
     def _extract_features(self, audio: np.ndarray, sr: int) -> Dict[str, Any]:
         """Extract acoustic features from audio - returns both dict and 100-feature array for model"""
