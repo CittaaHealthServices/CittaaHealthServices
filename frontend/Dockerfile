@@ -1,6 +1,7 @@
 # Build stage
 FROM node:20-alpine as build
 
+# Cache bust: 2026-01-12-v2
 WORKDIR /app
 
 # Copy package files
