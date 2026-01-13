@@ -1,19 +1,15 @@
 """
-Admin router for Vocalysis API
+Admin router for Vocalysis API - MongoDB Version
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
-from app.models.database import get_db
-from app.models.user import User, UserRole
-from app.models.prediction import Prediction
-from app.models.voice_sample import VoiceSample
-from app.routers.auth import get_current_user, require_role
+from app.models.mongodb import get_mongodb
+from app.routers.auth import get_current_user_from_token, require_role
 from app.services.email_service import email_service
+from bson import ObjectId
 
 router = APIRouter()
 
@@ -22,31 +18,31 @@ async def get_all_users(
     role: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "hr_admin", "admin"]))
 ):
     """Get all users (admin only)"""
-    query = db.query(User)
+    db = get_mongodb()
     
+    query = {}
     if role:
-        query = query.filter(User.role == role)
+        query["role"] = role
     
-    total = query.count()
-    users = query.offset(offset).limit(limit).all()
+    total = db.users.count_documents(query)
+    users = list(db.users.find(query).skip(offset).limit(limit))
     
     return {
         "total": total,
         "users": [
             {
-                "id": u.id,
-                "email": u.email,
-                "full_name": u.full_name,
-                "role": u.role,
-                "is_active": u.is_active,
-                "is_clinical_trial_participant": u.is_clinical_trial_participant,
-                "trial_status": u.trial_status,
-                "created_at": u.created_at.isoformat() if u.created_at else None,
-                "last_login": u.last_login.isoformat() if u.last_login else None
+                "id": str(u.get("_id", "")),
+                "email": u.get("email", ""),
+                "full_name": u.get("full_name", ""),
+                "role": u.get("role", ""),
+                "is_active": u.get("is_active", True),
+                "is_clinical_trial_participant": u.get("is_clinical_trial_participant", False),
+                "trial_status": u.get("trial_status"),
+                "created_at": u.get("created_at").isoformat() if u.get("created_at") else None,
+                "last_login": u.get("last_login").isoformat() if u.get("last_login") else None
             }
             for u in users
         ]
@@ -54,26 +50,27 @@ async def get_all_users(
 
 @router.get("/pending-approvals")
 async def get_pending_approvals(
-    current_user: User = Depends(require_role(["super_admin"])),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
 ):
     """Get users pending clinical trial approval"""
-    pending_users = db.query(User).filter(
-        User.is_clinical_trial_participant == True,
-        User.trial_status == "pending"
-    ).all()
+    db = get_mongodb()
+    
+    pending_users = list(db.users.find({
+        "is_clinical_trial_participant": True,
+        "trial_status": "pending"
+    }))
     
     return {
         "count": len(pending_users),
         "pending_users": [
             {
-                "id": u.id,
-                "email": u.email,
-                "full_name": u.full_name,
-                "phone": u.phone,
-                "age_range": u.age_range,
-                "gender": u.gender,
-                "created_at": u.created_at.isoformat() if u.created_at else None
+                "id": str(u.get("_id", "")),
+                "email": u.get("email", ""),
+                "full_name": u.get("full_name", ""),
+                "phone": u.get("phone"),
+                "age_range": u.get("age_range"),
+                "gender": u.get("gender"),
+                "created_at": u.get("created_at").isoformat() if u.get("created_at") else None
             }
             for u in pending_users
         ]
@@ -82,140 +79,140 @@ async def get_pending_approvals(
 @router.post("/approve-participant/{user_id}")
 async def approve_clinical_trial_participant(
     user_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
 ):
     """Approve a user for clinical trial participation"""
-    user = db.query(User).filter(User.id == user_id).first()
+    db = get_mongodb()
+    
+    user = db.users.find_one({"_id": user_id})
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    if not user.is_clinical_trial_participant:
+    if not user.get("is_clinical_trial_participant"):
         raise HTTPException(status_code=400, detail="User has not registered for clinical trial")
     
-    user.trial_status = "approved"
-    user.approved_by = current_user.id
-    user.approval_date = datetime.utcnow()
-    
-    db.commit()
+    db.users.update_one(
+        {"_id": user_id},
+        {"$set": {
+            "trial_status": "approved",
+            "approved_by": str(current_user.get("_id", "")),
+            "approval_date": datetime.utcnow()
+        }}
+    )
     
     # Send approval email
     try:
-        # Get assigned psychologist name if available
         psychologist_name = None
-        if user.assigned_psychologist_id:
-            psychologist = db.query(User).filter(User.id == user.assigned_psychologist_id).first()
+        if user.get("assigned_psychologist_id"):
+            psychologist = db.users.find_one({"_id": user.get("assigned_psychologist_id")})
             if psychologist:
-                psychologist_name = psychologist.full_name
+                psychologist_name = psychologist.get("full_name")
         
-        email_service.send_trial_approval_email(user.email, user.full_name, psychologist_name)
+        email_service.send_trial_approval_email(user.get("email"), user.get("full_name"), psychologist_name)
     except Exception as e:
         print(f"Failed to send approval email: {e}")
     
-    return {"message": f"User {user.email} approved for clinical trial"}
+    return {"message": f"User {user.get('email')} approved for clinical trial"}
 
 @router.post("/reject-participant/{user_id}")
 async def reject_clinical_trial_participant(
     user_id: str,
     reason: Optional[str] = None,
-    current_user: User = Depends(require_role(["super_admin"])),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
 ):
     """Reject a user for clinical trial participation"""
-    user = db.query(User).filter(User.id == user_id).first()
+    db = get_mongodb()
+    
+    user = db.users.find_one({"_id": user_id})
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    user.trial_status = "rejected"
-    user.approved_by = current_user.id
-    user.approval_date = datetime.utcnow()
+    db.users.update_one(
+        {"_id": user_id},
+        {"$set": {
+            "trial_status": "rejected",
+            "approved_by": str(current_user.get("_id", "")),
+            "approval_date": datetime.utcnow(),
+            "rejection_reason": reason
+        }}
+    )
     
-    db.commit()
-    
-    return {"message": f"User {user.email} rejected for clinical trial", "reason": reason}
+    return {"message": f"User {user.get('email')} rejected for clinical trial", "reason": reason}
 
 @router.post("/assign-psychologist")
 async def assign_psychologist_to_patient(
     patient_id: str,
     psychologist_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
 ):
     """Assign a psychologist to a patient"""
-    patient = db.query(User).filter(User.id == patient_id).first()
-    psychologist = db.query(User).filter(
-        User.id == psychologist_id,
-        User.role == "psychologist"
-    ).first()
+    db = get_mongodb()
+    
+    patient = db.users.find_one({"_id": patient_id})
+    psychologist = db.users.find_one({"_id": psychologist_id, "role": "psychologist"})
     
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     if not psychologist:
         raise HTTPException(status_code=404, detail="Psychologist not found")
     
-    patient.assigned_psychologist_id = psychologist_id
-    patient.assignment_date = datetime.utcnow()
-    
-    db.commit()
+    db.users.update_one(
+        {"_id": patient_id},
+        {"$set": {
+            "assigned_psychologist_id": psychologist_id,
+            "assignment_date": datetime.utcnow()
+        }}
+    )
     
     return {
-        "message": f"Psychologist {psychologist.email} assigned to patient {patient.email}",
+        "message": f"Psychologist {psychologist.get('email')} assigned to patient {patient.get('email')}",
         "patient_id": patient_id,
         "psychologist_id": psychologist_id
     }
 
 @router.get("/statistics")
 async def get_system_statistics(
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "hr_admin", "admin"]))
 ):
     """Get system-wide statistics"""
-    total_users = db.query(User).count()
-    active_users = db.query(User).filter(User.is_active == True).count()
+    db = get_mongodb()
+    
+    total_users = db.users.count_documents({})
+    active_users = db.users.count_documents({"is_active": True})
     
     # Users by role
-    users_by_role = db.query(
-        User.role,
-        func.count(User.id)
-    ).group_by(User.role).all()
+    role_pipeline = [
+        {"$group": {"_id": "$role", "count": {"$sum": 1}}}
+    ]
+    users_by_role = {doc["_id"]: doc["count"] for doc in db.users.aggregate(role_pipeline)}
     
     # Clinical trial stats
-    trial_participants = db.query(User).filter(
-        User.is_clinical_trial_participant == True
-    ).count()
-    approved_participants = db.query(User).filter(
-        User.trial_status == "approved"
-    ).count()
-    pending_participants = db.query(User).filter(
-        User.trial_status == "pending"
-    ).count()
+    trial_participants = db.users.count_documents({"is_clinical_trial_participant": True})
+    approved_participants = db.users.count_documents({"trial_status": "approved"})
+    pending_participants = db.users.count_documents({"trial_status": "pending"})
     
     # Voice samples and predictions
-    total_voice_samples = db.query(VoiceSample).count()
-    total_predictions = db.query(Prediction).count()
+    total_voice_samples = db.voice_samples.count_documents({})
+    total_predictions = db.predictions.count_documents({})
     
     # Recent activity (last 7 days)
     week_ago = datetime.utcnow() - timedelta(days=7)
-    recent_samples = db.query(VoiceSample).filter(
-        VoiceSample.recorded_at >= week_ago
-    ).count()
-    recent_predictions = db.query(Prediction).filter(
-        Prediction.predicted_at >= week_ago
-    ).count()
+    recent_samples = db.voice_samples.count_documents({"recorded_at": {"$gte": week_ago}})
+    recent_predictions = db.predictions.count_documents({"predicted_at": {"$gte": week_ago}})
     
     # Risk distribution
-    risk_distribution = db.query(
-        Prediction.overall_risk_level,
-        func.count(Prediction.id)
-    ).group_by(Prediction.overall_risk_level).all()
+    risk_pipeline = [
+        {"$group": {"_id": "$overall_risk_level", "count": {"$sum": 1}}}
+    ]
+    risk_distribution = {doc["_id"] or "unknown": doc["count"] for doc in db.predictions.aggregate(risk_pipeline)}
     
     return {
         "users": {
             "total": total_users,
             "active": active_users,
-            "by_role": {role: count for role, count in users_by_role}
+            "by_role": users_by_role
         },
         "clinical_trial": {
             "total_participants": trial_participants,
@@ -228,21 +225,20 @@ async def get_system_statistics(
             "recent_samples_7d": recent_samples,
             "recent_predictions_7d": recent_predictions
         },
-        "risk_distribution": {
-            level or "unknown": count for level, count in risk_distribution
-        }
+        "risk_distribution": risk_distribution
     }
 
 @router.get("/organization/{org_id}/metrics")
 async def get_organization_metrics(
     org_id: str,
-    current_user: User = Depends(require_role(["super_admin", "hr_admin"])),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "hr_admin", "admin"]))
 ):
     """Get aggregated metrics for an organization (HR view)"""
+    db = get_mongodb()
+    
     # Get organization users
-    org_users = db.query(User).filter(User.organization_id == org_id).all()
-    user_ids = [u.id for u in org_users]
+    org_users = list(db.users.find({"organization_id": org_id}))
+    user_ids = [str(u.get("_id", "")) for u in org_users]
     
     if not user_ids:
         return {
@@ -252,25 +248,21 @@ async def get_organization_metrics(
         }
     
     # Get predictions for org users
-    predictions = db.query(Prediction).filter(
-        Prediction.user_id.in_(user_ids)
-    ).all()
+    predictions = list(db.predictions.find({"user_id": {"$in": user_ids}}))
     
     # Calculate risk distribution
     risk_counts = {"low": 0, "moderate": 0, "high": 0, "unknown": 0}
     for p in predictions:
-        level = p.overall_risk_level or "unknown"
+        level = p.get("overall_risk_level") or "unknown"
         if level in risk_counts:
             risk_counts[level] += 1
         else:
             risk_counts["unknown"] += 1
     
     # Calculate compliance
-    total_recordings = db.query(VoiceSample).filter(
-        VoiceSample.user_id.in_(user_ids)
-    ).count()
+    total_recordings = db.voice_samples.count_documents({"user_id": {"$in": user_ids}})
     
-    active_users = len(set(p.user_id for p in predictions))
+    active_users = len(set(p.get("user_id") for p in predictions))
     
     return {
         "organization_id": org_id,
@@ -286,38 +278,91 @@ async def get_organization_metrics(
 async def update_user_role(
     user_id: str,
     new_role: str,
-    current_user: User = Depends(require_role(["super_admin"])),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
 ):
     """Update user role (super admin only)"""
-    valid_roles = ["patient", "psychologist", "hr_admin", "super_admin", "researcher"]
+    db = get_mongodb()
+    
+    valid_roles = ["patient", "psychologist", "hr_admin", "super_admin", "researcher", "admin"]
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Invalid role. Valid roles: {valid_roles}")
     
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.users.find_one({"_id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    user.role = new_role
-    db.commit()
+    db.users.update_one({"_id": user_id}, {"$set": {"role": new_role}})
     
     return {"message": f"User role updated to {new_role}", "user_id": user_id}
 
 @router.delete("/users/{user_id}")
 async def deactivate_user(
     user_id: str,
-    current_user: User = Depends(require_role(["super_admin"])),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
 ):
     """Deactivate a user (super admin only)"""
-    user = db.query(User).filter(User.id == user_id).first()
+    db = get_mongodb()
+    
+    user = db.users.find_one({"_id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    if user.id == current_user.id:
+    if str(user.get("_id", "")) == str(current_user.get("_id", "")):
         raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
     
-    user.is_active = False
-    db.commit()
+    db.users.update_one({"_id": user_id}, {"$set": {"is_active": False}})
     
-    return {"message": f"User {user.email} deactivated"}
+    return {"message": f"User {user.get('email')} deactivated"}
+
+
+@router.post("/users/create")
+async def create_user(
+    email: str,
+    full_name: str,
+    role: str = "patient",
+    password: str = None,
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
+):
+    """Create a new user (admin only)"""
+    import uuid
+    import bcrypt
+    
+    db = get_mongodb()
+    
+    # Check if email already exists
+    existing_user = db.users.find_one({"email": email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Generate password if not provided
+    if not password:
+        password = str(uuid.uuid4())[:12]
+    
+    # Hash password
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Create user document
+    user_id = str(uuid.uuid4())
+    user_doc = {
+        "_id": user_id,
+        "email": email,
+        "password_hash": password_hash,
+        "full_name": full_name,
+        "role": role,
+        "is_active": True,
+        "is_verified": False,
+        "consent_given": False,
+        "is_clinical_trial_participant": False,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    db.users.insert_one(user_doc)
+    
+    return {
+        "message": f"User {email} created successfully",
+        "user_id": user_id,
+        "email": email,
+        "role": role,
+        "temporary_password": password
+    }

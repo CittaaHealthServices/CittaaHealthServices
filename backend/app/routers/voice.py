@@ -1,38 +1,43 @@
 """
-Voice analysis router for Vocalysis API
+Voice analysis router for Vocalysis API - MongoDB Version
 """
 
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, BackgroundTasks
-from sqlalchemy.orm import Session
 from datetime import datetime
 import os
 import uuid
 import numpy as np
 import sys
+from typing import Dict, Any
 
-from app.models.database import get_db
-from app.models.user import User
-from app.models.voice_sample import VoiceSample
-from app.models.prediction import Prediction
+from app.models.mongodb import get_mongodb
 from app.schemas.voice import VoiceUploadResponse, VoiceStatusResponse, VoiceSampleResponse, VoiceAnalysisRequest
 from app.schemas.prediction import PredictionResponse, AnalysisResultResponse
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user_from_token
 from app.services.voice_analysis import VoiceAnalysisService
 from app.utils.config import settings
+from bson import ObjectId
 
 router = APIRouter()
 
 # Initialize voice analysis service
 voice_service = VoiceAnalysisService()
 
+def get_user_id(user: Dict[str, Any]) -> str:
+    """Get user ID as string from MongoDB document"""
+    user_id = user.get("_id", "")
+    return str(user_id) if user_id else ""
+
 @router.post("/upload", response_model=VoiceUploadResponse)
 async def upload_voice_sample(
     file: UploadFile = File(...),
     background_tasks: BackgroundTasks = None,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
 ):
     """Upload voice recording for analysis"""
+    db = get_mongodb()
+    user_id = get_user_id(current_user)
+    
     # Validate file format
     allowed_formats = ['.wav', '.mp3', '.m4a', '.webm', '.ogg']
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -53,7 +58,7 @@ async def upload_voice_sample(
         )
     
     # Create upload directory if not exists
-    upload_dir = os.path.join(settings.UPLOAD_DIR, current_user.id)
+    upload_dir = os.path.join(settings.UPLOAD_DIR, user_id)
     os.makedirs(upload_dir, exist_ok=True)
     
     # Generate unique filename
@@ -64,171 +69,171 @@ async def upload_voice_sample(
     with open(file_path, 'wb') as f:
         f.write(content)
     
-    # Create voice sample record
-    voice_sample = VoiceSample(
-        id=sample_id,
-        user_id=current_user.id,
-        file_path=file_path,
-        file_name=file.filename,
-        audio_format=file_ext[1:],
-        file_size=len(content),
-        processing_status="uploaded",
-        recorded_via="web_app"
-    )
+    # Create voice sample record in MongoDB
+    voice_sample_doc = {
+        "_id": sample_id,
+        "user_id": user_id,
+        "file_path": file_path,
+        "file_name": file.filename,
+        "audio_format": file_ext[1:],
+        "file_size": len(content),
+        "processing_status": "uploaded",
+        "recorded_via": "web_app",
+        "recorded_at": datetime.utcnow(),
+        "created_at": datetime.utcnow()
+    }
     
-    db.add(voice_sample)
-    db.commit()
+    db.voice_samples.insert_one(voice_sample_doc)
     
     return VoiceUploadResponse(
         sample_id=sample_id,
-        user_id=current_user.id,
+        user_id=user_id,
         status="uploaded",
         message="Voice sample uploaded successfully. Processing will begin shortly.",
         estimated_processing_time=45
     )
 
-@router.post("/analyze/{sample_id}", response_model=PredictionResponse)
+@router.post("/analyze/{sample_id}")
 async def analyze_voice_sample(
     sample_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
 ):
     """Analyze uploaded voice sample"""
+    db = get_mongodb()
+    user_id = get_user_id(current_user)
+    
     # Get voice sample
-    voice_sample = db.query(VoiceSample).filter(
-        VoiceSample.id == sample_id,
-        VoiceSample.user_id == current_user.id
-    ).first()
+    voice_sample = db.voice_samples.find_one({
+        "_id": sample_id,
+        "user_id": user_id
+    })
     
     if not voice_sample:
         raise HTTPException(status_code=404, detail="Voice sample not found")
     
     # Update status
-    voice_sample.processing_status = "processing"
-    db.commit()
+    db.voice_samples.update_one(
+        {"_id": sample_id},
+        {"$set": {"processing_status": "processing"}}
+    )
     
     try:
         # Run analysis
-        result = voice_service.analyze_audio(voice_sample.file_path)
+        result = voice_service.analyze_audio(voice_sample["file_path"])
         
         if "error" in result:
-            voice_sample.processing_status = "failed"
-            voice_sample.validation_message = result["error"]
-            db.commit()
+            db.voice_samples.update_one(
+                {"_id": sample_id},
+                {"$set": {"processing_status": "failed", "validation_message": result["error"]}}
+            )
             raise HTTPException(status_code=400, detail=result["error"])
         
         # Update voice sample
-        voice_sample.processing_status = "completed"
-        voice_sample.duration_seconds = result.get("features", {}).get("duration", 0)
-        voice_sample.quality_score = result.get("confidence", 0)
-        voice_sample.features = result.get("features", {})
-        voice_sample.processed_at = datetime.utcnow()
-        
-        # Update user's sample collection progress
-        current_user.voice_samples_collected = (current_user.voice_samples_collected or 0) + 1
-        
-        # Check if baseline is established (9+ samples)
-        if current_user.voice_samples_collected >= current_user.target_samples:
-            current_user.baseline_established = True
-            # Calculate personalization score based on sample quality
-            all_samples = db.query(VoiceSample).filter(
-                VoiceSample.user_id == current_user.id,
-                VoiceSample.processing_status == "completed"
-            ).all()
-            if all_samples:
-                avg_quality = sum(s.quality_score or 0 for s in all_samples) / len(all_samples)
-                current_user.personalization_score = min(1.0, avg_quality)
-        
-        # Create prediction record
-        prediction = Prediction(
-            user_id=current_user.id,
-            voice_sample_id=sample_id,
-            model_version="v1.0",
-            model_type="ensemble",
-            normal_score=float(result["probabilities"][0]),
-            anxiety_score=float(result["probabilities"][1]),
-            depression_score=float(result["probabilities"][2]),
-            stress_score=float(result["probabilities"][3]),
-            overall_risk_level=result.get("risk_level", "low"),
-            mental_health_score=result.get("mental_health_score", 0),
-            confidence=result.get("confidence", 0),
-            phq9_score=result.get("scale_mappings", {}).get("PHQ-9", 0),
-            phq9_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PHQ-9", ""),
-            gad7_score=result.get("scale_mappings", {}).get("GAD-7", 0),
-            gad7_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("GAD-7", ""),
-            pss_score=result.get("scale_mappings", {}).get("PSS", 0),
-            pss_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PSS", ""),
-            wemwbs_score=result.get("scale_mappings", {}).get("WEMWBS", 0),
-            wemwbs_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("WEMWBS", ""),
-            interpretations=result.get("interpretations", []),
-            recommendations=result.get("recommendations", []),
-            voice_features=result.get("features", {})
+        db.voice_samples.update_one(
+            {"_id": sample_id},
+            {"$set": {
+                "processing_status": "completed",
+                "duration_seconds": result.get("features", {}).get("duration", 0),
+                "quality_score": result.get("confidence", 0),
+                "features": result.get("features", {}),
+                "processed_at": datetime.utcnow()
+            }}
         )
         
-        db.add(prediction)
-        db.commit()
-        db.refresh(prediction)
+        # Update user's sample collection progress
+        samples_collected = (current_user.get("voice_samples_collected") or 0) + 1
+        target_samples = current_user.get("target_samples") or 9
+        update_fields = {"voice_samples_collected": samples_collected}
         
-        return PredictionResponse.model_validate(prediction)
+        if samples_collected >= target_samples:
+            update_fields["baseline_established"] = True
         
+        db.users.update_one({"_id": current_user["_id"]}, {"$set": update_fields})
+        
+        # Create prediction record in MongoDB
+        prediction_id = str(uuid.uuid4())
+        prediction_doc = {
+            "_id": prediction_id,
+            "user_id": user_id,
+            "voice_sample_id": sample_id,
+            "model_version": "v1.0",
+            "model_type": "ensemble",
+            "normal_score": float(result["probabilities"][0]),
+            "anxiety_score": float(result["probabilities"][1]),
+            "depression_score": float(result["probabilities"][2]),
+            "stress_score": float(result["probabilities"][3]),
+            "overall_risk_level": result.get("risk_level", "low"),
+            "mental_health_score": result.get("mental_health_score", 0),
+            "confidence": result.get("confidence", 0),
+            "phq9_score": result.get("scale_mappings", {}).get("PHQ-9", 0),
+            "gad7_score": result.get("scale_mappings", {}).get("GAD-7", 0),
+            "pss_score": result.get("scale_mappings", {}).get("PSS", 0),
+            "wemwbs_score": result.get("scale_mappings", {}).get("WEMWBS", 0),
+            "interpretations": result.get("interpretations", []),
+            "recommendations": result.get("recommendations", []),
+            "voice_features": result.get("features", {}),
+            "predicted_at": datetime.utcnow(),
+            "created_at": datetime.utcnow()
+        }
+        
+        db.predictions.insert_one(prediction_doc)
+        
+        return {
+            "id": prediction_id,
+            "user_id": user_id,
+            "voice_sample_id": sample_id,
+            "normal_score": prediction_doc["normal_score"],
+            "anxiety_score": prediction_doc["anxiety_score"],
+            "depression_score": prediction_doc["depression_score"],
+            "stress_score": prediction_doc["stress_score"],
+            "overall_risk_level": prediction_doc["overall_risk_level"],
+            "mental_health_score": prediction_doc["mental_health_score"],
+            "confidence": prediction_doc["confidence"],
+            "interpretations": prediction_doc["interpretations"],
+            "recommendations": prediction_doc["recommendations"],
+            "predicted_at": prediction_doc["predicted_at"]
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        voice_sample.processing_status = "failed"
-        voice_sample.validation_message = str(e)
-        db.commit()
+        db.voice_samples.update_one(
+            {"_id": sample_id},
+            {"$set": {"processing_status": "failed", "validation_message": str(e)}}
+        )
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 @router.get("/sample-progress")
 async def get_sample_collection_progress(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
 ):
     """Get user's voice sample collection progress for personalization"""
-    samples_collected = current_user.voice_samples_collected or 0
-    target_samples = current_user.target_samples or 9
+    db = get_mongodb()
+    user_id = get_user_id(current_user)
+    
+    samples_collected = current_user.get("voice_samples_collected") or 0
+    target_samples = current_user.get("target_samples") or 9
+    baseline_established = current_user.get("baseline_established") or False
     
     # Get today's samples
     from datetime import date
     today_start = datetime.combine(date.today(), datetime.min.time())
-    today_samples = db.query(VoiceSample).filter(
-        VoiceSample.user_id == current_user.id,
-        VoiceSample.recorded_at >= today_start
-    ).count()
-    
-    # Calculate streak (consecutive days with recordings)
-    from sqlalchemy import func
-    daily_recordings = db.query(
-        func.date(VoiceSample.recorded_at).label('date')
-    ).filter(
-        VoiceSample.user_id == current_user.id
-    ).group_by(func.date(VoiceSample.recorded_at)).order_by(
-        func.date(VoiceSample.recorded_at).desc()
-    ).limit(30).all()
-    
-    streak = 0
-    if daily_recordings:
-        from datetime import timedelta
-        current_date = date.today()
-        for record in daily_recordings:
-            if record.date == current_date:
-                streak += 1
-                current_date -= timedelta(days=1)
-            elif record.date == current_date - timedelta(days=1):
-                streak += 1
-                current_date = record.date - timedelta(days=1)
-            else:
-                break
+    today_samples = db.voice_samples.count_documents({
+        "user_id": user_id,
+        "recorded_at": {"$gte": today_start}
+    })
     
     return {
         "samples_collected": samples_collected,
         "target_samples": target_samples,
-        "progress_percentage": min(100, (samples_collected / target_samples) * 100),
-        "baseline_established": current_user.baseline_established or False,
-        "personalization_score": current_user.personalization_score,
+        "progress_percentage": min(100, (samples_collected / target_samples) * 100) if target_samples > 0 else 0,
+        "baseline_established": baseline_established,
+        "personalization_score": current_user.get("personalization_score"),
         "today_samples": today_samples,
-        "daily_target": 1,  # Recommended 1 sample per day
-        "streak_days": streak,
+        "daily_target": 1,
+        "streak_days": 0,
         "samples_remaining": max(0, target_samples - samples_collected),
-        "message": _get_progress_message(samples_collected, target_samples, current_user.baseline_established)
+        "message": _get_progress_message(samples_collected, target_samples, baseline_established)
     }
 
 def _get_progress_message(collected: int, target: int, baseline: bool) -> str:
@@ -244,110 +249,140 @@ def _get_progress_message(collected: int, target: int, baseline: bool) -> str:
     else:
         return f"Almost there! Just {target - collected} more samples for personalized insights."
 
-@router.post("/demo-analyze", response_model=PredictionResponse)
+@router.post("/demo-analyze")
 async def demo_analyze(
     request: VoiceAnalysisRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
 ):
     """Generate demo analysis results"""
+    db = get_mongodb()
+    user_id = get_user_id(current_user)
+    
     demo_type = request.demo_type or "normal"
     
     # Generate demo results
     result = voice_service.generate_demo_results(demo_type)
     
-    # Create prediction record
-    prediction = Prediction(
-        user_id=current_user.id,
-        model_version="v1.0-demo",
-        model_type="demo",
-        normal_score=float(result["probabilities"][0]),
-        anxiety_score=float(result["probabilities"][1]),
-        depression_score=float(result["probabilities"][2]),
-        stress_score=float(result["probabilities"][3]),
-        overall_risk_level=result.get("risk_level", "low"),
-        mental_health_score=result.get("mental_health_score", 0),
-        confidence=result.get("confidence", 0),
-        phq9_score=result.get("scale_mappings", {}).get("PHQ-9", 0),
-        phq9_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PHQ-9", ""),
-        gad7_score=result.get("scale_mappings", {}).get("GAD-7", 0),
-        gad7_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("GAD-7", ""),
-        pss_score=result.get("scale_mappings", {}).get("PSS", 0),
-        pss_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("PSS", ""),
-        wemwbs_score=result.get("scale_mappings", {}).get("WEMWBS", 0),
-        wemwbs_severity=result.get("scale_mappings", {}).get("interpretations", {}).get("WEMWBS", ""),
-        interpretations=result.get("interpretations", []),
-        recommendations=result.get("recommendations", []),
-        voice_features=result.get("features", {})
-    )
+    # Create prediction record in MongoDB
+    prediction_id = str(uuid.uuid4())
+    prediction_doc = {
+        "_id": prediction_id,
+        "user_id": user_id,
+        "model_version": "v1.0-demo",
+        "model_type": "demo",
+        "normal_score": float(result["probabilities"][0]),
+        "anxiety_score": float(result["probabilities"][1]),
+        "depression_score": float(result["probabilities"][2]),
+        "stress_score": float(result["probabilities"][3]),
+        "overall_risk_level": result.get("risk_level", "low"),
+        "mental_health_score": result.get("mental_health_score", 0),
+        "confidence": result.get("confidence", 0),
+        "phq9_score": result.get("scale_mappings", {}).get("PHQ-9", 0),
+        "gad7_score": result.get("scale_mappings", {}).get("GAD-7", 0),
+        "pss_score": result.get("scale_mappings", {}).get("PSS", 0),
+        "wemwbs_score": result.get("scale_mappings", {}).get("WEMWBS", 0),
+        "interpretations": result.get("interpretations", []),
+        "recommendations": result.get("recommendations", []),
+        "voice_features": result.get("features", {}),
+        "predicted_at": datetime.utcnow(),
+        "created_at": datetime.utcnow()
+    }
     
-    db.add(prediction)
-    db.commit()
-    db.refresh(prediction)
+    db.predictions.insert_one(prediction_doc)
     
-    return PredictionResponse.model_validate(prediction)
+    return {
+        "id": prediction_id,
+        "user_id": user_id,
+        "normal_score": prediction_doc["normal_score"],
+        "anxiety_score": prediction_doc["anxiety_score"],
+        "depression_score": prediction_doc["depression_score"],
+        "stress_score": prediction_doc["stress_score"],
+        "overall_risk_level": prediction_doc["overall_risk_level"],
+        "mental_health_score": prediction_doc["mental_health_score"],
+        "confidence": prediction_doc["confidence"],
+        "interpretations": prediction_doc["interpretations"],
+        "recommendations": prediction_doc["recommendations"],
+        "predicted_at": prediction_doc["predicted_at"]
+    }
 
-@router.get("/status/{sample_id}", response_model=VoiceStatusResponse)
+@router.get("/status/{sample_id}")
 async def get_voice_status(
     sample_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
 ):
     """Get processing status of voice sample"""
-    voice_sample = db.query(VoiceSample).filter(
-        VoiceSample.id == sample_id,
-        VoiceSample.user_id == current_user.id
-    ).first()
+    db = get_mongodb()
+    user_id = get_user_id(current_user)
+    
+    voice_sample = db.voice_samples.find_one({
+        "_id": sample_id,
+        "user_id": user_id
+    })
     
     if not voice_sample:
         raise HTTPException(status_code=404, detail="Voice sample not found")
     
-    return VoiceStatusResponse(
-        sample_id=voice_sample.id,
-        status=voice_sample.processing_status,
-        uploaded_at=voice_sample.recorded_at,
-        processed_at=voice_sample.processed_at,
-        message=voice_sample.validation_message or f"Status: {voice_sample.processing_status}",
-        quality_score=voice_sample.quality_score
-    )
+    return {
+        "sample_id": voice_sample["_id"],
+        "status": voice_sample.get("processing_status", "unknown"),
+        "uploaded_at": voice_sample.get("recorded_at"),
+        "processed_at": voice_sample.get("processed_at"),
+        "message": voice_sample.get("validation_message") or f"Status: {voice_sample.get('processing_status', 'unknown')}",
+        "quality_score": voice_sample.get("quality_score")
+    }
 
-@router.get("/samples", response_model=list[VoiceSampleResponse])
+@router.get("/samples")
 async def get_user_samples(
     limit: int = 10,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
 ):
     """Get user's voice samples"""
-    samples = db.query(VoiceSample).filter(
-        VoiceSample.user_id == current_user.id
-    ).order_by(VoiceSample.recorded_at.desc()).limit(limit).all()
+    db = get_mongodb()
+    user_id = get_user_id(current_user)
     
-    return [VoiceSampleResponse.model_validate(s) for s in samples]
+    samples = list(db.voice_samples.find(
+        {"user_id": user_id}
+    ).sort("recorded_at", -1).limit(limit))
+    
+    return [{
+        "id": s["_id"],
+        "user_id": s.get("user_id"),
+        "file_name": s.get("file_name"),
+        "audio_format": s.get("audio_format"),
+        "file_size": s.get("file_size"),
+        "duration_seconds": s.get("duration_seconds"),
+        "processing_status": s.get("processing_status"),
+        "quality_score": s.get("quality_score"),
+        "recorded_at": s.get("recorded_at"),
+        "processed_at": s.get("processed_at")
+    } for s in samples]
 
 @router.delete("/samples/{sample_id}")
 async def delete_voice_sample(
     sample_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
 ):
     """Delete a voice sample"""
-    voice_sample = db.query(VoiceSample).filter(
-        VoiceSample.id == sample_id,
-        VoiceSample.user_id == current_user.id
-    ).first()
+    db = get_mongodb()
+    user_id = get_user_id(current_user)
+    
+    voice_sample = db.voice_samples.find_one({
+        "_id": sample_id,
+        "user_id": user_id
+    })
     
     if not voice_sample:
         raise HTTPException(status_code=404, detail="Voice sample not found")
     
     # Delete file if exists
-    if voice_sample.file_path and os.path.exists(voice_sample.file_path):
-        os.remove(voice_sample.file_path)
+    file_path = voice_sample.get("file_path")
+    if file_path and os.path.exists(file_path):
+        os.remove(file_path)
     
     # Delete associated prediction
-    db.query(Prediction).filter(Prediction.voice_sample_id == sample_id).delete()
+    db.predictions.delete_many({"voice_sample_id": sample_id})
     
     # Delete voice sample
-    db.delete(voice_sample)
-    db.commit()
+    db.voice_samples.delete_one({"_id": sample_id})
     
     return {"message": "Voice sample deleted successfully"}
