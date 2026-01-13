@@ -224,8 +224,13 @@ export default function VoiceRecording() {
     <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-800">Voice Recording</h1>
-        <p className="text-gray-500 mt-1">Record or upload a voice sample for mental health analysis</p>
+        <div className="flex items-center justify-center space-x-2 mb-2">
+          <span className="text-xl font-display italic text-primary-700">Cittaa</span>
+          <span className="text-primary-400">|</span>
+          <span className="text-primary-600">Vocalysis</span>
+        </div>
+        <h1 className="text-2xl font-bold text-primary-800">Voice Recording</h1>
+        <p className="text-primary-600 mt-1">Record or upload a voice sample for mental health analysis</p>
       </div>
 
       {/* Sample Collection Progress Card */}

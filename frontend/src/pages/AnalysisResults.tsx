@@ -90,8 +90,13 @@ export default function AnalysisResults() {
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Analysis Results</h1>
-            <p className="text-sm text-gray-500">
+            <div className="flex items-center space-x-2 mb-1">
+              <span className="text-lg font-display italic text-primary-700">Cittaa</span>
+              <span className="text-primary-400">|</span>
+              <span className="text-primary-600">Vocalysis</span>
+            </div>
+            <h1 className="text-2xl font-bold text-primary-800">Analysis Results</h1>
+            <p className="text-sm text-primary-500">
               {new Date(prediction.predicted_at).toLocaleString()}
             </p>
           </div>
@@ -103,7 +108,7 @@ export default function AnalysisResults() {
       </div>
 
       {/* Overall Score Card */}
-      <div className="bg-gradient-to-r from-primary-500 to-secondary-400 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl p-6 text-white">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center md:text-left">
             <p className="text-white/80 text-sm">Mental Health Score</p>

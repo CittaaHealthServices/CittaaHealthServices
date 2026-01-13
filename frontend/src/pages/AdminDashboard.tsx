@@ -79,7 +79,12 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-primary-500 to-secondary-400 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl p-6 text-white">
+        <div className="flex items-center space-x-2 mb-1">
+          <span className="text-xl font-display italic text-white/90">Cittaa</span>
+          <span className="text-white/60">|</span>
+          <span className="text-white/80">Vocalysis Admin</span>
+        </div>
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
         <p className="mt-1 text-white/80">
           System overview and management for {user?.role === 'super_admin' ? 'Super Admin' : 'HR Admin'}

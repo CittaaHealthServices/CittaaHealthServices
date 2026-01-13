@@ -64,8 +64,13 @@ export default function ClinicalReports() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Clinical Reports</h1>
-          <p className="text-gray-500">View your voice analysis history and clinical assessments</p>
+          <div className="flex items-center space-x-2 mb-1">
+            <span className="text-lg font-display italic text-primary-700">Cittaa</span>
+            <span className="text-primary-400">|</span>
+            <span className="text-primary-600">Vocalysis</span>
+          </div>
+          <h1 className="text-2xl font-bold text-primary-800">Clinical Reports</h1>
+          <p className="text-primary-600">View your voice analysis history and clinical assessments</p>
         </div>
         <Link
           to="/record"
