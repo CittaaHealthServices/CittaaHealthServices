@@ -17,6 +17,20 @@ import UserManagement from './pages/UserManagement'
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const { user, isAuthenticated, loading } = useAuth()
   
+  const getCorrectDashboard = () => {
+    if (!user) return '/login'
+    switch (user.role) {
+      case 'psychologist':
+        return '/psychologist/dashboard'
+      case 'admin':
+      case 'super_admin':
+      case 'hr_admin':
+        return '/admin/dashboard'
+      default:
+        return '/dashboard'
+    }
+  }
+  
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -30,7 +44,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
   }
   
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={getCorrectDashboard()} replace />
   }
   
   return <>{children}</>
