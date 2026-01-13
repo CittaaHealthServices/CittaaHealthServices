@@ -5,6 +5,9 @@ Admin router for Vocalysis API - MongoDB Version
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.models.mongodb import get_mongodb
 from app.routers.auth import get_current_user_from_token, require_role
@@ -16,7 +19,7 @@ router = APIRouter()
 @router.get("/users")
 async def get_all_users(
     role: Optional[str] = None,
-    limit: int = 100,
+    limit: int = 500,
     offset: int = 0,
     current_user: Dict[str, Any] = Depends(require_role(["super_admin", "hr_admin", "admin"]))
 ):
@@ -321,6 +324,7 @@ async def create_user(
     full_name: str,
     role: str = "patient",
     password: str = None,
+    send_email: bool = True,
     current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
 ):
     """Create a new user (admin only)"""
@@ -354,15 +358,125 @@ async def create_user(
         "consent_given": False,
         "is_clinical_trial_participant": False,
         "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "updated_at": datetime.utcnow(),
+        "created_by": str(current_user.get("_id", ""))
     }
     
     db.users.insert_one(user_doc)
+    
+    # Log audit event
+    db.audit_logs.insert_one({
+        "action": "user_created",
+        "performed_by": str(current_user.get("_id", "")),
+        "performed_by_email": current_user.get("email", ""),
+        "target_user_id": user_id,
+        "target_email": email,
+        "details": {"role": role, "full_name": full_name},
+        "timestamp": datetime.utcnow()
+    })
+    
+    # Send welcome email to new user
+    if send_email:
+        try:
+            email_service.send_admin_created_user_email(email, full_name, password, role)
+        except Exception as e:
+            print(f"Failed to send welcome email: {e}")
     
     return {
         "message": f"User {email} created successfully",
         "user_id": user_id,
         "email": email,
         "role": role,
-        "temporary_password": password
+        "temporary_password": password,
+        "email_sent": send_email
+    }
+
+
+@router.get("/audit-logs")
+async def get_audit_logs(
+    limit: int = 100,
+    offset: int = 0,
+    action: Optional[str] = None,
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin"]))
+):
+    """Get audit logs (super admin only)"""
+    db = get_mongodb()
+    
+    query = {}
+    if action:
+        query["action"] = action
+    
+    total = db.audit_logs.count_documents(query)
+    logs = list(db.audit_logs.find(query).sort("timestamp", -1).skip(offset).limit(limit))
+    
+    return {
+        "total": total,
+        "logs": [
+            {
+                "id": str(log.get("_id", "")),
+                "action": log.get("action", ""),
+                "performed_by": log.get("performed_by", ""),
+                "performed_by_email": log.get("performed_by_email", ""),
+                "target_user_id": log.get("target_user_id"),
+                "target_email": log.get("target_email"),
+                "details": log.get("details", {}),
+                "timestamp": log.get("timestamp").isoformat() if log.get("timestamp") else None
+            }
+            for log in logs
+        ]
+    }
+
+
+@router.post("/send-reminder")
+async def send_reminder_to_users(
+    reminder_type: str = "daily_recording",
+    user_ids: Optional[List[str]] = None,
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
+):
+    """Send reminder emails to users (admin only)"""
+    db = get_mongodb()
+    
+    if user_ids:
+        users = list(db.users.find({"_id": {"$in": user_ids}, "is_active": True}))
+    else:
+        # Send to all active patients who haven't completed baseline
+        users = list(db.users.find({
+            "role": "patient",
+            "is_active": True,
+            "baseline_established": {"$ne": True}
+        }))
+    
+    sent_count = 0
+    failed_count = 0
+    
+    for user in users:
+        try:
+            email_service.send_reminder_email(
+                user.get("email"),
+                user.get("full_name"),
+                reminder_type
+            )
+            sent_count += 1
+        except Exception as e:
+            print(f"Failed to send reminder to {user.get('email')}: {e}")
+            failed_count += 1
+    
+    # Log audit event
+    db.audit_logs.insert_one({
+        "action": "reminders_sent",
+        "performed_by": str(current_user.get("_id", "")),
+        "performed_by_email": current_user.get("email", ""),
+        "details": {
+            "reminder_type": reminder_type,
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+            "target_user_ids": user_ids
+        },
+        "timestamp": datetime.utcnow()
+    })
+    
+    return {
+        "message": f"Reminders sent successfully",
+        "sent_count": sent_count,
+        "failed_count": failed_count
     }

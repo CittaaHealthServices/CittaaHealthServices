@@ -34,7 +34,7 @@ export default function UserManagement() {
   const loadUsers = async () => {
     try {
       setLoading(true)
-      const data = await adminService.getAllUsers(roleFilter || undefined, 100, 0)
+      const data = await adminService.getAllUsers(roleFilter || undefined, 500, 0)
       setUsers(data.users || [])
       setTotalUsers(data.total || 0)
     } catch (err) {
