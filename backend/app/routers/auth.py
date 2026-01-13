@@ -81,6 +81,7 @@ def get_current_user_from_token(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> Dict[str, Any]:
     """Get current user from JWT token using MongoDB"""
+    from bson import ObjectId
     try:
         payload = jwt.decode(
             credentials.credentials,
@@ -92,7 +93,17 @@ def get_current_user_from_token(
             raise HTTPException(status_code=401, detail="Invalid token")
         
         db = get_mongodb()
+        
+        # Try to find user by string ID first (for UUID-based IDs)
         user = db.users.find_one({"_id": user_id})
+        
+        # If not found and user_id looks like an ObjectId hex string, try ObjectId lookup
+        if not user and len(user_id) == 24:
+            try:
+                user = db.users.find_one({"_id": ObjectId(user_id)})
+            except Exception:
+                pass
+        
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         
