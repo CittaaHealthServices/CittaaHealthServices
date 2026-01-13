@@ -4,9 +4,18 @@ import { useAuth } from '../contexts/AuthContext'
 import { adminService } from '../services/api'
 import { 
   Users, UserCheck, Activity,
-  ChevronRight, BarChart3, Shield
+  ChevronRight, BarChart3, Shield, FileText, RefreshCw
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
+
+interface AuditLog {
+  id: string
+  action: string
+  performed_by_email: string
+  target_email?: string
+  details?: Record<string, unknown>
+  timestamp: string
+}
 
 interface Statistics {
   users: {
@@ -33,9 +42,12 @@ export default function AdminDashboard() {
   const [statistics, setStatistics] = useState<Statistics | null>(null)
   const [loading, setLoading] = useState(true)
   const [, setError] = useState('')
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
 
   useEffect(() => {
     loadStatistics()
+    loadAuditLogs()
   }, [])
 
   const loadStatistics = async () => {
@@ -49,6 +61,26 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadAuditLogs = async () => {
+    try {
+      setLogsLoading(true)
+      const data = await adminService.getAuditLogs(10, 0)
+      setAuditLogs(data.logs || [])
+    } catch (err) {
+      console.error('Failed to load audit logs:', err)
+    } finally {
+      setLogsLoading(false)
+    }
+  }
+
+  const formatAction = (action: string) => {
+    return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString()
   }
 
   if (loading) {
@@ -271,6 +303,72 @@ export default function AdminDashboard() {
             <p className="text-sm text-gray-600">Pending Approval</p>
           </div>
         </div>
+      </div>
+
+      {/* Audit Logs */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <FileText className="w-5 h-5 text-primary-500" />
+            <h3 className="font-semibold text-gray-800">Recent Audit Logs</h3>
+          </div>
+          <button
+            onClick={loadAuditLogs}
+            disabled={logsLoading}
+            className="flex items-center space-x-1 text-sm text-primary-500 hover:text-primary-600 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${logsLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
+        
+        {logsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-pulse flex flex-col items-center">
+              <Activity className="w-8 h-8 text-primary-400 animate-spin" />
+              <p className="mt-2 text-sm text-gray-500">Loading logs...</p>
+            </div>
+          </div>
+        ) : auditLogs.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Action</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Performed By</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Target</th>
+                  <th className="text-left py-3 px-2 font-medium text-gray-600">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLogs.map((log) => (
+                  <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-2">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        log.action === 'user_created' ? 'bg-green-100 text-green-700' :
+                        log.action === 'password_reset' ? 'bg-blue-100 text-blue-700' :
+                        log.action === 'role_changed' ? 'bg-purple-100 text-purple-700' :
+                        log.action === 'reminders_sent' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {formatAction(log.action)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 text-gray-700">{log.performed_by_email}</td>
+                    <td className="py-3 px-2 text-gray-500">{log.target_email || '-'}</td>
+                    <td className="py-3 px-2 text-gray-500">{formatTimestamp(log.timestamp)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p>No audit logs yet</p>
+            <p className="text-sm">Actions like user creation and password resets will appear here</p>
+          </div>
+        )}
       </div>
     </div>
   )

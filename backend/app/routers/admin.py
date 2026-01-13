@@ -397,9 +397,9 @@ async def get_audit_logs(
     limit: int = 100,
     offset: int = 0,
     action: Optional[str] = None,
-    current_user: Dict[str, Any] = Depends(require_role(["super_admin"]))
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
 ):
-    """Get audit logs (super admin only)"""
+    """Get audit logs (super admin and admin)"""
     db = get_mongodb()
     
     query = {}
@@ -424,6 +424,65 @@ async def get_audit_logs(
             }
             for log in logs
         ]
+    }
+
+
+@router.put("/users/{user_id}/password")
+async def reset_user_password(
+    user_id: str,
+    new_password: Optional[str] = None,
+    auto_generate: bool = False,
+    send_email: bool = True,
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
+):
+    """Reset user password (admin only). Can auto-generate or set specific password."""
+    import uuid
+    import bcrypt
+    
+    db = get_mongodb()
+    
+    user = db.users.find_one({"_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Generate password if auto_generate or no password provided
+    if auto_generate or not new_password:
+        new_password = str(uuid.uuid4())[:12]
+    
+    # Hash password
+    password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Update user password
+    db.users.update_one({"_id": user_id}, {"$set": {"password_hash": password_hash}})
+    
+    # Log audit event
+    db.audit_logs.insert_one({
+        "action": "password_reset",
+        "performed_by": str(current_user.get("_id", "")),
+        "performed_by_email": current_user.get("email", ""),
+        "target_user_id": user_id,
+        "target_email": user.get("email", ""),
+        "details": {"auto_generated": auto_generate or not new_password},
+        "timestamp": datetime.utcnow()
+    })
+    
+    # Send email with new password
+    if send_email:
+        try:
+            email_service.send_admin_created_user_email(
+                user.get("email"),
+                user.get("full_name"),
+                new_password,
+                user.get("role", "patient")
+            )
+        except Exception as e:
+            logger.error(f"Failed to send password reset email: {e}")
+    
+    return {
+        "message": f"Password reset successfully for {user.get('email')}",
+        "user_id": user_id,
+        "new_password": new_password,
+        "email_sent": send_email
     }
 
 
