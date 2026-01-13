@@ -16,13 +16,23 @@ from typing import Optional
 
 from app.routers import auth, voice, predictions, dashboard, admin, psychologist
 from app.models.database import init_db, get_db
+from app.models.mongodb import init_mongodb, close_mongodb
 from app.utils.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database on startup"""
+    """Initialize databases on startup"""
+    # Initialize SQLite (for backward compatibility)
     init_db()
+    # Initialize MongoDB (for persistent storage)
+    try:
+        init_mongodb()
+        print("MongoDB initialized successfully")
+    except Exception as e:
+        print(f"MongoDB initialization warning: {e}")
     yield
+    # Cleanup on shutdown
+    close_mongodb()
 
 app = FastAPI(
     title="Vocalysis API",
