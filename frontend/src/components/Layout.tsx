@@ -42,9 +42,9 @@ export default function Layout({ children }: LayoutProps) {
       ]
     }
 
-    if (user?.role === 'super_admin' || user?.role === 'hr_admin') {
+    if (user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'hr_admin') {
       return [
-        { path: '/admin/dashboard', icon: Home, label: 'Dashboard' },
+        { path: '/dashboard', icon: Home, label: 'Dashboard' },
         { path: '/admin/users', icon: Users, label: 'User Management' },
         { path: '/admin/approvals', icon: UserCheck, label: 'Pending Approvals' },
       ]
