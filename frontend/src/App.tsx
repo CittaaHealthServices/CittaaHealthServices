@@ -14,21 +14,31 @@ import AdminDashboard from './pages/AdminDashboard'
 import PendingApprovals from './pages/PendingApprovals'
 import UserManagement from './pages/UserManagement'
 
+// Component that renders the appropriate dashboard based on user role
+function RoleDashboard() {
+  const { user } = useAuth()
+  
+  if (!user) return null
+  
+  switch (user.role) {
+    case 'psychologist':
+      return <PsychologistDashboard />
+    case 'admin':
+    case 'super_admin':
+    case 'hr_admin':
+      return <AdminDashboard />
+    default:
+      return <PatientDashboard />
+  }
+}
+
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const { user, isAuthenticated, loading } = useAuth()
   
   const getCorrectDashboard = () => {
     if (!user) return '/login'
-    switch (user.role) {
-      case 'psychologist':
-        return '/psychologist/dashboard'
-      case 'admin':
-      case 'super_admin':
-      case 'hr_admin':
-        return '/admin/dashboard'
-      default:
-        return '/dashboard'
-    }
+    // All users go to /dashboard - RoleDashboard component renders the correct dashboard
+    return '/dashboard'
   }
   
   if (loading) {
@@ -55,16 +65,8 @@ function AppRoutes() {
   
   const getDashboardRoute = () => {
     if (!user) return '/login'
-    switch (user.role) {
-      case 'psychologist':
-        return '/psychologist/dashboard'
-      case 'admin':
-      case 'super_admin':
-      case 'hr_admin':
-        return '/admin/dashboard'
-      default:
-        return '/dashboard'
-    }
+    // All users go to /dashboard - RoleDashboard component renders the correct dashboard
+    return '/dashboard'
   }
   
   return (
@@ -74,10 +76,10 @@ function AppRoutes() {
       <Route path="/register" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Register />} />
       <Route path="/forgot-password" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <ForgotPassword />} />
       
-      {/* Patient routes */}
+      {/* Universal dashboard route - renders appropriate dashboard based on role */}
       <Route path="/dashboard" element={
-        <ProtectedRoute allowedRoles={['patient', 'researcher']}>
-          <Layout><PatientDashboard /></Layout>
+        <ProtectedRoute>
+          <Layout><RoleDashboard /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/record" element={

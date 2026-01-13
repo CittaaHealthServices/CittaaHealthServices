@@ -18,24 +18,9 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const response = await login(email, password)
-      // Redirect based on user role
-      const userRole = response?.role || 'patient'
-      switch (userRole) {
-        case 'psychologist':
-          navigate('/psychologist/dashboard')
-          break
-        case 'admin':
-        case 'super_admin':
-        case 'hr_admin':
-          navigate('/admin/dashboard')
-          break
-        case 'researcher':
-          navigate('/dashboard')
-          break
-        default:
-          navigate('/dashboard')
-      }
+      await login(email, password)
+      // Redirect to universal dashboard - RoleDashboard component will render the correct dashboard
+      navigate('/dashboard')
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 
