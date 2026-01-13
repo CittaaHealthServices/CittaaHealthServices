@@ -16,9 +16,16 @@ import UserManagement from './pages/UserManagement'
 
 // Component that renders the appropriate dashboard based on user role
 function RoleDashboard() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   
-  if (!user) return null
+  // Show loading state while auth is being checked
+  if (loading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-pulse text-primary-500">Loading dashboard...</div>
+      </div>
+    )
+  }
   
   switch (user.role) {
     case 'psychologist':
@@ -136,11 +143,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
+    <AuthProvider>
+      <Router>
         <AppRoutes />
-      </AuthProvider>
-    </Router>
+      </Router>
+    </AuthProvider>
   )
 }
 
