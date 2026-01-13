@@ -1,5 +1,6 @@
 """
 Authentication router for Vocalysis API - MongoDB Version
+Implements secure authentication with healthcare-grade security measures
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,11 +10,21 @@ import jwt
 import bcrypt
 from typing import Optional, Dict, Any
 import uuid
+import logging
 
 from app.models.mongodb import get_mongodb
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserUpdate, ConsentUpdate
 from app.utils.config import settings
 from app.services.email_service import email_service
+from app.middleware.security import (
+    validate_password_strength,
+    validate_email,
+    validate_phone,
+    sanitize_input,
+    hash_sensitive_data
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 security = HTTPBearer()
@@ -104,11 +115,44 @@ def require_role(allowed_roles: list):
 
 @router.post("/register", response_model=Token)
 async def register(user_data: UserCreate):
-    """Register a new user in MongoDB"""
+    """Register a new user in MongoDB with security validations"""
     db = get_mongodb()
     
+    # Validate email format
+    if not validate_email(user_data.email):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid email format"
+        )
+    
+    # Validate password strength
+    is_valid, error_msg = validate_password_strength(user_data.password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail=error_msg
+        )
+    
+    # Validate phone number if provided
+    if user_data.phone and not validate_phone(user_data.phone):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid phone number format. Use Indian format: +91XXXXXXXXXX"
+        )
+    
+    # Sanitize inputs to prevent injection attacks
+    try:
+        sanitized_email = sanitize_input(user_data.email)
+        sanitized_name = sanitize_input(user_data.full_name) if user_data.full_name else ""
+    except ValueError as e:
+        logger.warning(f"Potential injection attempt detected: {hash_sensitive_data(user_data.email)}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid input detected"
+        )
+    
     # Check if email already exists
-    existing_user = db.users.find_one({"email": user_data.email})
+    existing_user = db.users.find_one({"email": sanitized_email})
     if existing_user:
         raise HTTPException(
             status_code=400,
@@ -119,9 +163,9 @@ async def register(user_data: UserCreate):
     user_id = str(uuid.uuid4())
     user_doc = {
         "_id": user_id,
-        "email": user_data.email,
+        "email": sanitized_email,
         "password_hash": hash_password(user_data.password),
-        "full_name": user_data.full_name,
+        "full_name": sanitized_name,
         "phone": user_data.phone,
         "age_range": user_data.age_range,
         "gender": user_data.gender,
@@ -138,13 +182,14 @@ async def register(user_data: UserCreate):
     }
     
     db.users.insert_one(user_doc)
+    logger.info(f"New user registered: {hash_sensitive_data(sanitized_email)}")
     
     # Send welcome email
     try:
         email_service.send_welcome_email(user_data.email, user_data.full_name)
     except Exception as e:
         # Log but don't fail registration if email fails
-        print(f"Failed to send welcome email: {e}")
+        logger.warning(f"Failed to send welcome email: {e}")
     
     # Create token
     token = create_token(user_id, user_doc["role"])
@@ -157,18 +202,31 @@ async def register(user_data: UserCreate):
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin):
-    """Login user using MongoDB"""
+    """Login user using MongoDB with security logging"""
     db = get_mongodb()
     
-    user = db.users.find_one({"email": credentials.email})
+    # Sanitize email input
+    try:
+        sanitized_email = sanitize_input(credentials.email)
+    except ValueError:
+        logger.warning(f"Potential injection attempt in login: {hash_sensitive_data(credentials.email)}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+    
+    user = db.users.find_one({"email": sanitized_email})
     
     if not user or not verify_password(credentials.password, user.get("password_hash", "")):
+        # Log failed login attempt (for security monitoring)
+        logger.warning(f"Failed login attempt for: {hash_sensitive_data(sanitized_email)}")
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
         )
     
     if not user.get("is_active", True):
+        logger.warning(f"Login attempt for deactivated account: {hash_sensitive_data(sanitized_email)}")
         raise HTTPException(
             status_code=403,
             detail="Account is deactivated"
@@ -180,6 +238,9 @@ async def login(credentials: UserLogin):
         {"$set": {"last_login": datetime.utcnow()}}
     )
     user["last_login"] = datetime.utcnow()
+    
+    # Log successful login
+    logger.info(f"Successful login for user: {hash_sensitive_data(sanitized_email)}")
     
     # Create token
     token = create_token(user["_id"], user.get("role", "patient"))
