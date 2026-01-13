@@ -582,12 +582,15 @@ class VoiceAnalysisService:
             # Generate recommendations
             recommendations = self._generate_recommendations(risk_level, probabilities)
             
+            # Remove numpy array from features before returning (not JSON serializable)
+            features_clean = {k: v for k, v in features.items() if k != "_feature_array"}
+            
             return {
                 "probabilities": probabilities,
                 "risk_level": risk_level,
                 "mental_health_score": mental_health_score,
                 "confidence": float(max(probabilities)),
-                "features": features,
+                "features": features_clean,
                 "scale_mappings": scale_mappings,
                 "interpretations": interpretations,
                 "recommendations": recommendations
@@ -820,8 +823,11 @@ class VoiceAnalysisService:
         features["hnr"] = float(-10 * np.log10(np.mean(spectral_flatness) + 1e-10))
         feature_array[89] = features['hnr']
         
-        # Store feature array for model prediction
+        # Store feature array for model prediction (keep as numpy for internal use)
         features["_feature_array"] = feature_array
+        
+        # Also store as list for JSON serialization
+        features["feature_array_list"] = feature_array.tolist()
         
         return features
     
