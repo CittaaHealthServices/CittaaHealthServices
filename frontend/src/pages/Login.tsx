@@ -20,7 +20,7 @@ export default function Login() {
     try {
       const response = await login(email, password)
       // Redirect based on user role
-      const userRole = response?.role || localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}').role : 'patient'
+      const userRole = response?.role || 'patient'
       switch (userRole) {
         case 'psychologist':
           navigate('/psychologist/dashboard')
