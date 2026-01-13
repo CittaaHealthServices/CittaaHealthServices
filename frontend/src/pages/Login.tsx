@@ -25,6 +25,7 @@ export default function Login() {
         case 'psychologist':
           navigate('/psychologist/dashboard')
           break
+        case 'admin':
         case 'super_admin':
         case 'hr_admin':
           navigate('/admin/dashboard')
