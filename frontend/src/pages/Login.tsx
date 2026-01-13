@@ -18,8 +18,23 @@ export default function Login() {
     setLoading(true)
 
     try {
-      await login(email, password)
-      navigate('/dashboard')
+      const response = await login(email, password)
+      // Redirect based on user role
+      const userRole = response?.role || localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}').role : 'patient'
+      switch (userRole) {
+        case 'psychologist':
+          navigate('/psychologist/dashboard')
+          break
+        case 'super_admin':
+        case 'hr_admin':
+          navigate('/admin/dashboard')
+          break
+        case 'researcher':
+          navigate('/dashboard')
+          break
+        default:
+          navigate('/dashboard')
+      }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 
