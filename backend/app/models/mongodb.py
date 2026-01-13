@@ -8,10 +8,10 @@ from pymongo.database import Database
 from typing import Optional
 
 # MongoDB connection string from environment
-# Password Pratya@8121053555 is URL-encoded as Pratya%408121053555
+# Password VocalysisDB2026 (no special characters)
 MONGODB_URL = os.getenv(
     "MONGODB_URL", 
-    "mongodb+srv://sairam_db_user:Pratya%408121053555@cluster0.ao9qmj.mongodb.net/?appName=Cluster0"
+    "mongodb+srv://sairam_db_user:VocalysisDB2026@cluster0.ao9qmj.mongodb.net/vocalysis?retryWrites=true&w=majority"
 )
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "vocalysis")
 

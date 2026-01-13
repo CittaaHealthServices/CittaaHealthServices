@@ -53,7 +53,7 @@ def create_token(user_id: str, role: str) -> str:
 def mongo_user_to_response(user_doc: Dict[str, Any]) -> Dict[str, Any]:
     """Convert MongoDB user document to response format"""
     return {
-        "id": user_doc.get("_id", ""),
+        "id": str(user_doc.get("_id", "")),
         "email": user_doc.get("email", ""),
         "full_name": user_doc.get("full_name", ""),
         "phone": user_doc.get("phone"),
@@ -242,8 +242,9 @@ async def login(credentials: UserLogin):
     # Log successful login
     logger.info(f"Successful login for user: {hash_sensitive_data(sanitized_email)}")
     
-    # Create token
-    token = create_token(user["_id"], user.get("role", "patient"))
+    # Create token - convert ObjectId to string if needed
+    user_id = str(user["_id"]) if user.get("_id") else ""
+    token = create_token(user_id, user.get("role", "patient"))
     
     return Token(
         access_token=token,
