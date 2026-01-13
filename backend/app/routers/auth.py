@@ -1,17 +1,16 @@
 """
-Authentication router for Vocalysis API
+Authentication router for Vocalysis API - MongoDB Version
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import jwt
 import bcrypt
-from typing import Optional
+from typing import Optional, Dict, Any
+import uuid
 
-from app.models.database import get_db
-from app.models.user import User, UserRole
+from app.models.mongodb import get_mongodb
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserUpdate, ConsentUpdate
 from app.utils.config import settings
 from app.services.email_service import email_service
@@ -19,13 +18,16 @@ from app.services.email_service import email_service
 router = APIRouter()
 security = HTTPBearer()
 
+
 def hash_password(password: str) -> str:
     """Hash password using bcrypt"""
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
+
 def verify_password(password: str, hashed: str) -> bool:
     """Verify password against hash"""
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
 
 def create_token(user_id: str, role: str) -> str:
     """Create JWT token"""
@@ -36,11 +38,36 @@ def create_token(user_id: str, role: str) -> str:
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-) -> User:
-    """Get current user from JWT token"""
+
+def mongo_user_to_response(user_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert MongoDB user document to response format"""
+    return {
+        "id": user_doc.get("_id", ""),
+        "email": user_doc.get("email", ""),
+        "full_name": user_doc.get("full_name", ""),
+        "phone": user_doc.get("phone"),
+        "age_range": user_doc.get("age_range"),
+        "gender": user_doc.get("gender"),
+        "language_preference": user_doc.get("language_preference", "en"),
+        "role": user_doc.get("role", "patient"),
+        "is_active": user_doc.get("is_active", True),
+        "is_verified": user_doc.get("is_verified", False),
+        "consent_given": user_doc.get("consent_given", False),
+        "consent_timestamp": user_doc.get("consent_timestamp"),
+        "is_clinical_trial_participant": user_doc.get("is_clinical_trial_participant", False),
+        "assigned_psychologist_id": user_doc.get("assigned_psychologist_id"),
+        "organization_id": user_doc.get("organization_id"),
+        "employee_id": user_doc.get("employee_id"),
+        "created_at": user_doc.get("created_at"),
+        "updated_at": user_doc.get("updated_at"),
+        "last_login": user_doc.get("last_login"),
+    }
+
+
+def get_current_user_from_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> Dict[str, Any]:
+    """Get current user from JWT token using MongoDB"""
     try:
         payload = jwt.decode(
             credentials.credentials,
@@ -51,7 +78,8 @@ def get_current_user(
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
         
-        user = db.query(User).filter(User.id == user_id).first()
+        db = get_mongodb()
+        user = db.users.find_one({"_id": user_id})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         
@@ -61,10 +89,11 @@ def get_current_user(
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+
 def require_role(allowed_roles: list):
     """Dependency to require specific roles"""
-    def role_checker(current_user: User = Depends(get_current_user)):
-        if current_user.role not in allowed_roles:
+    def role_checker(current_user: Dict[str, Any] = Depends(get_current_user_from_token)):
+        if current_user.get("role") not in allowed_roles:
             raise HTTPException(
                 status_code=403,
                 detail=f"Access denied. Required roles: {allowed_roles}"
@@ -72,124 +101,167 @@ def require_role(allowed_roles: list):
         return current_user
     return role_checker
 
+
 @router.post("/register", response_model=Token)
-async def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    """Register a new user"""
+async def register(user_data: UserCreate):
+    """Register a new user in MongoDB"""
+    db = get_mongodb()
+    
     # Check if email already exists
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    existing_user = db.users.find_one({"email": user_data.email})
     if existing_user:
         raise HTTPException(
             status_code=400,
             detail="Email already registered"
         )
     
-    # Create new user
-    user = User(
-        email=user_data.email,
-        password_hash=hash_password(user_data.password),
-        full_name=user_data.full_name,
-        phone=user_data.phone,
-        age_range=user_data.age_range,
-        gender=user_data.gender,
-        language_preference=user_data.language_preference,
-        role=user_data.role,
-        organization_id=user_data.organization_id,
-        employee_id=user_data.employee_id
-    )
+    # Create new user document
+    user_id = str(uuid.uuid4())
+    user_doc = {
+        "_id": user_id,
+        "email": user_data.email,
+        "password_hash": hash_password(user_data.password),
+        "full_name": user_data.full_name,
+        "phone": user_data.phone,
+        "age_range": user_data.age_range,
+        "gender": user_data.gender,
+        "language_preference": user_data.language_preference or "en",
+        "role": user_data.role or "patient",
+        "organization_id": user_data.organization_id,
+        "employee_id": user_data.employee_id,
+        "is_active": True,
+        "is_verified": False,
+        "consent_given": False,
+        "is_clinical_trial_participant": False,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
     
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    db.users.insert_one(user_doc)
     
     # Send welcome email
     try:
-        email_service.send_welcome_email(user.email, user.full_name)
+        email_service.send_welcome_email(user_data.email, user_data.full_name)
     except Exception as e:
         # Log but don't fail registration if email fails
         print(f"Failed to send welcome email: {e}")
     
     # Create token
-    token = create_token(user.id, user.role)
+    token = create_token(user_id, user_doc["role"])
     
     return Token(
         access_token=token,
-        user=UserResponse.model_validate(user)
+        user=UserResponse.model_validate(mongo_user_to_response(user_doc))
     )
 
+
 @router.post("/login", response_model=Token)
-async def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    """Login user"""
-    user = db.query(User).filter(User.email == credentials.email).first()
+async def login(credentials: UserLogin):
+    """Login user using MongoDB"""
+    db = get_mongodb()
     
-    if not user or not verify_password(credentials.password, user.password_hash):
+    user = db.users.find_one({"email": credentials.email})
+    
+    if not user or not verify_password(credentials.password, user.get("password_hash", "")):
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
         )
     
-    if not user.is_active:
+    if not user.get("is_active", True):
         raise HTTPException(
             status_code=403,
             detail="Account is deactivated"
         )
     
     # Update last login
-    user.last_login = datetime.utcnow()
-    db.commit()
+    db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"last_login": datetime.utcnow()}}
+    )
+    user["last_login"] = datetime.utcnow()
     
     # Create token
-    token = create_token(user.id, user.role)
+    token = create_token(user["_id"], user.get("role", "patient"))
     
     return Token(
         access_token=token,
-        user=UserResponse.model_validate(user)
+        user=UserResponse.model_validate(mongo_user_to_response(user))
     )
 
+
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(current_user: User = Depends(get_current_user)):
+async def get_current_user_profile(current_user: Dict[str, Any] = Depends(get_current_user_from_token)):
     """Get current user profile"""
-    return UserResponse.model_validate(current_user)
+    return UserResponse.model_validate(mongo_user_to_response(current_user))
+
 
 @router.put("/me", response_model=UserResponse)
 async def update_profile(
     update_data: UserUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
 ):
-    """Update current user profile"""
+    """Update current user profile in MongoDB"""
+    db = get_mongodb()
+    
+    update_fields = {}
     if update_data.full_name is not None:
-        current_user.full_name = update_data.full_name
+        update_fields["full_name"] = update_data.full_name
     if update_data.phone is not None:
-        current_user.phone = update_data.phone
+        update_fields["phone"] = update_data.phone
     if update_data.age_range is not None:
-        current_user.age_range = update_data.age_range
+        update_fields["age_range"] = update_data.age_range
     if update_data.gender is not None:
-        current_user.gender = update_data.gender
+        update_fields["gender"] = update_data.gender
     if update_data.language_preference is not None:
-        current_user.language_preference = update_data.language_preference
+        update_fields["language_preference"] = update_data.language_preference
     
-    db.commit()
-    db.refresh(current_user)
+    if update_fields:
+        update_fields["updated_at"] = datetime.utcnow()
+        db.users.update_one(
+            {"_id": current_user["_id"]},
+            {"$set": update_fields}
+        )
     
-    return UserResponse.model_validate(current_user)
+    # Get updated user
+    updated_user = db.users.find_one({"_id": current_user["_id"]})
+    return UserResponse.model_validate(mongo_user_to_response(updated_user))
+
 
 @router.post("/consent", response_model=UserResponse)
 async def update_consent(
     consent_data: ConsentUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
 ):
-    """Update user consent status"""
-    current_user.consent_given = consent_data.consent_given
+    """Update user consent status in MongoDB"""
+    db = get_mongodb()
+    
+    update_fields = {
+        "consent_given": consent_data.consent_given,
+        "updated_at": datetime.utcnow()
+    }
     if consent_data.consent_given:
-        current_user.consent_timestamp = datetime.utcnow()
+        update_fields["consent_timestamp"] = datetime.utcnow()
     
-    db.commit()
-    db.refresh(current_user)
+    db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": update_fields}
+    )
     
-    return UserResponse.model_validate(current_user)
+    # Get updated user
+    updated_user = db.users.find_one({"_id": current_user["_id"]})
+    return UserResponse.model_validate(mongo_user_to_response(updated_user))
+
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)):
+async def logout(current_user: Dict[str, Any] = Depends(get_current_user_from_token)):
     """Logout user (client should discard token)"""
     return {"message": "Logged out successfully"}
+
+
+# Keep the old get_current_user for backward compatibility with other routers
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> Dict[str, Any]:
+    """Alias for get_current_user_from_token for backward compatibility"""
+    return get_current_user_from_token(credentials)
