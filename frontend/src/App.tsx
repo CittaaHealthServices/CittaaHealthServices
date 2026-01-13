@@ -44,6 +44,7 @@ function AppRoutes() {
     switch (user.role) {
       case 'psychologist':
         return '/psychologist/dashboard'
+      case 'admin':
       case 'super_admin':
       case 'hr_admin':
         return '/admin/dashboard'
@@ -95,17 +96,17 @@ function AppRoutes() {
       
       {/* Admin routes */}
       <Route path="/admin/dashboard" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'super_admin', 'hr_admin']}>
           <Layout><AdminDashboard /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/admin/approvals" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
           <Layout><PendingApprovals /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/admin/users" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'super_admin', 'hr_admin']}>
           <Layout><UserManagement /></Layout>
         </ProtectedRoute>
       } />
