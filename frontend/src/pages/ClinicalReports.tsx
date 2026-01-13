@@ -6,6 +6,7 @@ import {
   FileText, Calendar,
   Download, Eye, Filter, Search, Activity, AlertTriangle
 } from 'lucide-react'
+import jsPDF from 'jspdf'
 
 export default function ClinicalReports() {
   const { user } = useAuth()
@@ -41,6 +42,88 @@ export default function ClinicalReports() {
       case 'high': return 'bg-error/10 text-error border-error/20'
       default: return 'bg-gray-100 text-gray-500 border-gray-200'
     }
+  }
+
+  const downloadReport = (prediction: Prediction) => {
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    let yPos = 20
+
+    // Header - Cittaa Branding
+    doc.setFillColor(139, 90, 150)
+    doc.rect(0, 0, pageWidth, 35, 'F')
+    
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(24)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Cittaa', 20, 18)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(12)
+    doc.text('Vocalysis Clinical Report', 20, 28)
+    
+    doc.setFontSize(10)
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 70, 18)
+    doc.text(`Report ID: ${prediction.id?.slice(0, 8) || 'N/A'}`, pageWidth - 70, 25)
+
+    yPos = 50
+
+    // Overall Score Section
+    doc.setTextColor(139, 90, 150)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Mental Health Assessment Summary', 20, yPos)
+    yPos += 12
+
+    doc.setFillColor(245, 240, 248)
+    doc.roundedRect(20, yPos, pageWidth - 40, 35, 3, 3, 'F')
+    
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(60, 60, 60)
+    doc.text(`Mental Health Score: ${prediction.mental_health_score?.toFixed(0) || 'N/A'}/100`, 30, yPos + 12)
+    
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    const riskLevel = prediction.overall_risk_level || 'Unknown'
+    const riskColor = riskLevel === 'low' ? [39, 174, 96] : riskLevel === 'moderate' ? [255, 140, 66] : [231, 76, 60]
+    doc.setTextColor(riskColor[0], riskColor[1], riskColor[2])
+    doc.text(`Risk Level: ${riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)}`, 30, yPos + 22)
+    
+    doc.setTextColor(60, 60, 60)
+    doc.text(`Analysis Date: ${new Date(prediction.predicted_at).toLocaleString()}`, 30, yPos + 30)
+
+    yPos += 45
+
+    // Clinical Scales
+    doc.setTextColor(139, 90, 150)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Clinical Scale Scores', 20, yPos)
+    yPos += 10
+
+    doc.setTextColor(60, 60, 60)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`PHQ-9 (Depression): ${prediction.phq9_score?.toFixed(0) || 'N/A'}/27`, 25, yPos)
+    yPos += 8
+    doc.text(`GAD-7 (Anxiety): ${prediction.gad7_score?.toFixed(0) || 'N/A'}/21`, 25, yPos)
+    yPos += 8
+    doc.text(`PSS (Stress): ${prediction.pss_score?.toFixed(0) || 'N/A'}/40`, 25, yPos)
+    yPos += 8
+    doc.text(`WEMWBS (Wellbeing): ${prediction.wemwbs_score?.toFixed(0) || 'N/A'}/70`, 25, yPos)
+
+    // Footer
+    const footerY = doc.internal.pageSize.getHeight() - 15
+    doc.setFillColor(139, 90, 150)
+    doc.rect(0, footerY - 5, pageWidth, 20, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(8)
+    doc.text('Cittaa Health Services | Vocalysis Voice Analysis System', 20, footerY + 2)
+    doc.text('This report is for informational purposes only.', 20, footerY + 7)
+    doc.text('www.cittaa.in', pageWidth - 35, footerY + 2)
+
+    const fileName = `Vocalysis_Report_${new Date().toISOString().split('T')[0]}_${prediction.id?.slice(0, 8) || 'report'}.pdf`
+    doc.save(fileName)
   }
 
   const filteredPredictions = predictions.filter(p => {
@@ -180,7 +263,11 @@ export default function ClinicalReports() {
                     <Eye className="w-4 h-4 mr-2" />
                     View Details
                   </Link>
-                  <button className="p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                  <button 
+                    onClick={() => downloadReport(prediction)}
+                    className="p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    title="Download Report"
+                  >
                     <Download className="w-4 h-4" />
                   </button>
                 </div>
