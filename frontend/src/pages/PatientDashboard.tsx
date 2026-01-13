@@ -17,8 +17,15 @@ export default function PatientDashboard() {
   useEffect(() => {
     if (user?.id) {
       loadDashboard()
+    } else if (user && !user.id) {
+      // Handle case where user exists but id is missing
+      console.error('User object missing id field:', user)
+      setLoading(false)
+    } else if (!user) {
+      // User not loaded yet, keep loading state
+      // This will be handled by RoleDashboard's loading state
     }
-  }, [user?.id])
+  }, [user?.id, user])
 
   const loadDashboard = async () => {
     try {
