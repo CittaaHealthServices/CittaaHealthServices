@@ -638,8 +638,7 @@ async def send_test_email(
             # Send a sample analysis results email
             success = email_service.send_analysis_results_email(
                 target_email, admin_name,
-                {"phq9": 5, "gad7": 4, "pss": 12, "wemwbs": 52},
-                "low"
+                risk_level="low", phq9=5, gad7=4, pss=12, wemwbs=52
             )
         else:
             success = email_service.send_welcome_email(target_email, admin_name)
