@@ -621,29 +621,31 @@ async def update_email_settings(
 @router.post("/send-test-email")
 async def send_test_email(
     email_type: str = "welcome",
+    recipient: Optional[str] = None,
     current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
 ):
     """Send a test email to verify SMTP configuration"""
-    admin_email = current_user.get("email")
+    # Use recipient if provided, otherwise send to admin
+    target_email = recipient if recipient else current_user.get("email")
     admin_name = current_user.get("full_name", "Admin")
     
     try:
         if email_type == "welcome":
-            success = email_service.send_welcome_email(admin_email, admin_name)
+            success = email_service.send_welcome_email(target_email, admin_name)
         elif email_type == "reminder":
-            success = email_service.send_reminder_email(admin_email, admin_name, "daily_recording")
+            success = email_service.send_reminder_email(target_email, admin_name, "daily_recording")
         elif email_type == "analysis":
             # Send a sample analysis results email
             success = email_service.send_analysis_results_email(
-                admin_email, admin_name,
+                target_email, admin_name,
                 {"phq9": 5, "gad7": 4, "pss": 12, "wemwbs": 52},
                 "low"
             )
         else:
-            success = email_service.send_welcome_email(admin_email, admin_name)
+            success = email_service.send_welcome_email(target_email, admin_name)
         
         if success:
-            return {"message": f"Test email sent successfully to {admin_email}", "success": True}
+            return {"message": f"Test email sent successfully to {target_email}", "success": True}
         else:
             return {"message": "Failed to send test email. Check SMTP configuration.", "success": False}
     except Exception as e:
