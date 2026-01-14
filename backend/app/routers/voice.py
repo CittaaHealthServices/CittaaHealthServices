@@ -386,3 +386,203 @@ async def delete_voice_sample(
     db.voice_samples.delete_one({"_id": sample_id})
     
     return {"message": "Voice sample deleted successfully"}
+
+
+# ============== PSYCHOLOGIST CALIBRATION ENDPOINTS ==============
+
+@router.post("/calibrate/{patient_id}")
+async def calibrate_patient_model(
+    patient_id: str,
+    clinical_assessment: Dict[str, Any],
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
+):
+    """
+    Psychologist calibration endpoint - allows psychologists to validate and adjust
+    model predictions based on their clinical assessment.
+    
+    This creates a calibration factor that adjusts future predictions for this patient.
+    
+    Required clinical_assessment fields:
+    - phq9_score: PHQ-9 depression score (0-27)
+    - gad7_score: GAD-7 anxiety score (0-21)
+    - pss_score: PSS stress score (0-40)
+    - prediction_id: The prediction ID being calibrated (optional)
+    - notes: Clinical notes (optional)
+    """
+    db = get_mongodb()
+    psychologist_id = get_user_id(current_user)
+    
+    # Verify user is a psychologist or admin
+    user_role = current_user.get("role", "")
+    if user_role not in ["psychologist", "admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403, 
+            detail="Only psychologists can calibrate patient models"
+        )
+    
+    # Validate clinical scores
+    phq9 = clinical_assessment.get("phq9_score", 0)
+    gad7 = clinical_assessment.get("gad7_score", 0)
+    pss = clinical_assessment.get("pss_score", 0)
+    
+    if not (0 <= phq9 <= 27):
+        raise HTTPException(status_code=400, detail="PHQ-9 score must be between 0-27")
+    if not (0 <= gad7 <= 21):
+        raise HTTPException(status_code=400, detail="GAD-7 score must be between 0-21")
+    if not (0 <= pss <= 40):
+        raise HTTPException(status_code=400, detail="PSS score must be between 0-40")
+    
+    # Get the most recent prediction for this patient
+    prediction_id = clinical_assessment.get("prediction_id")
+    if prediction_id:
+        prediction = db.predictions.find_one({"_id": prediction_id, "user_id": patient_id})
+    else:
+        prediction = db.predictions.find_one(
+            {"user_id": patient_id},
+            sort=[("predicted_at", -1)]
+        )
+    
+    if not prediction:
+        raise HTTPException(status_code=404, detail="No prediction found for this patient")
+    
+    # Get original model prediction
+    model_prediction = [
+        prediction.get("normal_score", 0.25),
+        prediction.get("anxiety_score", 0.25),
+        prediction.get("depression_score", 0.25),
+        prediction.get("stress_score", 0.25)
+    ]
+    
+    # Add psychologist ID to clinical assessment
+    clinical_assessment["psychologist_id"] = psychologist_id
+    
+    # Set calibration in voice service
+    calibration = voice_service.set_calibration(patient_id, clinical_assessment, model_prediction)
+    
+    # Store calibration in MongoDB for persistence
+    calibration_doc = {
+        "_id": str(uuid.uuid4()),
+        "patient_id": patient_id,
+        "psychologist_id": psychologist_id,
+        "prediction_id": prediction.get("_id"),
+        "original_prediction": {
+            "normal": model_prediction[0],
+            "anxiety": model_prediction[1],
+            "depression": model_prediction[2],
+            "stress": model_prediction[3]
+        },
+        "clinical_assessment": {
+            "phq9_score": phq9,
+            "gad7_score": gad7,
+            "pss_score": pss,
+            "notes": clinical_assessment.get("notes", "")
+        },
+        "calibration_factors": calibration,
+        "calibrated_at": datetime.utcnow(),
+        "created_at": datetime.utcnow()
+    }
+    
+    db.calibrations.insert_one(calibration_doc)
+    
+    # Update the prediction with calibration info
+    db.predictions.update_one(
+        {"_id": prediction.get("_id")},
+        {"$set": {
+            "calibrated": True,
+            "calibration_id": calibration_doc["_id"],
+            "clinical_phq9": phq9,
+            "clinical_gad7": gad7,
+            "clinical_pss": pss,
+            "calibrated_by": psychologist_id,
+            "calibrated_at": datetime.utcnow()
+        }}
+    )
+    
+    return {
+        "message": "Calibration successful",
+        "calibration_id": calibration_doc["_id"],
+        "patient_id": patient_id,
+        "original_prediction": calibration_doc["original_prediction"],
+        "clinical_assessment": calibration_doc["clinical_assessment"],
+        "calibration_factors": {
+            "normal": calibration.get("factor_0", 1.0),
+            "anxiety": calibration.get("factor_1", 1.0),
+            "depression": calibration.get("factor_2", 1.0),
+            "stress": calibration.get("factor_3", 1.0)
+        }
+    }
+
+
+@router.get("/calibration/{patient_id}")
+async def get_patient_calibration(
+    patient_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
+):
+    """
+    Get calibration history for a patient.
+    Only accessible by psychologists, admins, or the patient themselves.
+    """
+    db = get_mongodb()
+    user_id = get_user_id(current_user)
+    user_role = current_user.get("role", "")
+    
+    # Check access permissions
+    if user_role not in ["psychologist", "admin", "super_admin"] and user_id != patient_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to view this patient's calibration"
+        )
+    
+    # Get calibration history
+    calibrations = list(db.calibrations.find(
+        {"patient_id": patient_id}
+    ).sort("calibrated_at", -1).limit(10))
+    
+    # Get current in-memory calibration
+    current_calibration = voice_service.get_calibration(patient_id)
+    
+    return {
+        "patient_id": patient_id,
+        "has_calibration": current_calibration is not None,
+        "current_calibration": current_calibration,
+        "calibration_history": [{
+            "id": c["_id"],
+            "psychologist_id": c.get("psychologist_id"),
+            "clinical_assessment": c.get("clinical_assessment"),
+            "calibrated_at": c.get("calibrated_at")
+        } for c in calibrations]
+    }
+
+
+@router.delete("/calibration/{patient_id}")
+async def reset_patient_calibration(
+    patient_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user_from_token)
+):
+    """
+    Reset calibration for a patient (use raw model predictions).
+    Only accessible by psychologists or admins.
+    """
+    db = get_mongodb()
+    user_role = current_user.get("role", "")
+    
+    if user_role not in ["psychologist", "admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Only psychologists can reset patient calibration"
+        )
+    
+    # Remove from in-memory cache
+    if hasattr(voice_service, 'calibration_factors') and patient_id in voice_service.calibration_factors:
+        del voice_service.calibration_factors[patient_id]
+    
+    # Mark calibrations as inactive in database
+    db.calibrations.update_many(
+        {"patient_id": patient_id},
+        {"$set": {"active": False, "deactivated_at": datetime.utcnow()}}
+    )
+    
+    return {
+        "message": "Calibration reset successful",
+        "patient_id": patient_id
+    }

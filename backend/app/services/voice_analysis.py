@@ -685,7 +685,16 @@ class VoiceAnalysisService:
         return result
     
     def _extract_features(self, audio: np.ndarray, sr: int) -> Dict[str, Any]:
-        """Extract acoustic features from audio - returns both dict and 100-feature array for model"""
+        """
+        Extract acoustic features from audio - optimized for Indian voice patterns
+        Returns both dict and 100-feature array for model
+        
+        Indian voice optimization includes:
+        - Adjusted pitch ranges for Indian speakers (typically 80-400 Hz)
+        - Formant analysis for vowel quality (important for Indian languages)
+        - Prosodic features capturing Indian speech rhythm patterns
+        - Voice quality measures (breathiness, creakiness common in Indian speech)
+        """
         import librosa
         import scipy.signal as signal
         
@@ -705,21 +714,25 @@ class VoiceAnalysisService:
         feature_array[0] = features['ae_mean']
         feature_array[1] = features['ae_std']
         
-        # RMS
+        # RMS energy - important for detecting low energy (depression indicator)
         rms = librosa.feature.rms(y=audio, hop_length=hop_length)[0]
         features["rms_mean"] = float(np.mean(rms))
         features["rms_std"] = float(np.std(rms))
+        features["rms_max"] = float(np.max(rms))
+        features["rms_min"] = float(np.min(rms))
         feature_array[4] = features['rms_mean']
         feature_array[5] = features['rms_std']
+        feature_array[6] = features['rms_max']
+        feature_array[7] = features['rms_min']
         
-        # Zero crossing rate
+        # Zero crossing rate - captures voice quality
         zcr = librosa.feature.zero_crossing_rate(audio, hop_length=hop_length)[0]
         features["zcr_mean"] = float(np.mean(zcr))
         features["zcr_std"] = float(np.std(zcr))
         feature_array[8] = features['zcr_mean']
         feature_array[9] = features['zcr_std']
         
-        # Silence features
+        # Silence features - important for depression/anxiety detection
         silence_threshold = 0.01
         is_silence = rms < silence_threshold
         silence_runs = np.diff(np.concatenate([[0], is_silence.astype(int), [0]]))
@@ -730,40 +743,77 @@ class VoiceAnalysisService:
         if len(silence_durations) > 0:
             features['silence_rate'] = len(silence_durations) / (len(audio) / sr)
             features['silence_percentage'] = float(np.sum(is_silence) / len(is_silence))
+            features['mean_silence_duration'] = float(np.mean(silence_durations) * hop_length / sr)
         else:
             features['silence_rate'] = 0
             features['silence_percentage'] = 0
+            features['mean_silence_duration'] = 0
         feature_array[12] = features['silence_rate']
         feature_array[13] = features['silence_percentage']
+        feature_array[14] = features['mean_silence_duration']
         
         # Frequency domain features (indices 18-69)
-        # Spectral centroid
+        # Spectral centroid - brightness of voice
         spectral_centroid = librosa.feature.spectral_centroid(y=audio, sr=sr, hop_length=hop_length)[0]
         features["spectral_centroid_mean"] = float(np.mean(spectral_centroid))
+        features["spectral_centroid_std"] = float(np.std(spectral_centroid))
         feature_array[18] = features['spectral_centroid_mean']
+        feature_array[19] = features['spectral_centroid_std']
         
-        # Spectral bandwidth
+        # Spectral bandwidth - voice richness
         spectral_bandwidth = librosa.feature.spectral_bandwidth(y=audio, sr=sr, hop_length=hop_length)[0]
         features["spectral_bandwidth_mean"] = float(np.mean(spectral_bandwidth))
+        features["spectral_bandwidth_std"] = float(np.std(spectral_bandwidth))
         feature_array[22] = features['spectral_bandwidth_mean']
+        feature_array[23] = features['spectral_bandwidth_std']
         
-        # Spectral rolloff
+        # Spectral rolloff - voice energy distribution
         spectral_rolloff = librosa.feature.spectral_rolloff(y=audio, sr=sr, hop_length=hop_length)[0]
         features["spectral_rolloff_mean"] = float(np.mean(spectral_rolloff))
         feature_array[26] = features['spectral_rolloff_mean']
         
-        # MFCC features (indices 30-55)
+        # Spectral contrast - tonal vs noise content
+        spectral_contrast = librosa.feature.spectral_contrast(y=audio, sr=sr, hop_length=hop_length)
+        features["spectral_contrast_mean"] = float(np.mean(spectral_contrast))
+        feature_array[27] = features['spectral_contrast_mean']
+        
+        # MFCC features (indices 30-55) - critical for voice characterization
         mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, hop_length=hop_length)
         features["mfcc_mean"] = float(np.mean(mfccs))
         features["mfcc_std"] = float(np.std(mfccs))
         for i in range(13):
+            features[f"mfcc_{i+1}_mean"] = float(np.mean(mfccs[i]))
+            features[f"mfcc_{i+1}_std"] = float(np.std(mfccs[i]))
             feature_array[30 + i] = float(np.mean(mfccs[i]))
             feature_array[43 + i] = float(np.std(mfccs[i]))
         
-        # Prosodic features (indices 70-99)
-        # Pitch (F0) using pyin
+        # Delta MFCCs - captures temporal dynamics
+        delta_mfccs = librosa.feature.delta(mfccs)
+        features["delta_mfcc_mean"] = float(np.mean(delta_mfccs))
+        feature_array[56] = features['delta_mfcc_mean']
+        
+        # Delta-delta MFCCs - acceleration of voice changes
+        delta2_mfccs = librosa.feature.delta(mfccs, order=2)
+        features["delta2_mfcc_mean"] = float(np.mean(delta2_mfccs))
+        feature_array[57] = features['delta2_mfcc_mean']
+        
+        # Chroma features - tonal content (useful for emotional expression)
+        chroma = librosa.feature.chroma_stft(y=audio, sr=sr, hop_length=hop_length)
+        features["chroma_mean"] = float(np.mean(chroma))
+        features["chroma_std"] = float(np.std(chroma))
+        feature_array[58] = features['chroma_mean']
+        feature_array[59] = features['chroma_std']
+        
+        # Tonnetz - harmonic content
+        tonnetz = librosa.feature.tonnetz(y=audio, sr=sr)
+        features["tonnetz_mean"] = float(np.mean(tonnetz))
+        feature_array[60] = features['tonnetz_mean']
+        
+        # Prosodic features (indices 70-99) - CRITICAL for Indian voice patterns
+        # Pitch (F0) using pyin - adjusted range for Indian speakers
+        # Indian male: 80-200 Hz, Indian female: 150-350 Hz
         f0, voiced_flag, voiced_probs = librosa.pyin(
-            audio, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7')
+            audio, fmin=80, fmax=400, sr=sr  # Adjusted for Indian voice range
         )
         f0_valid = f0[~np.isnan(f0)]
         
@@ -771,21 +821,42 @@ class VoiceAnalysisService:
             features["pitch_mean"] = float(np.mean(f0_valid))
             features["pitch_std"] = float(np.std(f0_valid))
             features["pitch_range"] = float(np.ptp(f0_valid))
+            features["pitch_median"] = float(np.median(f0_valid))
+            features["pitch_min"] = float(np.min(f0_valid))
+            features["pitch_max"] = float(np.max(f0_valid))
+            # Pitch variability coefficient - important for monotone detection
+            features["pitch_cv"] = float(np.std(f0_valid) / (np.mean(f0_valid) + 1e-10))
+            # Pitch slope - captures intonation patterns
+            if len(f0_valid) > 10:
+                pitch_slope = np.polyfit(np.arange(len(f0_valid)), f0_valid, 1)[0]
+                features["pitch_slope"] = float(pitch_slope)
+            else:
+                features["pitch_slope"] = 0.0
         else:
             features["pitch_mean"] = 150.0
             features["pitch_std"] = 25.0
             features["pitch_range"] = 50.0
+            features["pitch_median"] = 150.0
+            features["pitch_min"] = 100.0
+            features["pitch_max"] = 200.0
+            features["pitch_cv"] = 0.17
+            features["pitch_slope"] = 0.0
         
         feature_array[70] = features['pitch_mean']
         feature_array[71] = features['pitch_std']
+        feature_array[72] = features['pitch_median']
+        feature_array[73] = features['pitch_cv']
         feature_array[74] = features['pitch_range']
+        feature_array[75] = features['pitch_slope']
+        feature_array[76] = features['pitch_min']
+        feature_array[77] = features['pitch_max']
         
         # Speech rate estimation (using onset detection)
         onset_frames = librosa.onset.onset_detect(y=audio, sr=sr)
         features["speech_rate"] = len(onset_frames) / features["duration"] if features["duration"] > 0 else 3.0
         feature_array[78] = features['speech_rate']
         
-        # Rhythm features
+        # Rhythm features - important for Indian speech patterns
         energy = librosa.feature.rms(y=audio, hop_length=hop_length)[0]
         energy_threshold = np.mean(energy) * 0.5
         peaks, _ = signal.find_peaks(energy, height=energy_threshold, distance=8)
@@ -794,34 +865,124 @@ class VoiceAnalysisService:
             peak_intervals = np.diff(peaks) * hop_length / sr
             features['rhythm_mean_interval'] = float(np.mean(peak_intervals))
             features['rhythm_std_interval'] = float(np.std(peak_intervals))
+            # Rhythm regularity - important for stress detection
+            features['rhythm_regularity'] = float(1 - (np.std(peak_intervals) / (np.mean(peak_intervals) + 1e-10)))
         else:
             features['rhythm_mean_interval'] = 0.3
             features['rhythm_std_interval'] = 0.1
+            features['rhythm_regularity'] = 0.5
         
         feature_array[79] = features['rhythm_mean_interval']
         feature_array[80] = features['rhythm_std_interval']
+        feature_array[81] = features['rhythm_regularity']
         
-        # Jitter estimation (pitch variation)
+        # Voiced/unvoiced ratio - voice quality indicator
+        voiced_ratio = np.sum(~np.isnan(f0)) / len(f0) if len(f0) > 0 else 0.5
+        features['voiced_ratio'] = float(voiced_ratio)
+        feature_array[82] = features['voiced_ratio']
+        
+        # Voice quality measures
+        # Jitter (pitch perturbation) - important for stress/anxiety
         if len(f0_valid) > 1:
-            jitter = np.mean(np.abs(np.diff(f0_valid))) / np.mean(f0_valid) if np.mean(f0_valid) > 0 else 0
-            features["jitter_mean"] = float(jitter)
+            jitter_abs = np.mean(np.abs(np.diff(f0_valid)))
+            jitter_rel = jitter_abs / np.mean(f0_valid) if np.mean(f0_valid) > 0 else 0
+            features["jitter_abs"] = float(jitter_abs)
+            features["jitter_mean"] = float(jitter_rel)
+            # RAP (Relative Average Perturbation)
+            if len(f0_valid) > 2:
+                rap = np.mean(np.abs(f0_valid[1:-1] - (f0_valid[:-2] + f0_valid[1:-1] + f0_valid[2:]) / 3))
+                features["jitter_rap"] = float(rap / np.mean(f0_valid))
+            else:
+                features["jitter_rap"] = 0.01
         else:
+            features["jitter_abs"] = 1.0
             features["jitter_mean"] = 0.02
+            features["jitter_rap"] = 0.01
         feature_array[85] = features['jitter_mean']
+        feature_array[86] = features.get('jitter_rap', 0.01)
         
-        # Shimmer estimation
+        # Shimmer (amplitude perturbation) - voice stability
         if len(peaks) > 1:
             peak_amplitudes = energy[peaks]
             shimmer_values = np.abs(np.diff(peak_amplitudes) / (peak_amplitudes[:-1] + 1e-10))
             features['shimmer_mean'] = float(np.mean(shimmer_values))
+            features['shimmer_std'] = float(np.std(shimmer_values))
         else:
             features['shimmer_mean'] = 0.05
+            features['shimmer_std'] = 0.02
         feature_array[87] = features['shimmer_mean']
+        feature_array[88] = features['shimmer_std']
         
-        # HNR estimation (using spectral flatness as proxy)
+        # HNR (Harmonics-to-Noise Ratio) - voice clarity
         spectral_flatness = librosa.feature.spectral_flatness(y=audio)[0]
         features["hnr"] = float(-10 * np.log10(np.mean(spectral_flatness) + 1e-10))
+        features["hnr_std"] = float(np.std(-10 * np.log10(spectral_flatness + 1e-10)))
         feature_array[89] = features['hnr']
+        feature_array[90] = features['hnr_std']
+        
+        # Formant-related features (approximated using LPC)
+        # Formants are important for Indian language vowel quality
+        try:
+            # Use LPC to estimate formants
+            lpc_order = 12
+            lpc_coeffs = librosa.lpc(audio, order=lpc_order)
+            roots = np.roots(lpc_coeffs)
+            roots = roots[np.imag(roots) >= 0]
+            angles = np.arctan2(np.imag(roots), np.real(roots))
+            freqs = sorted(angles * (sr / (2 * np.pi)))
+            freqs = [f for f in freqs if f > 90 and f < 5000]
+            
+            if len(freqs) >= 3:
+                features['formant_f1'] = float(freqs[0])
+                features['formant_f2'] = float(freqs[1])
+                features['formant_f3'] = float(freqs[2])
+                # F2-F1 ratio important for vowel quality
+                features['formant_ratio'] = float(freqs[1] / (freqs[0] + 1e-10))
+            else:
+                features['formant_f1'] = 500.0
+                features['formant_f2'] = 1500.0
+                features['formant_f3'] = 2500.0
+                features['formant_ratio'] = 3.0
+        except:
+            features['formant_f1'] = 500.0
+            features['formant_f2'] = 1500.0
+            features['formant_f3'] = 2500.0
+            features['formant_ratio'] = 3.0
+        
+        feature_array[91] = features['formant_f1']
+        feature_array[92] = features['formant_f2']
+        feature_array[93] = features['formant_f3']
+        feature_array[94] = features['formant_ratio']
+        
+        # Energy dynamics - important for emotional state
+        energy_diff = np.diff(energy)
+        features['energy_rise_rate'] = float(np.mean(energy_diff[energy_diff > 0])) if np.any(energy_diff > 0) else 0
+        features['energy_fall_rate'] = float(np.mean(np.abs(energy_diff[energy_diff < 0]))) if np.any(energy_diff < 0) else 0
+        feature_array[95] = features['energy_rise_rate']
+        feature_array[96] = features['energy_fall_rate']
+        
+        # Pause patterns - important for anxiety/depression
+        pause_threshold = np.percentile(energy, 10)
+        pauses = energy < pause_threshold
+        pause_count = np.sum(np.diff(pauses.astype(int)) == 1)
+        features['pause_rate'] = float(pause_count / features['duration']) if features['duration'] > 0 else 0
+        feature_array[97] = features['pause_rate']
+        
+        # Speaking time ratio
+        speaking_frames = energy > pause_threshold
+        features['speaking_ratio'] = float(np.mean(speaking_frames))
+        feature_array[98] = features['speaking_ratio']
+        
+        # Voice tremor indicator (low frequency modulation of amplitude)
+        if len(energy) > 20:
+            # Look for tremor in 4-12 Hz range
+            tremor_signal = np.abs(np.fft.fft(energy - np.mean(energy)))
+            freq_bins = np.fft.fftfreq(len(energy), d=hop_length/sr)
+            tremor_range = (np.abs(freq_bins) >= 4) & (np.abs(freq_bins) <= 12)
+            features['voice_tremor'] = float(np.mean(tremor_signal[tremor_range]))
+        else:
+            features['voice_tremor'] = 0.0
+        feature_array[99] = features['voice_tremor']
         
         # Store feature array for model prediction (keep as numpy for internal use)
         features["_feature_array"] = feature_array
@@ -831,10 +992,12 @@ class VoiceAnalysisService:
         
         return features
     
-    def _predict(self, features: Dict[str, Any]) -> List[float]:
+    def _predict(self, features: Dict[str, Any], user_id: str = None) -> List[float]:
         """
         Run ML prediction using trained ensemble model
         Returns probabilities for [normal, anxiety, depression, stress]
+        
+        If user_id is provided and calibration exists, applies psychologist calibration
         """
         if not self.model_loaded or self.model is None:
             # Fallback to heuristic if model not loaded
@@ -856,15 +1019,12 @@ class VoiceAnalysisService:
             with torch.no_grad():
                 probs, confidence = self.model(input_tensor)
             
-            # Convert to list
+            # Convert to list - return raw model predictions for accuracy
             probabilities = probs[0].cpu().numpy().tolist()
             
-            # Apply temperature scaling to prevent extreme predictions
-            # This makes the distribution more balanced and realistic
-            probabilities = self._apply_temperature_scaling(probabilities, temperature=1.5)
-            
-            # Ensure minimum values for clinical relevance (no score should be exactly 0)
-            probabilities = self._ensure_minimum_scores(probabilities, min_score=0.05)
+            # Apply psychologist calibration if available for this user
+            if user_id and hasattr(self, 'calibration_factors') and user_id in self.calibration_factors:
+                probabilities = self._apply_calibration(probabilities, user_id)
             
             return probabilities
             
@@ -872,6 +1032,84 @@ class VoiceAnalysisService:
             print(f"[VoiceAnalysis] Model prediction error: {e}")
             # Fallback to heuristic
             return self._predict_heuristic(features)
+    
+    def _apply_calibration(self, probabilities: List[float], user_id: str) -> List[float]:
+        """
+        Apply psychologist calibration factors to model predictions
+        This adjusts the raw model output based on clinical validation
+        """
+        if user_id not in self.calibration_factors:
+            return probabilities
+        
+        calibration = self.calibration_factors[user_id]
+        adjusted = []
+        
+        for i, prob in enumerate(probabilities):
+            # Apply calibration factor (multiplicative adjustment)
+            factor = calibration.get(f"factor_{i}", 1.0)
+            bias = calibration.get(f"bias_{i}", 0.0)
+            adjusted_prob = prob * factor + bias
+            adjusted.append(max(0, min(1, adjusted_prob)))
+        
+        # Renormalize to sum to 1
+        total = sum(adjusted)
+        if total > 0:
+            adjusted = [p / total for p in adjusted]
+        
+        return adjusted
+    
+    def set_calibration(self, user_id: str, clinical_assessment: Dict[str, float], model_prediction: List[float]):
+        """
+        Set calibration factors based on psychologist's clinical assessment
+        
+        Args:
+            user_id: Patient's user ID
+            clinical_assessment: Dict with PHQ-9, GAD-7, PSS scores from psychologist
+            model_prediction: Original model prediction [normal, anxiety, depression, stress]
+        """
+        if not hasattr(self, 'calibration_factors'):
+            self.calibration_factors = {}
+        
+        # Convert clinical scores to probabilities (0-1 scale)
+        # PHQ-9: 0-27 -> depression probability
+        # GAD-7: 0-21 -> anxiety probability
+        # PSS: 0-40 -> stress probability
+        clinical_depression = clinical_assessment.get('phq9_score', 0) / 27.0
+        clinical_anxiety = clinical_assessment.get('gad7_score', 0) / 21.0
+        clinical_stress = clinical_assessment.get('pss_score', 0) / 40.0
+        clinical_normal = max(0, 1 - (clinical_depression + clinical_anxiety + clinical_stress) / 3)
+        
+        # Normalize clinical probabilities
+        clinical_total = clinical_normal + clinical_anxiety + clinical_depression + clinical_stress
+        clinical_probs = [
+            clinical_normal / clinical_total,
+            clinical_anxiety / clinical_total,
+            clinical_depression / clinical_total,
+            clinical_stress / clinical_total
+        ]
+        
+        # Calculate calibration factors
+        calibration = {}
+        for i, (clinical, model) in enumerate(zip(clinical_probs, model_prediction)):
+            if model > 0.01:
+                calibration[f"factor_{i}"] = clinical / model
+            else:
+                calibration[f"factor_{i}"] = 1.0
+            calibration[f"bias_{i}"] = 0.0  # Can be used for additive adjustment
+        
+        calibration['clinical_assessment'] = clinical_assessment
+        calibration['calibrated_at'] = datetime.now().isoformat()
+        calibration['calibrated_by'] = clinical_assessment.get('psychologist_id', 'unknown')
+        
+        self.calibration_factors[user_id] = calibration
+        
+        return calibration
+    
+    def get_calibration(self, user_id: str) -> Dict[str, Any]:
+        """Get calibration factors for a user"""
+        if not hasattr(self, 'calibration_factors'):
+            return None
+        return self.calibration_factors.get(user_id)
     
     def _apply_temperature_scaling(self, probabilities: List[float], temperature: float = 1.5) -> List[float]:
         """
@@ -909,70 +1147,127 @@ class VoiceAnalysisService:
     def _predict_heuristic(self, features: Dict[str, Any]) -> List[float]:
         """
         Fallback heuristic prediction based on voice features
-        Used when model is not available - produces realistic, varied results
+        Used when model is not available - produces accurate, deterministic results
+        based on clinical research correlations between voice features and mental health
+        
+        NO random variation - results are deterministic based on actual voice features
         """
+        # Extract all relevant features
         pitch_mean = features.get("pitch_mean", 150)
         pitch_std = features.get("pitch_std", 30)
+        pitch_cv = features.get("pitch_cv", 0.2)
         speech_rate = features.get("speech_rate", 3)
         rms_mean = features.get("rms_mean", 0.1)
+        rms_std = features.get("rms_std", 0.05)
         jitter = features.get("jitter_mean", 0.02)
+        shimmer = features.get("shimmer_mean", 0.05)
         hnr = features.get("hnr", 15)
         spectral_centroid = features.get("spectral_centroid_mean", 2000)
-        mfcc_mean = features.get("mfcc_1_mean", 0)
+        pause_rate = features.get("pause_rate", 0.5)
+        speaking_ratio = features.get("speaking_ratio", 0.7)
+        voice_tremor = features.get("voice_tremor", 0)
+        rhythm_regularity = features.get("rhythm_regularity", 0.5)
         
-        # Initialize with balanced base scores
-        normal_score = 0.35
-        anxiety_score = 0.22
-        depression_score = 0.21
-        stress_score = 0.22
+        # Initialize base scores - will be adjusted based on features
+        normal_score = 0.40
+        anxiety_score = 0.20
+        depression_score = 0.20
+        stress_score = 0.20
         
-        # Add small random variation for more realistic results
-        variation = np.random.uniform(-0.05, 0.05, 4)
-        
-        # Anxiety indicators: high pitch variability, fast speech rate, high spectral centroid
+        # ========== ANXIETY INDICATORS ==========
+        # High pitch variability (research shows anxious speech has higher pitch variation)
         if pitch_std > 35:
-            anxiety_score += 0.15 * min(pitch_std / 50, 1.5)
-            normal_score -= 0.08
+            anxiety_adjustment = 0.15 * min(pitch_std / 50, 1.5)
+            anxiety_score += anxiety_adjustment
+            normal_score -= anxiety_adjustment * 0.5
+        
+        # Fast speech rate (anxiety correlates with rapid speech)
         if speech_rate > 4.0:
-            anxiety_score += 0.12 * min(speech_rate / 5, 1.2)
-            normal_score -= 0.06
+            anxiety_adjustment = 0.12 * min((speech_rate - 4.0) / 2, 1.0)
+            anxiety_score += anxiety_adjustment
+            normal_score -= anxiety_adjustment * 0.5
+        
+        # High spectral centroid (brighter, tenser voice)
         if spectral_centroid > 2500:
-            anxiety_score += 0.08
+            anxiety_score += 0.08 * min((spectral_centroid - 2500) / 1000, 1.0)
         
-        # Depression indicators: low pitch, slow speech, low energy, monotone
+        # Voice tremor (nervousness indicator)
+        if voice_tremor > 0.01:
+            anxiety_score += 0.10 * min(voice_tremor / 0.05, 1.0)
+        
+        # ========== DEPRESSION INDICATORS ==========
+        # Low pitch (depressed speech tends to be lower pitched)
         if pitch_mean < 130:
-            depression_score += 0.12 * (1 - pitch_mean / 150)
-            normal_score -= 0.06
+            depression_adjustment = 0.12 * (1 - pitch_mean / 150)
+            depression_score += depression_adjustment
+            normal_score -= depression_adjustment * 0.5
+        
+        # Slow speech rate (psychomotor retardation)
         if speech_rate < 2.8:
-            depression_score += 0.15 * (1 - speech_rate / 3)
-            normal_score -= 0.08
+            depression_adjustment = 0.15 * (1 - speech_rate / 3)
+            depression_score += depression_adjustment
+            normal_score -= depression_adjustment * 0.5
+        
+        # Low energy/volume (reduced vocal effort)
         if rms_mean < 0.08:
-            depression_score += 0.10
+            depression_score += 0.10 * (1 - rms_mean / 0.1)
             normal_score -= 0.05
-        if pitch_std < 20:  # Monotone voice
-            depression_score += 0.08
         
-        # Stress indicators: high jitter, irregular patterns, low HNR
+        # Monotone voice (reduced pitch variation - flat affect)
+        if pitch_std < 20:
+            depression_score += 0.12 * (1 - pitch_std / 25)
+        
+        # High pause rate (longer pauses between speech)
+        if pause_rate > 1.0:
+            depression_score += 0.08 * min(pause_rate / 2, 1.0)
+        
+        # Low speaking ratio (more silence)
+        if speaking_ratio < 0.6:
+            depression_score += 0.08 * (1 - speaking_ratio / 0.7)
+        
+        # ========== STRESS INDICATORS ==========
+        # High jitter (pitch perturbation - vocal instability)
         if jitter > 0.025:
-            stress_score += 0.12 * min(jitter / 0.04, 1.5)
-            normal_score -= 0.06
-        if hnr < 12:
-            stress_score += 0.10 * (1 - hnr / 15)
-            normal_score -= 0.05
+            stress_adjustment = 0.12 * min(jitter / 0.04, 1.5)
+            stress_score += stress_adjustment
+            normal_score -= stress_adjustment * 0.5
         
-        # Normal indicators: balanced features
-        if 2.8 <= speech_rate <= 4.0 and 20 <= pitch_std <= 40:
-            normal_score += 0.15
-        if 130 <= pitch_mean <= 200 and hnr > 12:
+        # High shimmer (amplitude perturbation)
+        if shimmer > 0.08:
+            stress_score += 0.08 * min(shimmer / 0.12, 1.0)
+        
+        # Low HNR (more noise in voice - tension)
+        if hnr < 12:
+            stress_adjustment = 0.10 * (1 - hnr / 15)
+            stress_score += stress_adjustment
+            normal_score -= stress_adjustment * 0.5
+        
+        # Irregular rhythm (stress disrupts speech rhythm)
+        if rhythm_regularity < 0.4:
+            stress_score += 0.08 * (1 - rhythm_regularity / 0.5)
+        
+        # ========== NORMAL INDICATORS ==========
+        # Balanced speech rate
+        if 2.8 <= speech_rate <= 4.0:
             normal_score += 0.10
         
-        # Apply variation
-        normal_score += variation[0]
-        anxiety_score += variation[1]
-        depression_score += variation[2]
-        stress_score += variation[3]
+        # Normal pitch variation
+        if 20 <= pitch_std <= 40:
+            normal_score += 0.08
         
-        # Ensure all scores are positive
+        # Good HNR (clear voice)
+        if hnr > 15:
+            normal_score += 0.08
+        
+        # Normal pitch range
+        if 130 <= pitch_mean <= 200:
+            normal_score += 0.06
+        
+        # Regular rhythm
+        if rhythm_regularity > 0.6:
+            normal_score += 0.06
+        
+        # Ensure all scores are positive (minimum threshold)
         normal_score = max(0.05, normal_score)
         anxiety_score = max(0.05, anxiety_score)
         depression_score = max(0.05, depression_score)
@@ -986,9 +1281,6 @@ class VoiceAnalysisService:
             depression_score / total,
             stress_score / total
         ]
-        
-        # Apply minimum score guarantee
-        probabilities = self._ensure_minimum_scores(probabilities, min_score=0.08)
         
         return probabilities
     
