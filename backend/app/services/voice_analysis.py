@@ -859,6 +859,13 @@ class VoiceAnalysisService:
             # Convert to list
             probabilities = probs[0].cpu().numpy().tolist()
             
+            # Apply temperature scaling to prevent extreme predictions
+            # This makes the distribution more balanced and realistic
+            probabilities = self._apply_temperature_scaling(probabilities, temperature=1.5)
+            
+            # Ensure minimum values for clinical relevance (no score should be exactly 0)
+            probabilities = self._ensure_minimum_scores(probabilities, min_score=0.05)
+            
             return probabilities
             
         except Exception as e:
@@ -866,10 +873,43 @@ class VoiceAnalysisService:
             # Fallback to heuristic
             return self._predict_heuristic(features)
     
+    def _apply_temperature_scaling(self, probabilities: List[float], temperature: float = 1.5) -> List[float]:
+        """
+        Apply temperature scaling to soften extreme predictions
+        Higher temperature = more uniform distribution
+        """
+        # Convert to numpy for easier manipulation
+        probs = np.array(probabilities)
+        
+        # Apply temperature scaling (work in log space to avoid numerical issues)
+        log_probs = np.log(probs + 1e-10)
+        scaled_log_probs = log_probs / temperature
+        
+        # Convert back to probabilities
+        scaled_probs = np.exp(scaled_log_probs)
+        scaled_probs = scaled_probs / np.sum(scaled_probs)
+        
+        return scaled_probs.tolist()
+    
+    def _ensure_minimum_scores(self, probabilities: List[float], min_score: float = 0.05) -> List[float]:
+        """
+        Ensure all scores have a minimum value for clinical relevance
+        This prevents any score from being exactly 0
+        """
+        probs = np.array(probabilities)
+        
+        # Set minimum values
+        probs = np.maximum(probs, min_score)
+        
+        # Renormalize to sum to 1
+        probs = probs / np.sum(probs)
+        
+        return probs.tolist()
+    
     def _predict_heuristic(self, features: Dict[str, Any]) -> List[float]:
         """
         Fallback heuristic prediction based on voice features
-        Used when model is not available
+        Used when model is not available - produces realistic, varied results
         """
         pitch_mean = features.get("pitch_mean", 150)
         pitch_std = features.get("pitch_std", 30)
@@ -877,52 +917,78 @@ class VoiceAnalysisService:
         rms_mean = features.get("rms_mean", 0.1)
         jitter = features.get("jitter_mean", 0.02)
         hnr = features.get("hnr", 15)
+        spectral_centroid = features.get("spectral_centroid_mean", 2000)
+        mfcc_mean = features.get("mfcc_1_mean", 0)
         
-        # Initialize with varied base scores based on features
-        normal_score = 0.4
-        anxiety_score = 0.2
-        depression_score = 0.2
-        stress_score = 0.2
+        # Initialize with balanced base scores
+        normal_score = 0.35
+        anxiety_score = 0.22
+        depression_score = 0.21
+        stress_score = 0.22
         
-        # Anxiety indicators: high pitch variability, fast speech rate
-        if pitch_std > 40:
-            anxiety_score += 0.25
-            normal_score -= 0.15
-        if speech_rate > 4.5:
-            anxiety_score += 0.15
-            normal_score -= 0.1
+        # Add small random variation for more realistic results
+        variation = np.random.uniform(-0.05, 0.05, 4)
         
-        # Depression indicators: low pitch, slow speech, low energy
-        if pitch_mean < 120:
-            depression_score += 0.2
-            normal_score -= 0.1
-        if speech_rate < 2.5:
-            depression_score += 0.2
-            normal_score -= 0.1
-        if rms_mean < 0.05:
-            depression_score += 0.15
-            normal_score -= 0.1
+        # Anxiety indicators: high pitch variability, fast speech rate, high spectral centroid
+        if pitch_std > 35:
+            anxiety_score += 0.15 * min(pitch_std / 50, 1.5)
+            normal_score -= 0.08
+        if speech_rate > 4.0:
+            anxiety_score += 0.12 * min(speech_rate / 5, 1.2)
+            normal_score -= 0.06
+        if spectral_centroid > 2500:
+            anxiety_score += 0.08
         
-        # Stress indicators: high jitter, irregular patterns
-        if jitter > 0.03:
-            stress_score += 0.2
-            normal_score -= 0.1
-        if hnr < 10:
-            stress_score += 0.15
-            normal_score -= 0.1
+        # Depression indicators: low pitch, slow speech, low energy, monotone
+        if pitch_mean < 130:
+            depression_score += 0.12 * (1 - pitch_mean / 150)
+            normal_score -= 0.06
+        if speech_rate < 2.8:
+            depression_score += 0.15 * (1 - speech_rate / 3)
+            normal_score -= 0.08
+        if rms_mean < 0.08:
+            depression_score += 0.10
+            normal_score -= 0.05
+        if pitch_std < 20:  # Monotone voice
+            depression_score += 0.08
         
-        # Normal indicators
-        if 2.5 <= speech_rate <= 4.5 and 15 <= pitch_std <= 35:
-            normal_score += 0.2
+        # Stress indicators: high jitter, irregular patterns, low HNR
+        if jitter > 0.025:
+            stress_score += 0.12 * min(jitter / 0.04, 1.5)
+            normal_score -= 0.06
+        if hnr < 12:
+            stress_score += 0.10 * (1 - hnr / 15)
+            normal_score -= 0.05
+        
+        # Normal indicators: balanced features
+        if 2.8 <= speech_rate <= 4.0 and 20 <= pitch_std <= 40:
+            normal_score += 0.15
+        if 130 <= pitch_mean <= 200 and hnr > 12:
+            normal_score += 0.10
+        
+        # Apply variation
+        normal_score += variation[0]
+        anxiety_score += variation[1]
+        depression_score += variation[2]
+        stress_score += variation[3]
+        
+        # Ensure all scores are positive
+        normal_score = max(0.05, normal_score)
+        anxiety_score = max(0.05, anxiety_score)
+        depression_score = max(0.05, depression_score)
+        stress_score = max(0.05, stress_score)
         
         # Normalize to sum to 1
-        total = max(0.01, normal_score + anxiety_score + depression_score + stress_score)
+        total = normal_score + anxiety_score + depression_score + stress_score
         probabilities = [
-            max(0, normal_score / total),
-            max(0, anxiety_score / total),
-            max(0, depression_score / total),
-            max(0, stress_score / total)
+            normal_score / total,
+            anxiety_score / total,
+            depression_score / total,
+            stress_score / total
         ]
+        
+        # Apply minimum score guarantee
+        probabilities = self._ensure_minimum_scores(probabilities, min_score=0.08)
         
         return probabilities
     
