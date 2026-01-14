@@ -513,6 +513,11 @@ class EmailService:
             message = "You haven't completed your baseline recordings yet. Record 9 voice samples to unlock personalized mental health insights."
             cta_text = "Complete Baseline"
             cta_link = f"{self.frontend_url}/record"
+        elif reminder_type == "baseline_complete":
+            subject = "Congratulations! Your Baseline is Complete - Cittaa Vocalysis"
+            message = "You've completed all 9 voice recordings! Your personalized mental health baseline has been established. From now on, your analysis results will be tailored specifically to you for more accurate insights."
+            cta_text = "View Your Reports"
+            cta_link = f"{self.frontend_url}/reports"
         else:
             subject = "Reminder - Cittaa Vocalysis"
             message = "This is a reminder from Cittaa Vocalysis."

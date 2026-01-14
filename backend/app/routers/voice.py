@@ -15,6 +15,7 @@ from app.schemas.voice import VoiceUploadResponse, VoiceStatusResponse, VoiceSam
 from app.schemas.prediction import PredictionResponse, AnalysisResultResponse
 from app.routers.auth import get_current_user_from_token
 from app.services.voice_analysis import VoiceAnalysisService
+from app.services.email_service import email_service
 from app.utils.config import settings
 from bson import ObjectId
 
@@ -177,6 +178,34 @@ async def analyze_voice_sample(
         }
         
         db.predictions.insert_one(prediction_doc)
+        
+        # Send email notification with analysis results
+        try:
+            user_email = current_user.get("email")
+            user_name = current_user.get("full_name", "there")
+            
+            # Send analysis results email
+            email_service.send_analysis_results_email(
+                to_email=user_email,
+                full_name=user_name,
+                risk_level=prediction_doc["overall_risk_level"],
+                phq9=prediction_doc["phq9_score"],
+                gad7=prediction_doc["gad7_score"],
+                pss=prediction_doc["pss_score"],
+                wemwbs=prediction_doc["wemwbs_score"]
+            )
+            
+            # Check if baseline just completed (9 samples)
+            if samples_collected == target_samples:
+                # Send baseline completion email
+                email_service.send_reminder_email(
+                    to_email=user_email,
+                    full_name=user_name,
+                    reminder_type="baseline_complete"
+                )
+        except Exception as email_error:
+            # Log email error but don't fail the analysis
+            print(f"Failed to send analysis email: {email_error}")
         
         return {
             "id": prediction_id,
