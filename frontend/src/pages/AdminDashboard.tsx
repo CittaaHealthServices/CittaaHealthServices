@@ -5,7 +5,7 @@ import { adminService } from '../services/api'
 import { 
   Users, UserCheck, Activity,
   ChevronRight, BarChart3, Shield, FileText, RefreshCw,
-  Mail, Bell, Send, Settings, CheckCircle, XCircle
+  Mail, Bell, Send, CheckCircle, XCircle
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 
