@@ -304,6 +304,26 @@ export const adminService = {
     params.append('send_email', sendEmail.toString())
     const response = await api.put(`/admin/users/${userId}/password?${params}`)
     return response.data
+  },
+  
+  getEmailSettings: async () => {
+    const response = await api.get('/admin/email-settings')
+    return response.data
+  },
+  
+  updateEmailSettings: async (settings: Record<string, unknown>) => {
+    const response = await api.put('/admin/email-settings', settings)
+    return response.data
+  },
+  
+  sendTestEmail: async (emailType: string) => {
+    const response = await api.post(`/admin/send-test-email?email_type=${emailType}`)
+    return response.data
+  },
+  
+  getUsersForReminder: async (reminderType: string) => {
+    const response = await api.get(`/admin/users-for-reminder?reminder_type=${reminderType}`)
+    return response.data
   }
 }
 

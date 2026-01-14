@@ -539,3 +539,160 @@ async def send_reminder_to_users(
         "sent_count": sent_count,
         "failed_count": failed_count
     }
+
+
+@router.get("/email-settings")
+async def get_email_settings(
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
+):
+    """Get email settings and configuration"""
+    db = get_mongodb()
+    
+    # Get email settings from database or return defaults
+    settings = db.settings.find_one({"type": "email_settings"})
+    
+    if not settings:
+        settings = {
+            "reminder_enabled": True,
+            "reminder_frequency": "daily",
+            "reminder_time": "09:00",
+            "reminder_types": {
+                "daily_recording": True,
+                "baseline_incomplete": True,
+                "weekly_summary": False
+            },
+            "notification_types": {
+                "registration": True,
+                "trial_approval": True,
+                "analysis_results": True,
+                "high_risk_alert": True
+            },
+            "smtp_configured": bool(email_service.smtp_user and email_service.smtp_password)
+        }
+    else:
+        settings = {
+            "reminder_enabled": settings.get("reminder_enabled", True),
+            "reminder_frequency": settings.get("reminder_frequency", "daily"),
+            "reminder_time": settings.get("reminder_time", "09:00"),
+            "reminder_types": settings.get("reminder_types", {}),
+            "notification_types": settings.get("notification_types", {}),
+            "smtp_configured": bool(email_service.smtp_user and email_service.smtp_password)
+        }
+    
+    return settings
+
+
+@router.put("/email-settings")
+async def update_email_settings(
+    settings: Dict[str, Any],
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
+):
+    """Update email settings"""
+    db = get_mongodb()
+    
+    # Update or insert settings
+    db.settings.update_one(
+        {"type": "email_settings"},
+        {"$set": {
+            "type": "email_settings",
+            "reminder_enabled": settings.get("reminder_enabled", True),
+            "reminder_frequency": settings.get("reminder_frequency", "daily"),
+            "reminder_time": settings.get("reminder_time", "09:00"),
+            "reminder_types": settings.get("reminder_types", {}),
+            "notification_types": settings.get("notification_types", {}),
+            "updated_at": datetime.utcnow(),
+            "updated_by": str(current_user.get("_id", ""))
+        }},
+        upsert=True
+    )
+    
+    # Log audit event
+    db.audit_logs.insert_one({
+        "action": "email_settings_updated",
+        "performed_by": str(current_user.get("_id", "")),
+        "performed_by_email": current_user.get("email", ""),
+        "details": settings,
+        "timestamp": datetime.utcnow()
+    })
+    
+    return {"message": "Email settings updated successfully"}
+
+
+@router.post("/send-test-email")
+async def send_test_email(
+    email_type: str = "welcome",
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
+):
+    """Send a test email to verify SMTP configuration"""
+    admin_email = current_user.get("email")
+    admin_name = current_user.get("full_name", "Admin")
+    
+    try:
+        if email_type == "welcome":
+            success = email_service.send_welcome_email(admin_email, admin_name)
+        elif email_type == "reminder":
+            success = email_service.send_reminder_email(admin_email, admin_name, "daily_recording")
+        elif email_type == "analysis":
+            # Send a sample analysis results email
+            success = email_service.send_analysis_results_email(
+                admin_email, admin_name,
+                {"phq9": 5, "gad7": 4, "pss": 12, "wemwbs": 52},
+                "low"
+            )
+        else:
+            success = email_service.send_welcome_email(admin_email, admin_name)
+        
+        if success:
+            return {"message": f"Test email sent successfully to {admin_email}", "success": True}
+        else:
+            return {"message": "Failed to send test email. Check SMTP configuration.", "success": False}
+    except Exception as e:
+        return {"message": f"Error sending test email: {str(e)}", "success": False}
+
+
+@router.get("/users-for-reminder")
+async def get_users_for_reminder(
+    reminder_type: str = "daily_recording",
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
+):
+    """Get list of users who would receive a specific reminder type"""
+    db = get_mongodb()
+    
+    if reminder_type == "baseline_incomplete":
+        # Users who haven't completed baseline (less than 9 recordings)
+        pipeline = [
+            {"$match": {"role": "patient", "is_active": True}},
+            {"$lookup": {
+                "from": "voice_samples",
+                "localField": "_id",
+                "foreignField": "user_id",
+                "as": "samples"
+            }},
+            {"$match": {"$expr": {"$lt": [{"$size": "$samples"}, 9]}}},
+            {"$project": {
+                "email": 1,
+                "full_name": 1,
+                "sample_count": {"$size": "$samples"}
+            }}
+        ]
+        users = list(db.users.aggregate(pipeline))
+    else:
+        # All active patients for daily recording reminder
+        users = list(db.users.find(
+            {"role": "patient", "is_active": True},
+            {"email": 1, "full_name": 1}
+        ))
+    
+    return {
+        "reminder_type": reminder_type,
+        "user_count": len(users),
+        "users": [
+            {
+                "id": str(u.get("_id", "")),
+                "email": u.get("email", ""),
+                "full_name": u.get("full_name", ""),
+                "sample_count": u.get("sample_count", 0) if reminder_type == "baseline_incomplete" else None
+            }
+            for u in users
+        ]
+    }

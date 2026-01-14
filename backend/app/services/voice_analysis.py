@@ -1366,7 +1366,28 @@ class VoiceAnalysisService:
         normal, anxiety, depression, stress = probabilities
         
         # Mental health score (0-100, higher is better)
-        mental_health_score = normal * 100
+        # Comprehensive calculation that considers all probabilities
+        # Normal contributes positively, concerning indicators contribute negatively
+        # Weighted by clinical significance: depression > anxiety > stress
+        base_score = 50  # Start at neutral
+        
+        # Normal probability boosts the score (up to +40 points)
+        normal_contribution = normal * 40
+        
+        # Concerning probabilities reduce the score
+        # Depression has highest weight (clinical significance)
+        depression_penalty = depression * 35
+        anxiety_penalty = anxiety * 30
+        stress_penalty = stress * 25
+        
+        # Calculate final score
+        mental_health_score = base_score + normal_contribution - depression_penalty - anxiety_penalty - stress_penalty
+        
+        # Ensure score is within 0-100 range
+        mental_health_score = max(0, min(100, mental_health_score))
+        
+        # Round to 1 decimal place for cleaner display
+        mental_health_score = round(mental_health_score, 1)
         
         # Risk level based on highest concerning probability
         max_concern = max(anxiety, depression, stress)
