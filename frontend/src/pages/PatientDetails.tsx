@@ -159,13 +159,18 @@ export default function PatientDetails() {
       <div className="flex items-center space-x-4">
         <Link 
           to="/psychologist/dashboard" 
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          className="p-2 rounded-lg hover:bg-primary-50 transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+          <ArrowLeft className="w-5 h-5 text-primary-600" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Patient Details</h1>
-          <p className="text-sm text-gray-500">View and manage patient information</p>
+          <div className="flex items-center space-x-2 mb-1">
+            <span className="text-lg font-display italic text-primary-700">Cittaa</span>
+            <span className="text-primary-400">|</span>
+            <span className="text-primary-600">Vocalysis</span>
+          </div>
+          <h1 className="text-2xl font-bold text-primary-800">Patient Details</h1>
+          <p className="text-sm text-primary-600">View and manage patient information</p>
         </div>
       </div>
 

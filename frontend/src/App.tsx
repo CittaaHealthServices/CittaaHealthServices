@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
 import PatientDashboard from './pages/PatientDashboard'
 import VoiceRecording from './pages/VoiceRecording'
 import AnalysisResults from './pages/AnalysisResults'
@@ -13,8 +14,39 @@ import AdminDashboard from './pages/AdminDashboard'
 import PendingApprovals from './pages/PendingApprovals'
 import UserManagement from './pages/UserManagement'
 
+// Component that renders the appropriate dashboard based on user role
+function RoleDashboard() {
+  const { user, loading } = useAuth()
+  
+  // Show loading state while auth is being checked
+  if (loading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-pulse text-primary-500">Loading dashboard...</div>
+      </div>
+    )
+  }
+  
+  switch (user.role) {
+    case 'psychologist':
+      return <PsychologistDashboard />
+    case 'admin':
+    case 'super_admin':
+    case 'hr_admin':
+      return <AdminDashboard />
+    default:
+      return <PatientDashboard />
+  }
+}
+
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const { user, isAuthenticated, loading } = useAuth()
+  
+  const getCorrectDashboard = () => {
+    if (!user) return '/login'
+    // All users go to /dashboard - RoleDashboard component renders the correct dashboard
+    return '/dashboard'
+  }
   
   if (loading) {
     return (
@@ -29,7 +61,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
   }
   
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={getCorrectDashboard()} replace />
   }
   
   return <>{children}</>
@@ -40,15 +72,8 @@ function AppRoutes() {
   
   const getDashboardRoute = () => {
     if (!user) return '/login'
-    switch (user.role) {
-      case 'psychologist':
-        return '/psychologist/dashboard'
-      case 'super_admin':
-      case 'hr_admin':
-        return '/admin/dashboard'
-      default:
-        return '/dashboard'
-    }
+    // All users go to /dashboard - RoleDashboard component renders the correct dashboard
+    return '/dashboard'
   }
   
   return (
@@ -56,11 +81,12 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/login" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Login />} />
       <Route path="/register" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <Register />} />
+      <Route path="/forgot-password" element={isAuthenticated ? <Navigate to={getDashboardRoute()} replace /> : <ForgotPassword />} />
       
-      {/* Patient routes */}
+      {/* Universal dashboard route - renders appropriate dashboard based on role */}
       <Route path="/dashboard" element={
-        <ProtectedRoute allowedRoles={['patient', 'researcher']}>
-          <Layout><PatientDashboard /></Layout>
+        <ProtectedRoute>
+          <Layout><RoleDashboard /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/record" element={
@@ -93,17 +119,17 @@ function AppRoutes() {
       
       {/* Admin routes */}
       <Route path="/admin/dashboard" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'super_admin', 'hr_admin']}>
           <Layout><AdminDashboard /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/admin/approvals" element={
-        <ProtectedRoute allowedRoles={['super_admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
           <Layout><PendingApprovals /></Layout>
         </ProtectedRoute>
       } />
       <Route path="/admin/users" element={
-        <ProtectedRoute allowedRoles={['super_admin', 'hr_admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'super_admin', 'hr_admin']}>
           <Layout><UserManagement /></Layout>
         </ProtectedRoute>
       } />
@@ -117,11 +143,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
+    <AuthProvider>
+      <Router>
         <AppRoutes />
-      </AuthProvider>
-    </Router>
+      </Router>
+    </AuthProvider>
   )
 }
 

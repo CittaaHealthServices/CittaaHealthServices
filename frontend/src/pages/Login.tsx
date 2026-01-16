@@ -19,6 +19,7 @@ export default function Login() {
 
     try {
       await login(email, password)
+      // Redirect to universal dashboard - RoleDashboard component will render the correct dashboard
       navigate('/dashboard')
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 
@@ -31,21 +32,40 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-background to-secondary-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-lavender flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative floral elements */}
+      <div className="absolute top-0 right-0 w-64 h-64 opacity-30">
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <circle cx="150" cy="50" r="8" fill="#6B9B6B" className="animate-pulse-soft" />
+          <circle cx="170" cy="80" r="6" fill="#9B7B9B" className="animate-pulse-soft" style={{ animationDelay: '0.5s' }} />
+          <circle cx="130" cy="70" r="10" fill="#DCC8DC" className="animate-pulse-soft" style={{ animationDelay: '1s' }} />
+          <path d="M140 30 Q160 50 140 70 Q120 50 140 30" fill="#6B9B6B" opacity="0.6" />
+          <path d="M160 60 Q180 80 160 100 Q140 80 160 60" fill="#9B7B9B" opacity="0.5" />
+        </svg>
+      </div>
+      <div className="absolute bottom-0 left-0 w-48 h-48 opacity-30">
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <circle cx="50" cy="150" r="8" fill="#6B9B6B" className="animate-pulse-soft" />
+          <circle cx="30" cy="120" r="6" fill="#9B7B9B" className="animate-pulse-soft" style={{ animationDelay: '0.3s' }} />
+          <path d="M60 170 Q40 150 60 130 Q80 150 60 170" fill="#6B9B6B" opacity="0.6" />
+        </svg>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
         {/* Logo and Title */}
-        <div className="text-center mb-8 animate-slideUp">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-400 rounded-2xl shadow-lg mb-4">
+        <div className="text-center mb-8 animate-slide-up">
+          <h1 className="text-4xl font-display italic text-primary-800 mb-2">Cittaa</h1>
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-purple rounded-2xl shadow-lg mb-4 animate-float">
             <Activity className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-primary-500">Vocalysis</h1>
-          <p className="text-gray-500 mt-1">Voice-based Mental Health Screening</p>
-          <p className="text-xs text-gray-400 mt-1">by CITTAA Health Services</p>
+          <h2 className="text-2xl font-bold text-primary-700">Vocalysis</h2>
+          <p className="text-primary-600 mt-1">Voice-based Mental Health Screening</p>
+          <p className="text-sm text-primary-500 mt-2 italic">Healing is a journey. We will walk beside you.</p>
         </div>
 
         {/* Login Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 animate-slideUp" style={{ animationDelay: '0.1s' }}>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-6">Welcome Back</h2>
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 animate-scale-in border border-primary-200" style={{ animationDelay: '0.1s' }}>
+          <h2 className="text-2xl font-semibold text-primary-800 mb-6">Welcome Back</h2>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2 text-red-600 animate-fadeIn">
@@ -101,10 +121,9 @@ export default function Login() {
               disabled={loading}
               className={`
                 w-full py-3 px-4 rounded-lg font-medium text-white
-                bg-gradient-to-r from-primary-500 to-primary-600
-                hover:from-primary-600 hover:to-primary-700
-                focus:ring-4 focus:ring-primary-200
-                transition-all duration-200
+                bg-primary-800 hover:bg-primary-700
+                focus:ring-4 focus:ring-primary-300
+                transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg
                 ${loading ? 'opacity-70 cursor-not-allowed' : ''}
               `}
             >
@@ -122,10 +141,16 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
+          <div className="mt-4 text-center">
+            <Link to="/forgot-password" className="text-primary-700 hover:text-primary-800 text-sm font-medium">
+              Forgot your password?
+            </Link>
+          </div>
+
+          <div className="mt-4 text-center">
+            <p className="text-primary-600">
               Don't have an account?{' '}
-              <Link to="/register" className="text-primary-500 hover:text-primary-600 font-medium">
+              <Link to="/register" className="text-primary-800 hover:text-primary-900 font-medium underline underline-offset-2">
                 Register here
               </Link>
             </p>
@@ -133,8 +158,8 @@ export default function Login() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-gray-400 text-sm mt-6">
-          &copy; 2024 CITTAA Health Services Private Limited
+        <p className="text-center text-primary-600 text-sm mt-6">
+          &copy; 2026 CITTAA Health Services Private Limited
         </p>
       </div>
     </div>

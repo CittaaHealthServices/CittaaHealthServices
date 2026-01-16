@@ -70,20 +70,38 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-background to-secondary-50 flex items-center justify-center p-4 py-8">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen bg-gradient-lavender flex items-center justify-center p-4 py-8 relative overflow-hidden">
+      {/* Decorative floral elements */}
+      <div className="absolute top-0 right-0 w-64 h-64 opacity-30">
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <circle cx="150" cy="50" r="8" fill="#6B9B6B" className="animate-pulse-soft" />
+          <circle cx="170" cy="80" r="6" fill="#9B7B9B" className="animate-pulse-soft" style={{ animationDelay: '0.5s' }} />
+          <circle cx="130" cy="70" r="10" fill="#DCC8DC" className="animate-pulse-soft" style={{ animationDelay: '1s' }} />
+          <path d="M140 30 Q160 50 140 70 Q120 50 140 30" fill="#6B9B6B" opacity="0.6" />
+        </svg>
+      </div>
+      <div className="absolute bottom-0 left-0 w-48 h-48 opacity-30">
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          <circle cx="50" cy="150" r="8" fill="#6B9B6B" className="animate-pulse-soft" />
+          <circle cx="30" cy="120" r="6" fill="#9B7B9B" className="animate-pulse-soft" style={{ animationDelay: '0.3s' }} />
+          <path d="M60 170 Q40 150 60 130 Q80 150 60 170" fill="#6B9B6B" opacity="0.6" />
+        </svg>
+      </div>
+      <div className="w-full max-w-lg relative z-10">
         {/* Logo and Title */}
-        <div className="text-center mb-6 animate-slideUp">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-primary-500 to-secondary-400 rounded-2xl shadow-lg mb-3">
+        <div className="text-center mb-6 animate-slide-up">
+          <h1 className="text-3xl font-display italic text-primary-800 mb-2">Cittaa</h1>
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-purple rounded-2xl shadow-lg mb-3 animate-float">
             <Activity className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-primary-500">Vocalysis</h1>
-          <p className="text-gray-500 text-sm">Voice-based Mental Health Screening</p>
+          <h2 className="text-xl font-bold text-primary-700">Vocalysis</h2>
+          <p className="text-primary-600 text-sm">Voice-based Mental Health Screening</p>
+          <p className="text-xs text-primary-500 mt-1 italic">Healing is a journey. We will walk beside you.</p>
         </div>
 
         {/* Registration Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 animate-slideUp" style={{ animationDelay: '0.1s' }}>
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Create Your Account</h2>
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 md:p-8 animate-scale-in border border-primary-200" style={{ animationDelay: '0.1s' }}>
+          <h2 className="text-xl font-semibold text-primary-800 mb-4">Create Your Account</h2>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2 text-red-600 animate-fadeIn">
@@ -308,8 +326,8 @@ export default function Register() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-gray-400 text-xs mt-4">
-          &copy; 2024 CITTAA Health Services Private Limited
+        <p className="text-center text-primary-500 text-xs mt-4">
+          &copy; 2026 CITTAA Health Services Private Limited
         </p>
       </div>
     </div>

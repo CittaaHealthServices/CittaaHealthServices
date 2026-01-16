@@ -10,6 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Cell
 } from 'recharts'
+import jsPDF from 'jspdf'
 
 export default function AnalysisResults() {
   const { predictionId } = useParams<{ predictionId: string }>()
@@ -34,6 +35,175 @@ export default function AnalysisResults() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const downloadReport = () => {
+    if (!prediction) return
+
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    let yPos = 20
+
+    // Header - Cittaa Branding
+    doc.setFillColor(139, 90, 150) // Primary purple
+    doc.rect(0, 0, pageWidth, 35, 'F')
+    
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(24)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Cittaa', 20, 18)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(12)
+    doc.text('Vocalysis Clinical Report', 20, 28)
+    
+    doc.setFontSize(10)
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 70, 18)
+    doc.text(`Report ID: ${prediction.id?.slice(0, 8) || 'N/A'}`, pageWidth - 70, 25)
+
+    yPos = 50
+
+    // Overall Score Section
+    doc.setTextColor(139, 90, 150)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Mental Health Assessment Summary', 20, yPos)
+    yPos += 12
+
+    doc.setTextColor(60, 60, 60)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    
+    // Score box
+    doc.setFillColor(245, 240, 248)
+    doc.roundedRect(20, yPos, pageWidth - 40, 35, 3, 3, 'F')
+    
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`Mental Health Score: ${prediction.mental_health_score?.toFixed(0) || 'N/A'}/100`, 30, yPos + 12)
+    
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    const riskLevel = prediction.overall_risk_level || 'Unknown'
+    const riskColor = riskLevel === 'low' ? [39, 174, 96] : riskLevel === 'moderate' ? [255, 140, 66] : [231, 76, 60]
+    doc.setTextColor(riskColor[0], riskColor[1], riskColor[2])
+    doc.text(`Risk Level: ${riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)}`, 30, yPos + 22)
+    
+    doc.setTextColor(60, 60, 60)
+    doc.text(`Confidence: ${((prediction.confidence || 0) * 100).toFixed(0)}%`, 30, yPos + 30)
+    doc.text(`Analysis Date: ${new Date(prediction.predicted_at).toLocaleString()}`, pageWidth / 2, yPos + 22)
+
+    yPos += 45
+
+    // Clinical Scales Section
+    doc.setTextColor(139, 90, 150)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Clinical Scale Mappings (Golden Standards)', 20, yPos)
+    yPos += 10
+
+    // PHQ-9
+    doc.setFillColor(240, 235, 245)
+    doc.roundedRect(20, yPos, pageWidth - 40, 22, 2, 2, 'F')
+    doc.setTextColor(139, 90, 150)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text('PHQ-9 (Depression)', 25, yPos + 8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(60, 60, 60)
+    doc.text(`Score: ${prediction.phq9_score?.toFixed(0) || 0}/27`, 25, yPos + 16)
+    doc.text(`Severity: ${prediction.phq9_severity || 'N/A'}`, 80, yPos + 16)
+    yPos += 26
+
+    // GAD-7
+    doc.setFillColor(255, 245, 235)
+    doc.roundedRect(20, yPos, pageWidth - 40, 22, 2, 2, 'F')
+    doc.setTextColor(255, 140, 66)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text('GAD-7 (Anxiety)', 25, yPos + 8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(60, 60, 60)
+    doc.text(`Score: ${prediction.gad7_score?.toFixed(0) || 0}/21`, 25, yPos + 16)
+    doc.text(`Severity: ${prediction.gad7_severity || 'N/A'}`, 80, yPos + 16)
+    yPos += 26
+
+    // PSS
+    doc.setFillColor(235, 245, 240)
+    doc.roundedRect(20, yPos, pageWidth - 40, 22, 2, 2, 'F')
+    doc.setTextColor(107, 155, 107)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text('PSS (Stress)', 25, yPos + 8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(60, 60, 60)
+    doc.text(`Score: ${prediction.pss_score?.toFixed(0) || 0}/40`, 25, yPos + 16)
+    doc.text(`Severity: ${prediction.pss_severity || 'N/A'}`, 80, yPos + 16)
+    yPos += 26
+
+    // WEMWBS
+    doc.setFillColor(235, 250, 240)
+    doc.roundedRect(20, yPos, pageWidth - 40, 22, 2, 2, 'F')
+    doc.setTextColor(39, 174, 96)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text('WEMWBS (Wellbeing)', 25, yPos + 8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(60, 60, 60)
+    doc.text(`Score: ${prediction.wemwbs_score?.toFixed(0) || 0}/70`, 25, yPos + 16)
+    doc.text(`Severity: ${prediction.wemwbs_severity || 'N/A'}`, 80, yPos + 16)
+    yPos += 30
+
+    // Classification Probabilities
+    doc.setTextColor(139, 90, 150)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Mental State Classification', 20, yPos)
+    yPos += 10
+
+    doc.setTextColor(60, 60, 60)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Normal: ${((prediction.normal_score || 0) * 100).toFixed(1)}%`, 25, yPos)
+    doc.text(`Depression: ${((prediction.depression_score || 0) * 100).toFixed(1)}%`, 80, yPos)
+    doc.text(`Anxiety: ${((prediction.anxiety_score || 0) * 100).toFixed(1)}%`, 135, yPos)
+    doc.text(`Stress: ${((prediction.stress_score || 0) * 100).toFixed(1)}%`, pageWidth - 50, yPos)
+    yPos += 15
+
+    // Recommendations Section
+    if (prediction.recommendations && prediction.recommendations.length > 0) {
+      doc.setTextColor(139, 90, 150)
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Recommendations', 20, yPos)
+      yPos += 8
+
+      doc.setTextColor(60, 60, 60)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      prediction.recommendations.forEach((rec: string, index: number) => {
+        if (yPos > 270) {
+          doc.addPage()
+          yPos = 20
+        }
+        const lines = doc.splitTextToSize(`${index + 1}. ${rec}`, pageWidth - 50)
+        doc.text(lines, 25, yPos)
+        yPos += lines.length * 5 + 3
+      })
+    }
+
+    // Footer
+    const footerY = doc.internal.pageSize.getHeight() - 15
+    doc.setFillColor(139, 90, 150)
+    doc.rect(0, footerY - 5, pageWidth, 20, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(8)
+    doc.text('Cittaa Health Services | Vocalysis Voice Analysis System', 20, footerY + 2)
+    doc.text('This report is for informational purposes only and should not replace professional medical advice.', 20, footerY + 7)
+    doc.text('www.cittaa.in', pageWidth - 35, footerY + 2)
+
+    // Save the PDF
+    const fileName = `Vocalysis_Report_${new Date().toISOString().split('T')[0]}_${prediction.id?.slice(0, 8) || 'report'}.pdf`
+    doc.save(fileName)
   }
 
   if (loading) {
@@ -90,20 +260,28 @@ export default function AnalysisResults() {
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Analysis Results</h1>
-            <p className="text-sm text-gray-500">
+            <div className="flex items-center space-x-2 mb-1">
+              <span className="text-lg font-display italic text-primary-700">Cittaa</span>
+              <span className="text-primary-400">|</span>
+              <span className="text-primary-600">Vocalysis</span>
+            </div>
+            <h1 className="text-2xl font-bold text-primary-800">Analysis Results</h1>
+            <p className="text-sm text-primary-500">
               {new Date(prediction.predicted_at).toLocaleString()}
             </p>
           </div>
         </div>
-        <button className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+        <button 
+          onClick={downloadReport}
+          className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+        >
           <Download className="w-4 h-4 mr-2" />
           Download Report
         </button>
       </div>
 
       {/* Overall Score Card */}
-      <div className="bg-gradient-to-r from-primary-500 to-secondary-400 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl p-6 text-white">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center md:text-left">
             <p className="text-white/80 text-sm">Mental Health Score</p>

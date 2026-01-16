@@ -17,8 +17,15 @@ export default function PatientDashboard() {
   useEffect(() => {
     if (user?.id) {
       loadDashboard()
+    } else if (user && !user.id) {
+      // Handle case where user exists but id is missing
+      console.error('User object missing id field:', user)
+      setLoading(false)
+    } else if (!user) {
+      // User not loaded yet, keep loading state
+      // This will be handled by RoleDashboard's loading state
     }
-  }, [user?.id])
+  }, [user?.id, user])
 
   const loadDashboard = async () => {
     try {
@@ -84,16 +91,17 @@ export default function PatientDashboard() {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-primary-500 to-secondary-400 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl p-6 text-white shadow-lg animate-fade-in">
         <h1 className="text-2xl font-bold">
           Welcome back, {user?.full_name?.split(' ')[0] || 'there'}!
         </h1>
         <p className="mt-1 text-white/80">
           Track your mental wellness journey with voice analysis
         </p>
+        <p className="text-sm text-white/60 italic mt-2">Healing is a journey. We will walk beside you.</p>
         <Link
           to="/record"
-          className="inline-flex items-center mt-4 px-6 py-3 bg-white text-primary-600 rounded-lg font-medium hover:bg-white/90 transition-all duration-200 shadow-lg"
+          className="inline-flex items-center mt-4 px-6 py-3 bg-white text-primary-800 rounded-lg font-medium hover:bg-white/90 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
         >
           <Mic className="w-5 h-5 mr-2" />
           Start Voice Recording

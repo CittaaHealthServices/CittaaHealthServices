@@ -34,7 +34,7 @@ export default function UserManagement() {
   const loadUsers = async () => {
     try {
       setLoading(true)
-      const data = await adminService.getAllUsers(roleFilter || undefined, 100, 0)
+      const data = await adminService.getAllUsers(roleFilter || undefined, 500, 0)
       setUsers(data.users || [])
       setTotalUsers(data.total || 0)
     } catch (err) {
@@ -103,13 +103,18 @@ export default function UserManagement() {
       <div className="flex items-center space-x-4">
         <Link 
           to="/admin/dashboard" 
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          className="p-2 rounded-lg hover:bg-primary-50 transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+          <ArrowLeft className="w-5 h-5 text-primary-600" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">User Management</h1>
-          <p className="text-sm text-gray-500">Manage all system users and their roles</p>
+          <div className="flex items-center space-x-2 mb-1">
+            <span className="text-lg font-display italic text-primary-700">Cittaa</span>
+            <span className="text-primary-400">|</span>
+            <span className="text-primary-600">Vocalysis Admin</span>
+          </div>
+          <h1 className="text-2xl font-bold text-primary-800">User Management</h1>
+          <p className="text-sm text-primary-600">Manage all system users and their roles</p>
         </div>
       </div>
 

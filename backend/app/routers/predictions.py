@@ -3,87 +3,131 @@ Predictions router for Vocalysis API
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
-from app.models.database import get_db
-from app.models.user import User
-from app.models.prediction import Prediction
-from app.models.voice_sample import VoiceSample
-from app.schemas.prediction import PredictionResponse, DashboardResponse, TrendDataPoint
+from app.models.mongodb import get_mongodb
 from app.routers.auth import get_current_user
 
 router = APIRouter()
 
-@router.get("/{user_id}", response_model=List[PredictionResponse])
+@router.get("/{user_id}")
 async def get_user_predictions(
     user_id: str,
     limit: int = 10,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Get prediction history for a user"""
+    db = get_mongodb()
+    
     # Verify user can only access their own data (unless admin/psychologist)
-    if current_user.id != user_id and current_user.role not in ["super_admin", "psychologist", "hr_admin"]:
+    current_user_id = str(current_user.get("_id", current_user.get("id", "")))
+    current_user_role = current_user.get("role", "")
+    if current_user_id != user_id and current_user_role not in ["super_admin", "psychologist", "hr_admin", "admin"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
     # If psychologist, verify they are assigned to this patient
-    if current_user.role == "psychologist":
-        patient = db.query(User).filter(User.id == user_id).first()
-        if not patient or patient.assigned_psychologist_id != current_user.id:
+    if current_user_role == "psychologist":
+        patient = db.users.find_one({"_id": user_id})
+        if not patient or patient.get("assigned_psychologist_id") != current_user_id:
             raise HTTPException(status_code=403, detail="Not assigned to this patient")
     
-    predictions = db.query(Prediction).filter(
-        Prediction.user_id == user_id
-    ).order_by(Prediction.predicted_at.desc()).limit(limit).all()
+    predictions = list(db.predictions.find(
+        {"user_id": user_id}
+    ).sort("predicted_at", -1).limit(limit))
     
-    return [PredictionResponse.model_validate(p) for p in predictions]
+    return [
+        {
+            "id": str(p.get("_id", "")),
+            "user_id": p.get("user_id", ""),
+            "voice_sample_id": p.get("voice_sample_id"),
+            "depression_score": p.get("depression_score"),
+            "anxiety_score": p.get("anxiety_score"),
+            "stress_score": p.get("stress_score"),
+            "overall_risk_level": p.get("overall_risk_level"),
+            "mental_health_score": p.get("mental_health_score"),
+            "confidence": p.get("confidence"),
+            "phq9_score": p.get("phq9_score"),
+            "gad7_score": p.get("gad7_score"),
+            "pss_score": p.get("pss_score"),
+            "wemwbs_score": p.get("wemwbs_score"),
+            "interpretations": p.get("interpretations", []),
+            "recommendations": p.get("recommendations", []),
+            "predicted_at": p.get("predicted_at").isoformat() if p.get("predicted_at") else None
+        }
+        for p in predictions
+    ]
 
-@router.get("/{user_id}/latest", response_model=PredictionResponse)
+@router.get("/{user_id}/latest")
 async def get_latest_prediction(
     user_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Get latest prediction for a user"""
+    db = get_mongodb()
+    
     # Verify access
-    if current_user.id != user_id and current_user.role not in ["super_admin", "psychologist", "hr_admin"]:
+    current_user_id = str(current_user.get("_id", current_user.get("id", "")))
+    current_user_role = current_user.get("role", "")
+    if current_user_id != user_id and current_user_role not in ["super_admin", "psychologist", "hr_admin", "admin"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    prediction = db.query(Prediction).filter(
-        Prediction.user_id == user_id
-    ).order_by(Prediction.predicted_at.desc()).first()
+    prediction = db.predictions.find_one(
+        {"user_id": user_id},
+        sort=[("predicted_at", -1)]
+    )
     
     if not prediction:
         raise HTTPException(status_code=404, detail="No predictions found")
     
-    return PredictionResponse.model_validate(prediction)
+    return {
+        "id": str(prediction.get("_id", "")),
+        "user_id": prediction.get("user_id", ""),
+        "voice_sample_id": prediction.get("voice_sample_id"),
+        "depression_score": prediction.get("depression_score"),
+        "anxiety_score": prediction.get("anxiety_score"),
+        "stress_score": prediction.get("stress_score"),
+        "overall_risk_level": prediction.get("overall_risk_level"),
+        "mental_health_score": prediction.get("mental_health_score"),
+        "confidence": prediction.get("confidence"),
+        "phq9_score": prediction.get("phq9_score"),
+        "gad7_score": prediction.get("gad7_score"),
+        "pss_score": prediction.get("pss_score"),
+        "wemwbs_score": prediction.get("wemwbs_score"),
+        "interpretations": prediction.get("interpretations", []),
+        "recommendations": prediction.get("recommendations", []),
+        "predicted_at": prediction.get("predicted_at").isoformat() if prediction.get("predicted_at") else None
+    }
 
 @router.get("/{user_id}/trends")
 async def get_prediction_trends(
     user_id: str,
     days: int = 30,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Get prediction trends over time"""
+    db = get_mongodb()
+    
     # Verify access
-    if current_user.id != user_id and current_user.role not in ["super_admin", "psychologist", "hr_admin"]:
+    current_user_id = str(current_user.get("_id", current_user.get("id", "")))
+    current_user_role = current_user.get("role", "")
+    if current_user_id != user_id and current_user_role not in ["super_admin", "psychologist", "hr_admin", "admin"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
     start_date = datetime.utcnow() - timedelta(days=days)
     
-    predictions = db.query(Prediction).filter(
-        Prediction.user_id == user_id,
-        Prediction.predicted_at >= start_date
-    ).order_by(Prediction.predicted_at.asc()).all()
+    predictions = list(db.predictions.find({
+        "user_id": user_id,
+        "predicted_at": {"$gte": start_date}
+    }).sort("predicted_at", 1))
     
     # Group by date
     trend_data = {}
     for pred in predictions:
-        date_key = pred.predicted_at.strftime("%Y-%m-%d")
+        predicted_at = pred.get("predicted_at")
+        if not predicted_at:
+            continue
+        date_key = predicted_at.strftime("%Y-%m-%d")
         if date_key not in trend_data:
             trend_data[date_key] = {
                 "date": date_key,
@@ -94,10 +138,10 @@ async def get_prediction_trends(
                 "count": 0
             }
         
-        trend_data[date_key]["depression_scores"].append(pred.depression_score or 0)
-        trend_data[date_key]["anxiety_scores"].append(pred.anxiety_score or 0)
-        trend_data[date_key]["stress_scores"].append(pred.stress_score or 0)
-        trend_data[date_key]["mental_health_scores"].append(pred.mental_health_score or 0)
+        trend_data[date_key]["depression_scores"].append(pred.get("depression_score") or 0)
+        trend_data[date_key]["anxiety_scores"].append(pred.get("anxiety_score") or 0)
+        trend_data[date_key]["stress_scores"].append(pred.get("stress_score") or 0)
+        trend_data[date_key]["mental_health_scores"].append(pred.get("mental_health_score") or 0)
         trend_data[date_key]["count"] += 1
     
     # Calculate averages
@@ -114,40 +158,67 @@ async def get_prediction_trends(
     
     return result
 
-@router.get("/{prediction_id}/details", response_model=PredictionResponse)
+@router.get("/{prediction_id}/details")
 async def get_prediction_details(
     prediction_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Get detailed prediction information"""
-    prediction = db.query(Prediction).filter(Prediction.id == prediction_id).first()
+    db = get_mongodb()
+    
+    from bson import ObjectId
+    try:
+        prediction = db.predictions.find_one({"_id": ObjectId(prediction_id)})
+    except:
+        prediction = db.predictions.find_one({"_id": prediction_id})
     
     if not prediction:
         raise HTTPException(status_code=404, detail="Prediction not found")
     
     # Verify access
-    if prediction.user_id != current_user.id and current_user.role not in ["super_admin", "psychologist", "hr_admin"]:
+    current_user_id = str(current_user.get("_id", current_user.get("id", "")))
+    current_user_role = current_user.get("role", "")
+    if prediction.get("user_id") != current_user_id and current_user_role not in ["super_admin", "psychologist", "hr_admin", "admin"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    return PredictionResponse.model_validate(prediction)
+    return {
+        "id": str(prediction.get("_id", "")),
+        "user_id": prediction.get("user_id", ""),
+        "voice_sample_id": prediction.get("voice_sample_id"),
+        "depression_score": prediction.get("depression_score"),
+        "anxiety_score": prediction.get("anxiety_score"),
+        "stress_score": prediction.get("stress_score"),
+        "overall_risk_level": prediction.get("overall_risk_level"),
+        "mental_health_score": prediction.get("mental_health_score"),
+        "confidence": prediction.get("confidence"),
+        "phq9_score": prediction.get("phq9_score"),
+        "gad7_score": prediction.get("gad7_score"),
+        "pss_score": prediction.get("pss_score"),
+        "wemwbs_score": prediction.get("wemwbs_score"),
+        "interpretations": prediction.get("interpretations", []),
+        "recommendations": prediction.get("recommendations", []),
+        "predicted_at": prediction.get("predicted_at").isoformat() if prediction.get("predicted_at") else None
+    }
 
 @router.delete("/{prediction_id}")
 async def delete_prediction(
     prediction_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Delete a prediction (admin only)"""
-    if current_user.role != "super_admin":
+    db = get_mongodb()
+    
+    current_user_role = current_user.get("role", "")
+    if current_user_role not in ["super_admin", "admin"]:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    prediction = db.query(Prediction).filter(Prediction.id == prediction_id).first()
+    from bson import ObjectId
+    try:
+        result = db.predictions.delete_one({"_id": ObjectId(prediction_id)})
+    except:
+        result = db.predictions.delete_one({"_id": prediction_id})
     
-    if not prediction:
+    if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Prediction not found")
-    
-    db.delete(prediction)
-    db.commit()
     
     return {"message": "Prediction deleted successfully"}

@@ -13,16 +13,37 @@ import uuid
 from datetime import datetime, timedelta
 import jwt
 from typing import Optional
+import logging
 
 from app.routers import auth, voice, predictions, dashboard, admin, psychologist
 from app.models.database import init_db, get_db
+from app.models.mongodb import init_mongodb, close_mongodb
 from app.utils.config import settings
+from app.middleware.security import SecurityMiddleware
+
+# Configure logging for security audit trail
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database on startup"""
+    """Initialize databases on startup"""
+    logger.info("Starting Vocalysis API...")
+    # Initialize SQLite (for backward compatibility)
     init_db()
+    # Initialize MongoDB (for persistent storage)
+    try:
+        init_mongodb()
+        logger.info("MongoDB initialized successfully")
+    except Exception as e:
+        logger.warning(f"MongoDB initialization warning: {e}")
     yield
+    # Cleanup on shutdown
+    logger.info("Shutting down Vocalysis API...")
+    close_mongodb()
 
 app = FastAPI(
     title="Vocalysis API",
@@ -33,13 +54,25 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware - allow all origins for development
+# Add security middleware (rate limiting, security headers, audit logging)
+app.add_middleware(SecurityMiddleware)
+
+# CORS middleware - configured for production security
+# In production, replace "*" with specific allowed origins
+ALLOWED_ORIGINS = [
+    "https://vocalysis-frontend-1081764900204.us-central1.run.app",
+    "https://vocalysis.cittaa.in",
+    "https://cittaa.in",
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
 )
 
 # Include routers
