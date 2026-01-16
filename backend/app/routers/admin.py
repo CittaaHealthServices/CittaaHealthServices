@@ -640,6 +640,18 @@ async def send_test_email(
                 target_email, admin_name,
                 risk_level="low", phq9=5, gad7=4, pss=12, wemwbs=52
             )
+        elif email_type == "clinical_trial":
+            # Send clinical trial approval email
+            success = email_service.send_trial_approval_email(target_email, admin_name)
+        elif email_type == "password_reset":
+            # Send password reset email with test token
+            success = email_service.send_password_reset_email(target_email, "test-reset-token-12345", admin_name)
+        elif email_type == "high_risk_alert":
+            # Send high risk alert email
+            success = email_service.send_high_risk_alert_email(target_email, "Test Patient", "high")
+        elif email_type == "admin_created":
+            # Send admin created user email
+            success = email_service.send_admin_created_user_email(target_email, admin_name, "TempPass123!", "patient")
         else:
             success = email_service.send_welcome_email(target_email, admin_name)
         

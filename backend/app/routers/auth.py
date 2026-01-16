@@ -334,6 +334,100 @@ async def logout(current_user: Dict[str, Any] = Depends(get_current_user_from_to
     return {"message": "Logged out successfully"}
 
 
+@router.post("/forgot-password")
+async def forgot_password(email: str):
+    """Request password reset - sends email with reset token"""
+    db = get_mongodb()
+    
+    # Sanitize email input
+    try:
+        sanitized_email = sanitize_input(email)
+    except ValueError:
+        # Don't reveal if email exists or not for security
+        return {"message": "If the email exists, a password reset link has been sent"}
+    
+    user = db.users.find_one({"email": sanitized_email})
+    
+    # Always return success message to prevent email enumeration
+    if not user:
+        logger.info(f"Password reset requested for non-existent email: {hash_sensitive_data(sanitized_email)}")
+        return {"message": "If the email exists, a password reset link has been sent"}
+    
+    # Generate reset token (valid for 1 hour)
+    reset_token = str(uuid.uuid4())
+    reset_expiry = datetime.utcnow() + timedelta(hours=1)
+    
+    # Store reset token in database
+    db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {
+            "password_reset_token": reset_token,
+            "password_reset_expiry": reset_expiry,
+            "updated_at": datetime.utcnow()
+        }}
+    )
+    
+    # Send password reset email
+    try:
+        success = email_service.send_password_reset_email(
+            to_email=sanitized_email,
+            reset_token=reset_token,
+            full_name=user.get("full_name", "")
+        )
+        if success:
+            logger.info(f"Password reset email sent to: {hash_sensitive_data(sanitized_email)}")
+        else:
+            logger.warning(f"Failed to send password reset email to: {hash_sensitive_data(sanitized_email)}")
+    except Exception as e:
+        logger.error(f"Error sending password reset email: {e}")
+    
+    return {"message": "If the email exists, a password reset link has been sent"}
+
+
+@router.post("/reset-password")
+async def reset_password(token: str, new_password: str):
+    """Reset password using reset token"""
+    db = get_mongodb()
+    
+    # Validate password strength
+    is_valid, error_msg = validate_password_strength(new_password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail=error_msg
+        )
+    
+    # Find user with valid reset token
+    user = db.users.find_one({
+        "password_reset_token": token,
+        "password_reset_expiry": {"$gt": datetime.utcnow()}
+    })
+    
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired reset token"
+        )
+    
+    # Update password and clear reset token
+    new_password_hash = hash_password(new_password)
+    db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {
+            "password_hash": new_password_hash,
+            "updated_at": datetime.utcnow()
+        },
+        "$unset": {
+            "password_reset_token": "",
+            "password_reset_expiry": ""
+        }}
+    )
+    
+    logger.info(f"Password reset successful for: {hash_sensitive_data(user.get('email', ''))}")
+    
+    return {"message": "Password reset successful. You can now login with your new password."}
+
+
 # Keep the old get_current_user for backward compatibility with other routers
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
