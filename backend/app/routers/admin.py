@@ -486,6 +486,73 @@ async def reset_user_password(
     }
 
 
+@router.post("/users/{user_id}/send-password-reset-link")
+async def send_password_reset_link(
+    user_id: str,
+    current_user: Dict[str, Any] = Depends(require_role(["super_admin", "admin"]))
+):
+    """Send password reset link to a user (admin only). This sends an email with a reset link instead of directly resetting the password."""
+    import uuid
+    
+    db = get_mongodb()
+    
+    user = db.users.find_one({"_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Generate reset token (valid for 1 hour)
+    reset_token = str(uuid.uuid4())
+    reset_expiry = datetime.utcnow() + timedelta(hours=1)
+    
+    # Store reset token in database
+    db.users.update_one(
+        {"_id": user_id},
+        {"$set": {
+            "password_reset_token": reset_token,
+            "password_reset_expiry": reset_expiry,
+            "updated_at": datetime.utcnow()
+        }}
+    )
+    
+    # Send password reset email
+    try:
+        success = email_service.send_password_reset_email(
+            to_email=user.get("email"),
+            reset_token=reset_token,
+            full_name=user.get("full_name", "")
+        )
+        
+        if success:
+            # Log audit event
+            db.audit_logs.insert_one({
+                "action": "password_reset_link_sent",
+                "performed_by": str(current_user.get("_id", "")),
+                "performed_by_email": current_user.get("email", ""),
+                "target_user_id": user_id,
+                "target_email": user.get("email", ""),
+                "timestamp": datetime.utcnow()
+            })
+            
+            return {
+                "message": f"Password reset link sent to {user.get('email')}",
+                "user_id": user_id,
+                "email_sent": True
+            }
+        else:
+            return {
+                "message": "Failed to send password reset email. Check SMTP configuration.",
+                "user_id": user_id,
+                "email_sent": False
+            }
+    except Exception as e:
+        logger.error(f"Error sending password reset link: {e}")
+        return {
+            "message": f"Error sending password reset email: {str(e)}",
+            "user_id": user_id,
+            "email_sent": False
+        }
+
+
 @router.post("/send-reminder")
 async def send_reminder_to_users(
     reminder_type: str = "daily_recording",

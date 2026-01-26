@@ -14,11 +14,20 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      // TODO: Implement password reset API call
-      // await authService.forgotPassword(email)
+      // Call the forgot password API
+      const API_URL = import.meta.env.VITE_API_URL || 'https://vocalysis-backend-1081764900204.us-central1.run.app'
+      const response = await fetch(`${API_URL}/api/v1/auth/forgot-password?email=${encodeURIComponent(email)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || 'Failed to send reset email')
+      }
+      
       setSuccess(true)
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 
