@@ -7,51 +7,95 @@ export default {
   theme: {
     extend: {
       colors: {
-        // CITTAA Brand Colors
+        // CITTAA Brand Colors - Lavender/Purple Theme
         primary: {
-          50: '#f5f0f6',
-          100: '#e8dcea',
-          200: '#d4bdd8',
-          300: '#b994be',
-          400: '#9e6ba4',
-          500: '#8B5A96', // Main purple
-          600: '#744a7d',
-          700: '#5d3b64',
-          800: '#472d4b',
-          900: '#311e33',
+          50: '#FAF5FA',
+          100: '#F3E8F3',
+          200: '#E8D5E8',
+          300: '#DCC8DC',
+          400: '#C9A8C9',
+          500: '#9B7B9B', // Main lavender purple
+          600: '#7D5E7D',
+          700: '#5D4E6D',
+          800: '#4A3F55',
+          900: '#3A2F45',
         },
         secondary: {
-          50: '#f0f7f5',
-          100: '#dcece8',
-          200: '#bdd9d2',
-          300: '#9bc5bb',
-          400: '#7BB3A8', // Main teal
-          500: '#5a9a8d',
-          600: '#487d73',
-          700: '#3a645c',
-          800: '#2c4b45',
-          900: '#1e322e',
+          50: '#f0f7f2',
+          100: '#dcece0',
+          200: '#bdd9c4',
+          300: '#9bc5a5',
+          400: '#6B9B6B', // Main green (floral accent)
+          500: '#5a8a5a',
+          600: '#487048',
+          700: '#3a5c3a',
+          800: '#2c482c',
+          900: '#1e321e',
         },
         accent: {
-          50: '#fff5ed',
-          100: '#ffe6d5',
-          200: '#ffc9a8',
-          300: '#ffa66f',
-          400: '#FF8C42', // Main orange
-          500: '#e67330',
-          600: '#c45a20',
-          700: '#a24418',
-          800: '#803512',
-          900: '#5e270d',
+          50: '#fdf8f5',
+          100: '#f9efe8',
+          200: '#f0ddd0',
+          300: '#e5c8b5',
+          400: '#D4A88A', // Warm accent
+          500: '#c49070',
+          600: '#a87858',
+          700: '#8c6248',
+          800: '#704c38',
+          900: '#543828',
         },
-        background: '#F8F9FA',
-        text: '#2C3E50',
-        success: '#27AE60',
-        warning: '#F39C12',
-        error: '#E74C3C',
+        lavender: {
+          light: '#E8D5E8',
+          DEFAULT: '#DCC8DC',
+          dark: '#C9A8C9',
+        },
+        background: '#FAF5FA',
+        text: '#3A2F45',
+        success: '#6B9B6B',
+        warning: '#D4A88A',
+        error: '#C97070',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Playfair Display', 'serif'],
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.5s ease-in-out',
+        'slide-up': 'slideUp 0.4s ease-out',
+        'slide-down': 'slideDown 0.4s ease-out',
+        'scale-in': 'scaleIn 0.3s ease-out',
+        'float': 'float 3s ease-in-out infinite',
+        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideDown: {
+          '0%': { opacity: '0', transform: 'translateY(-20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        scaleIn: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10px)' },
+        },
+        pulseSoft: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.7' },
+        },
+      },
+      backgroundImage: {
+        'gradient-lavender': 'linear-gradient(135deg, #FAF5FA 0%, #E8D5E8 50%, #DCC8DC 100%)',
+        'gradient-purple': 'linear-gradient(135deg, #9B7B9B 0%, #7D5E7D 100%)',
       },
     },
   },

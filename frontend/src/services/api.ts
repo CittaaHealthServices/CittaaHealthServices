@@ -267,6 +267,63 @@ export const adminService = {
   deactivateUser: async (userId: string) => {
     const response = await api.delete(`/admin/users/${userId}`)
     return response.data
+  },
+  
+  getAuditLogs: async (limit = 100, offset = 0, action?: string) => {
+    const params = new URLSearchParams()
+    params.append('limit', limit.toString())
+    params.append('offset', offset.toString())
+    if (action) params.append('action', action)
+    const response = await api.get(`/admin/audit-logs?${params}`)
+    return response.data
+  },
+  
+  sendReminder: async (reminderType: string, userIds?: string[]) => {
+    const response = await api.post('/admin/send-reminder', {
+      reminder_type: reminderType,
+      user_ids: userIds
+    })
+    return response.data
+  },
+  
+  createUser: async (email: string, fullName: string, role: string, password?: string, sendEmail = true) => {
+    const params = new URLSearchParams()
+    params.append('email', email)
+    params.append('full_name', fullName)
+    params.append('role', role)
+    if (password) params.append('password', password)
+    params.append('send_email', sendEmail.toString())
+    const response = await api.post(`/admin/users/create?${params}`)
+    return response.data
+  },
+  
+  resetUserPassword: async (userId: string, newPassword?: string, autoGenerate = false, sendEmail = true) => {
+    const params = new URLSearchParams()
+    if (newPassword) params.append('new_password', newPassword)
+    params.append('auto_generate', autoGenerate.toString())
+    params.append('send_email', sendEmail.toString())
+    const response = await api.put(`/admin/users/${userId}/password?${params}`)
+    return response.data
+  },
+  
+  getEmailSettings: async () => {
+    const response = await api.get('/admin/email-settings')
+    return response.data
+  },
+  
+  updateEmailSettings: async (settings: Record<string, unknown>) => {
+    const response = await api.put('/admin/email-settings', settings)
+    return response.data
+  },
+  
+  sendTestEmail: async (emailType: string) => {
+    const response = await api.post(`/admin/send-test-email?email_type=${emailType}`)
+    return response.data
+  },
+  
+  getUsersForReminder: async (reminderType: string) => {
+    const response = await api.get(`/admin/users-for-reminder?reminder_type=${reminderType}`)
+    return response.data
   }
 }
 

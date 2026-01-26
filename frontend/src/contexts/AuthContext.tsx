@@ -5,7 +5,7 @@ interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<User>
   register: (data: RegisterData) => Promise<void>
   logout: () => void
   updateUser: (data: Partial<User>) => void
@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('token', response.access_token)
     localStorage.setItem('user', JSON.stringify(response.user))
     setUser(response.user)
+    return response.user
   }
 
   const register = async (data: RegisterData) => {

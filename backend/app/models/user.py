@@ -2,7 +2,7 @@
 User model for Vocalysis
 """
 
-from sqlalchemy import Column, String, Boolean, DateTime, Enum, Text, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, Enum, Text, Integer, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
