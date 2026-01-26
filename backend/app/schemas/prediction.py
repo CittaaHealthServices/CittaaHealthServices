@@ -14,6 +14,7 @@ class ScaleMapping(BaseModel):
 class PredictionResponse(BaseModel):
     """Schema for prediction response"""
     id: str
+    report_id: Optional[str] = None  # CITTVOCXXX format
     user_id: str
     voice_sample_id: Optional[str] = None
     

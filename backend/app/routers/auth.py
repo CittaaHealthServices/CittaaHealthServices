@@ -8,13 +8,21 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import jwt
 import bcrypt
+import secrets
 from typing import Optional
+from pydantic import BaseModel
 
-from app.models.database import get_db
+from app.models.database import get_db, sync_user_to_mongodb
 from app.models.user import User, UserRole
-from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserUpdate, ConsentUpdate
+from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, UserUpdate, ConsentUpdate, ClinicalTrialRegistration
 from app.utils.config import settings
 from app.services.email_service import email_service
+
+
+class PasswordResetRequest(BaseModel):
+    """Request model for password reset"""
+    token: str
+    new_password: str
 
 router = APIRouter()
 security = HTTPBearer()
@@ -22,6 +30,9 @@ security = HTTPBearer()
 def hash_password(password: str) -> str:
     """Hash password using bcrypt"""
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+# Alias for backward compatibility
+get_password_hash = hash_password
 
 def verify_password(password: str, hashed: str) -> bool:
     """Verify password against hash"""
@@ -193,3 +204,126 @@ async def update_consent(
 async def logout(current_user: User = Depends(get_current_user)):
     """Logout user (client should discard token)"""
     return {"message": "Logged out successfully"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(email: str, db: Session = Depends(get_db)):
+    """
+    Request password reset - sends email with reset link
+    Always returns success to prevent email enumeration
+    """
+    user = db.query(User).filter(User.email == email).first()
+    
+    if user:
+        # Generate secure reset token
+        reset_token = secrets.token_urlsafe(32)
+        
+        # Set token and expiry (1 hour)
+        user.reset_token = reset_token
+        user.reset_token_expires_at = datetime.utcnow() + timedelta(hours=1)
+        db.commit()
+        
+        # Send password reset email
+        try:
+            email_service.send_password_reset_email(
+                to_email=user.email,
+                reset_token=reset_token,
+                full_name=user.full_name
+            )
+        except Exception as e:
+            print(f"Failed to send password reset email: {e}")
+    
+    # Always return success to prevent email enumeration
+    return {"message": "If an account exists with this email, a password reset link has been sent."}
+
+
+@router.post("/reset-password")
+async def reset_password(request: PasswordResetRequest, db: Session = Depends(get_db)):
+    """
+    Reset password using token from email
+    """
+    # Find user with valid token
+    user = db.query(User).filter(
+        User.reset_token == request.token,
+        User.reset_token_expires_at > datetime.utcnow()
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired reset token"
+        )
+    
+    # Validate new password
+    if len(request.new_password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 8 characters long"
+        )
+    
+    # Update password and clear reset token
+    user.password_hash = hash_password(request.new_password)
+    user.reset_token = None
+    user.reset_token_expires_at = None
+    db.commit()
+    
+    return {"message": "Password has been reset successfully. You can now log in with your new password."}
+
+
+@router.post("/register-clinical-trial", response_model=Token)
+async def register_clinical_trial(user_data: UserCreate, db: Session = Depends(get_db)):
+    """
+    Register a new user for clinical trial participation.
+    Sets is_clinical_trial_participant=True and trial_status='pending'.
+    User must be approved by admin before they can access the platform.
+    """
+    # Check if email already exists
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+    
+    # Create new user with clinical trial flags
+    user = User(
+        email=user_data.email,
+        password_hash=hash_password(user_data.password),
+        full_name=user_data.full_name,
+        phone=user_data.phone,
+        age_range=user_data.age_range,
+        gender=user_data.gender,
+        language_preference=user_data.language_preference,
+        role="patient",  # Clinical trial participants are always patients
+        organization_id=user_data.organization_id,
+        employee_id=user_data.employee_id,
+        # Clinical trial specific fields
+        is_clinical_trial_participant=True,
+        trial_status="pending",
+        is_active=False  # User is inactive until approved by admin
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    # Sync to MongoDB for persistence
+    try:
+        sync_user_to_mongodb(user)
+    except Exception as e:
+        print(f"Failed to sync user to MongoDB: {e}")
+    
+    # Send clinical trial registration email
+    try:
+        email_service.send_clinical_trial_registration_email(user.email, user.full_name)
+    except Exception as e:
+        # Log but don't fail registration if email fails
+        print(f"Failed to send clinical trial registration email: {e}")
+    
+    # Create token (user can view their status but not access features until approved)
+    token = create_token(user.id, user.role)
+    
+    return Token(
+        access_token=token,
+        user=UserResponse.model_validate(user)
+    )

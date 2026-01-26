@@ -1,12 +1,15 @@
 """
 Database configuration and session management
+With MongoDB Atlas for permanent data persistence
 """
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
+import urllib.parse
 
+# SQLAlchemy setup (SQLite for local operations)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vocalysis.db")
 
 # Handle SQLite connection args
@@ -22,6 +25,26 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+# MongoDB Atlas configuration for permanent storage
+MONGODB_URI = os.getenv("MONGODB_URI", "")
+mongo_client = None
+mongo_db = None
+
+def get_mongo_client():
+    """Get MongoDB client (lazy initialization)"""
+    global mongo_client, mongo_db
+    if mongo_client is None and MONGODB_URI:
+        try:
+            from pymongo import MongoClient
+            mongo_client = MongoClient(MONGODB_URI)
+            mongo_db = mongo_client.vocalysis
+            print("MongoDB Atlas connected successfully")
+        except Exception as e:
+            print(f"MongoDB connection failed: {e}")
+            mongo_client = None
+            mongo_db = None
+    return mongo_db
+
 def get_db():
     """Get database session"""
     db = SessionLocal()
@@ -30,8 +53,133 @@ def get_db():
     finally:
         db.close()
 
+def sync_user_to_mongodb(user_dict):
+    """Sync a user record to MongoDB for permanent storage"""
+    db = get_mongo_client()
+    if db is not None:
+        try:
+            db.users.update_one(
+                {"id": user_dict["id"]},
+                {"$set": user_dict},
+                upsert=True
+            )
+        except Exception as e:
+            print(f"Error syncing user to MongoDB: {e}")
+
+def sync_prediction_to_mongodb(prediction_dict):
+    """Sync a prediction record to MongoDB for permanent storage"""
+    db = get_mongo_client()
+    if db is not None:
+        try:
+            db.predictions.update_one(
+                {"id": prediction_dict["id"]},
+                {"$set": prediction_dict},
+                upsert=True
+            )
+        except Exception as e:
+            print(f"Error syncing prediction to MongoDB: {e}")
+
+def sync_voice_sample_to_mongodb(sample_dict):
+    """Sync a voice sample record to MongoDB for permanent storage (metadata only, not audio)"""
+    db = get_mongo_client()
+    if db is not None:
+        try:
+            db.voice_samples.update_one(
+                {"id": sample_dict["id"]},
+                {"$set": sample_dict},
+                upsert=True
+            )
+        except Exception as e:
+            print(f"Error syncing voice sample to MongoDB: {e}")
+
+def restore_from_mongodb():
+    """Restore data from MongoDB to SQLite on startup"""
+    db = get_mongo_client()
+    if db is None:
+        print("MongoDB not configured, skipping restore")
+        return
+    
+    from app.models.user import User
+    from app.models.prediction import Prediction
+    from app.models.voice_sample import VoiceSample
+    
+    session = SessionLocal()
+    try:
+        # Restore users - both create new and update existing
+        users_restored = 0
+        users_updated = 0
+        for user_doc in db.users.find():
+            user_doc.pop("_id", None)  # Remove MongoDB _id field
+            existing = session.query(User).filter(User.id == user_doc.get("id")).first()
+            if not existing:
+                user = User(**user_doc)
+                session.add(user)
+                users_restored += 1
+            else:
+                # Update existing user with MongoDB data (MongoDB is source of truth)
+                for key, value in user_doc.items():
+                    if hasattr(existing, key) and key != "id":
+                        setattr(existing, key, value)
+                users_updated += 1
+        
+        # Restore voice samples - both create new and update existing
+        samples_restored = 0
+        samples_updated = 0
+        for sample_doc in db.voice_samples.find():
+            sample_doc.pop("_id", None)
+            # NOTE: SQLAlchemy JSON columns expect Python dict/list, NOT json strings
+            # Do NOT use json.dumps() here - SQLAlchemy handles serialization automatically
+            
+            existing = session.query(VoiceSample).filter(VoiceSample.id == sample_doc.get("id")).first()
+            if not existing:
+                sample = VoiceSample(**sample_doc)
+                session.add(sample)
+                samples_restored += 1
+            else:
+                # Update existing sample with MongoDB data
+                for key, value in sample_doc.items():
+                    if hasattr(existing, key) and key != "id":
+                        setattr(existing, key, value)
+                samples_updated += 1
+        
+        # Restore predictions - both create new and update existing
+        predictions_restored = 0
+        predictions_updated = 0
+        for pred_doc in db.predictions.find():
+            pred_doc.pop("_id", None)
+            # NOTE: SQLAlchemy JSON columns expect Python dict/list, NOT json strings
+            # Do NOT use json.dumps() here - SQLAlchemy handles serialization automatically
+            # If any fields are already strings (legacy data), parse them back to dict/list
+            import json
+            for field in ["voice_features", "recommendations", "interpretations"]:
+                if field in pred_doc and isinstance(pred_doc[field], str):
+                    try:
+                        pred_doc[field] = json.loads(pred_doc[field])
+                    except Exception:
+                        pred_doc[field] = None
+            
+            existing = session.query(Prediction).filter(Prediction.id == pred_doc.get("id")).first()
+            if not existing:
+                prediction = Prediction(**pred_doc)
+                session.add(prediction)
+                predictions_restored += 1
+            else:
+                # Update existing prediction with MongoDB data
+                for key, value in pred_doc.items():
+                    if hasattr(existing, key) and key != "id":
+                        setattr(existing, key, value)
+                predictions_updated += 1
+        
+        session.commit()
+        print(f"Restored from MongoDB: {users_restored} new users, {users_updated} updated users, {samples_restored} new voice samples, {samples_updated} updated voice samples, {predictions_restored} new predictions, {predictions_updated} updated predictions")
+    except Exception as e:
+        print(f"Error restoring from MongoDB: {e}")
+        session.rollback()
+    finally:
+        session.close()
+
 def init_db():
-    """Initialize database tables"""
+    """Initialize database tables and restore from MongoDB"""
     from app.models.user import User
     from app.models.voice_sample import VoiceSample
     from app.models.prediction import Prediction
@@ -39,3 +187,6 @@ def init_db():
     
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully")
+    
+    # Restore data from MongoDB if available
+    restore_from_mongodb()

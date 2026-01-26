@@ -14,8 +14,31 @@ from app.models.prediction import Prediction
 from app.models.voice_sample import VoiceSample
 from app.schemas.prediction import DashboardResponse, PredictionResponse
 from app.routers.auth import get_current_user
+import json
 
 router = APIRouter()
+
+def _normalize_prediction_json_fields(pred: Prediction) -> Prediction:
+    """
+    Normalize JSON fields that may have been stored as strings (legacy data).
+    SQLAlchemy JSON columns should contain Python dict/list, not JSON strings.
+    """
+    if isinstance(pred.interpretations, str):
+        try:
+            pred.interpretations = json.loads(pred.interpretations)
+        except Exception:
+            pred.interpretations = []
+    if isinstance(pred.recommendations, str):
+        try:
+            pred.recommendations = json.loads(pred.recommendations)
+        except Exception:
+            pred.recommendations = []
+    if isinstance(pred.voice_features, str):
+        try:
+            pred.voice_features = json.loads(pred.voice_features)
+        except Exception:
+            pred.voice_features = {}
+    return pred
 
 @router.get("/{user_id}", response_model=DashboardResponse)
 async def get_user_dashboard(
@@ -99,7 +122,11 @@ async def get_user_dashboard(
         Prediction.user_id == user_id
     ).order_by(Prediction.predicted_at.desc()).limit(5).all()
     
-    recent_predictions_response = [PredictionResponse.model_validate(p) for p in recent_preds]
+    # Normalize JSON fields before Pydantic validation (handles legacy string data)
+    recent_predictions_response = [
+        PredictionResponse.model_validate(_normalize_prediction_json_fields(p)) 
+        for p in recent_preds
+    ]
     
     # Get weekly trend data
     weekly_trend_data = []

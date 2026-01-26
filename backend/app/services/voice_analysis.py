@@ -1,12 +1,20 @@
 """
 Voice Analysis Service for Vocalysis
-Integrates ML models for mental health screening from voice
+Integrates ML models and Gemini API for mental health screening from voice
 """
 
 import numpy as np
 import random
+import base64
+import json
+import httpx
+import os
+import subprocess
+import tempfile
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+
+from app.utils.config import settings
 
 class VoiceAnalysisService:
     """Service for analyzing voice samples and generating mental health predictions"""
@@ -41,6 +49,7 @@ class VoiceAnalysisService:
     def analyze_audio(self, file_path: str) -> Dict[str, Any]:
         """
         Analyze audio file and return mental health predictions
+        Uses Gemini API if available, otherwise falls back to librosa-based analysis
         
         Args:
             file_path: Path to the audio file
@@ -48,6 +57,14 @@ class VoiceAnalysisService:
         Returns:
             Dictionary containing predictions and features
         """
+        # Try Gemini API first if configured
+        if settings.GEMINI_API_KEY:
+            try:
+                return self._analyze_with_gemini(file_path)
+            except Exception as e:
+                print(f"Gemini analysis failed: {e}, falling back to local analysis")
+        
+        # Fallback to local analysis
         try:
             # Try to import audio processing libraries
             import librosa
@@ -97,6 +114,209 @@ class VoiceAnalysisService:
             return self.generate_demo_results("normal")
         except Exception as e:
             return {"error": str(e)}
+    
+    def _analyze_with_gemini(self, file_path: str) -> Dict[str, Any]:
+        """
+        Analyze audio using Google Gemini API for mental health screening
+        Also extracts acoustic features using librosa for model training
+        
+        Args:
+            file_path: Path to the audio file
+            
+        Returns:
+            Dictionary containing predictions and features
+        """
+        # Convert audio to WAV format if needed (Gemini works best with WAV)
+        wav_path = self._convert_to_wav(file_path)
+        
+        # Extract acoustic features for model training using librosa
+        features = {"analysis_method": "gemini_ai"}
+        try:
+            import librosa
+            audio, sr = librosa.load(wav_path, sr=16000)
+            features = self._extract_features(audio, sr)
+            features["analysis_method"] = "gemini_ai"
+        except Exception as e:
+            print(f"Feature extraction failed: {e}, using basic features")
+            features = {"analysis_method": "gemini_ai", "feature_extraction_error": str(e)}
+        
+        # Read and encode audio
+        with open(wav_path, "rb") as f:
+            audio_bytes = f.read()
+        
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+        
+        # Determine mime type
+        mime_type = "audio/wav"
+        if file_path.endswith(".mp3"):
+            mime_type = "audio/mp3"
+        elif file_path.endswith(".webm"):
+            mime_type = "audio/webm"
+        elif file_path.endswith(".m4a"):
+            mime_type = "audio/mp4"
+        
+        # Construct the prompt for mental health voice analysis
+        prompt = """You are an AI assistant that analyzes voice recordings to estimate mental health indicators from acoustic patterns and speech characteristics.
+
+IMPORTANT: This is for SCREENING purposes only, not clinical diagnosis.
+
+Listen to the attached audio recording and analyze the voice patterns to estimate:
+1. Probabilities for four mental health states (must sum to 1.0):
+   - normal: healthy mental state
+   - anxiety: signs of anxiety
+   - depression: signs of depression  
+   - stress: signs of stress
+
+2. Map these to clinical assessment scale equivalents:
+   - PHQ-9 (0-27): depression severity
+   - GAD-7 (0-21): anxiety severity
+   - PSS (0-40): perceived stress
+   - WEMWBS (14-70): mental wellbeing (higher is better)
+
+Consider these voice biomarkers:
+- Pitch variation and mean (low pitch, reduced variation → depression)
+- Speech rate (slow → depression, fast → anxiety)
+- Voice energy/volume (low → depression)
+- Jitter/tremor (high → anxiety, stress)
+- Pause patterns (long pauses → depression)
+- Tone and prosody
+
+Return ONLY a valid JSON object with this exact structure (no other text):
+{
+  "probabilities": {
+    "normal": 0.0,
+    "anxiety": 0.0,
+    "depression": 0.0,
+    "stress": 0.0
+  },
+  "scale_mappings": {
+    "PHQ-9": 0,
+    "GAD-7": 0,
+    "PSS": 0,
+    "WEMWBS": 50,
+    "interpretations": {
+      "PHQ-9": "severity description",
+      "GAD-7": "severity description",
+      "PSS": "severity description",
+      "WEMWBS": "wellbeing description"
+    }
+  },
+  "interpretations": ["interpretation 1", "interpretation 2"],
+  "recommendations": ["recommendation 1", "recommendation 2"]
+}"""
+
+        # Call Gemini API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL_NAME}:generateContent?key={settings.GEMINI_API_KEY}"
+        
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "inline_data": {
+                                "mime_type": mime_type,
+                                "data": audio_b64
+                            }
+                        },
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.5,
+                "maxOutputTokens": 1024
+            }
+        }
+        
+        # Make synchronous request
+        with httpx.Client(timeout=60.0) as client:
+            response = client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+        
+        # Extract text from response
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        
+        # Parse JSON from response (handle potential markdown wrapping)
+        json_str = self._extract_json(text)
+        parsed = json.loads(json_str)
+        
+        # Extract probabilities
+        probs = parsed["probabilities"]
+        probabilities = [
+            float(probs.get("normal", 0.5)),
+            float(probs.get("anxiety", 0.15)),
+            float(probs.get("depression", 0.15)),
+            float(probs.get("stress", 0.2))
+        ]
+        
+        # Normalize probabilities to sum to 1
+        total = sum(probabilities)
+        if total > 0:
+            probabilities = [p / total for p in probabilities]
+        
+        # Calculate risk level and mental health score
+        risk_level, mental_health_score = self._calculate_risk_level(probabilities)
+        
+        # Clean up temp file if created
+        if wav_path != file_path and os.path.exists(wav_path):
+            os.remove(wav_path)
+        
+        return {
+            "probabilities": probabilities,
+            "risk_level": risk_level,
+            "mental_health_score": round(mental_health_score, 1),
+            "confidence": round(max(probabilities), 3),
+            "features": features,
+            "scale_mappings": parsed.get("scale_mappings", self._map_to_clinical_scales(probabilities)),
+            "interpretations": parsed.get("interpretations", self._generate_interpretations(probabilities, parsed.get("scale_mappings", {}))),
+            "recommendations": parsed.get("recommendations", self._generate_recommendations(risk_level, probabilities))
+        }
+    
+    def _convert_to_wav(self, file_path: str) -> str:
+        """Convert audio file to WAV format using ffmpeg if needed"""
+        if file_path.endswith(".wav"):
+            return file_path
+        
+        # Create temp WAV file
+        temp_wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        temp_wav.close()
+        
+        try:
+            # Use ffmpeg to convert
+            subprocess.run([
+                "ffmpeg", "-y", "-i", file_path,
+                "-ar", "16000", "-ac", "1",
+                temp_wav.name
+            ], check=True, capture_output=True)
+            return temp_wav.name
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # If ffmpeg fails, return original file
+            return file_path
+    
+    def _extract_json(self, text: str) -> str:
+        """Extract JSON from text that may contain markdown or other formatting"""
+        # Try to find JSON block
+        text = text.strip()
+        
+        # Remove markdown code blocks if present
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        
+        # Find first { and last }
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        
+        if start >= 0 and end > start:
+            return text[start:end]
+        
+        return text
     
     def _extract_features(self, audio: np.ndarray, sr: int) -> Dict[str, Any]:
         """Extract acoustic features from audio"""
@@ -162,45 +382,134 @@ class VoiceAnalysisService:
         """
         Run ML prediction on extracted features
         Returns probabilities for [normal, anxiety, depression, stress]
-        """
-        # Feature-based heuristic prediction
-        # In production, this would use the trained BiLSTM model
         
+        Uses continuous feature-based scoring for more varied results
+        based on actual voice characteristics.
+        """
+        # Extract features with defaults
         pitch_mean = features.get("pitch_mean", 150)
         pitch_std = features.get("pitch_std", 30)
+        pitch_range = features.get("pitch_range", 80)
         speech_rate = features.get("speech_rate", 3)
         rms_mean = features.get("rms_mean", 0.1)
+        rms_std = features.get("rms_std", 0.04)
         jitter = features.get("jitter_mean", 0.02)
         hnr = features.get("hnr", 15)
+        zcr_mean = features.get("zcr_mean", 0.08)
+        spectral_centroid = features.get("spectral_centroid_mean", 2000)
+        mfcc_mean = features.get("mfcc_mean", -15)
+        mfcc_std = features.get("mfcc_std", 10)
         
-        # Initialize scores
-        normal_score = 0.6
-        anxiety_score = 0.1
-        depression_score = 0.1
-        stress_score = 0.1
+        # Initialize base scores - start more neutral for varied results
+        normal_score = 0.4
+        anxiety_score = 0.2
+        depression_score = 0.2
+        stress_score = 0.2
         
-        # Anxiety indicators: high pitch variability, fast speech rate
-        if pitch_std > 40 or speech_rate > 4:
-            anxiety_score += 0.2
-            normal_score -= 0.1
+        # === ANXIETY INDICATORS (continuous scoring) ===
+        # High pitch variability indicates anxiety
+        if pitch_std > 25:
+            anxiety_adjustment = min(0.3, (pitch_std - 25) / 50)
+            anxiety_score += anxiety_adjustment
+            normal_score -= anxiety_adjustment * 0.5
         
-        # Depression indicators: low pitch, slow speech, low energy
-        if pitch_mean < 120 or speech_rate < 2 or rms_mean < 0.05:
-            depression_score += 0.2
-            normal_score -= 0.1
+        # Fast speech rate indicates anxiety
+        if speech_rate > 3.5:
+            anxiety_adjustment = min(0.25, (speech_rate - 3.5) / 3)
+            anxiety_score += anxiety_adjustment
+            normal_score -= anxiety_adjustment * 0.4
         
-        # Stress indicators: high jitter, irregular patterns
-        if jitter > 0.03 or hnr < 10:
-            stress_score += 0.2
-            normal_score -= 0.1
+        # High pitch range indicates emotional volatility/anxiety
+        if pitch_range > 100:
+            anxiety_adjustment = min(0.15, (pitch_range - 100) / 100)
+            anxiety_score += anxiety_adjustment
+        
+        # High spectral centroid (brighter voice) can indicate anxiety
+        if spectral_centroid > 2500:
+            anxiety_adjustment = min(0.1, (spectral_centroid - 2500) / 2000)
+            anxiety_score += anxiety_adjustment
+        
+        # === DEPRESSION INDICATORS (continuous scoring) ===
+        # Low pitch indicates depression
+        if pitch_mean < 140:
+            depression_adjustment = min(0.3, (140 - pitch_mean) / 80)
+            depression_score += depression_adjustment
+            normal_score -= depression_adjustment * 0.5
+        
+        # Slow speech rate indicates depression
+        if speech_rate < 2.5:
+            depression_adjustment = min(0.25, (2.5 - speech_rate) / 2)
+            depression_score += depression_adjustment
+            normal_score -= depression_adjustment * 0.4
+        
+        # Low energy/volume indicates depression
+        if rms_mean < 0.08:
+            depression_adjustment = min(0.2, (0.08 - rms_mean) / 0.06)
+            depression_score += depression_adjustment
+        
+        # Low pitch variability (monotone) indicates depression
+        if pitch_std < 20:
+            depression_adjustment = min(0.15, (20 - pitch_std) / 15)
+            depression_score += depression_adjustment
+        
+        # Low spectral centroid (darker voice) indicates depression
+        if spectral_centroid < 1800:
+            depression_adjustment = min(0.1, (1800 - spectral_centroid) / 800)
+            depression_score += depression_adjustment
+        
+        # === STRESS INDICATORS (continuous scoring) ===
+        # High jitter indicates stress/tension
+        if jitter > 0.02:
+            stress_adjustment = min(0.3, (jitter - 0.02) / 0.03)
+            stress_score += stress_adjustment
+            normal_score -= stress_adjustment * 0.4
+        
+        # Low HNR (more noise in voice) indicates stress
+        if hnr < 15:
+            stress_adjustment = min(0.25, (15 - hnr) / 10)
+            stress_score += stress_adjustment
+            normal_score -= stress_adjustment * 0.3
+        
+        # High energy variability indicates stress
+        if rms_std > 0.05:
+            stress_adjustment = min(0.15, (rms_std - 0.05) / 0.05)
+            stress_score += stress_adjustment
+        
+        # High zero crossing rate indicates tension
+        if zcr_mean > 0.1:
+            stress_adjustment = min(0.1, (zcr_mean - 0.1) / 0.1)
+            stress_score += stress_adjustment
+        
+        # === NORMAL/HEALTHY INDICATORS ===
+        # Moderate pitch in healthy range
+        if 140 <= pitch_mean <= 200:
+            normal_score += 0.15
+        
+        # Moderate speech rate
+        if 2.5 <= speech_rate <= 3.5:
+            normal_score += 0.1
+        
+        # Good HNR (clear voice)
+        if hnr > 18:
+            normal_score += 0.1
+        
+        # Low jitter (stable voice)
+        if jitter < 0.015:
+            normal_score += 0.1
+        
+        # Ensure all scores are positive
+        normal_score = max(0.05, normal_score)
+        anxiety_score = max(0.05, anxiety_score)
+        depression_score = max(0.05, depression_score)
+        stress_score = max(0.05, stress_score)
         
         # Normalize to sum to 1
         total = normal_score + anxiety_score + depression_score + stress_score
         probabilities = [
-            max(0, normal_score / total),
-            max(0, anxiety_score / total),
-            max(0, depression_score / total),
-            max(0, stress_score / total)
+            round(normal_score / total, 4),
+            round(anxiety_score / total, 4),
+            round(depression_score / total, 4),
+            round(stress_score / total, 4)
         ]
         
         return probabilities

@@ -1,6 +1,11 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
+// Use the deployed backend URL in production, fallback to proxy in development
+// Canonical backend URL for GCP Cloud Run deployment
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (window.location.hostname.includes('run.app') || window.location.hostname.includes('cittaa.in')
+    ? 'https://vocalysis-backend-1081764900204.us-central1.run.app/api/v1'
+    : '/api/v1')
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -113,6 +118,18 @@ export const authService = {
     return response.data
   },
   
+  registerClinicalTrial: async (data: {
+    email: string
+    password: string
+    full_name?: string
+    phone?: string
+    age_range?: string
+    gender?: string
+  }) => {
+    const response = await api.post('/auth/register-clinical-trial', data)
+    return response.data
+  },
+  
   getProfile: async () => {
     const response = await api.get('/auth/me')
     return response.data
@@ -162,6 +179,13 @@ export const voiceService = {
   
   getSampleProgress: async () => {
     const response = await api.get('/voice/sample-progress')
+    return response.data
+  },
+  
+  downloadReportPdf: async (predictionId: string) => {
+    const response = await api.get(`/voice/report/${predictionId}/pdf`, {
+      responseType: 'blob'
+    })
     return response.data
   }
 }
@@ -266,6 +290,92 @@ export const adminService = {
   
   deactivateUser: async (userId: string) => {
     const response = await api.delete(`/admin/users/${userId}`)
+    return response.data
+  },
+  
+  // New Supreme Admin Endpoints
+  createUser: async (data: {
+    email: string
+    full_name: string
+    role: string
+    phone?: string
+    send_welcome_email?: boolean
+  }) => {
+    const response = await api.post('/admin/users', data)
+    return response.data
+  },
+  
+  updateUser: async (userId: string, data: {
+    full_name?: string
+    phone?: string
+    is_active?: boolean
+  }) => {
+    const response = await api.put(`/admin/users/${userId}`, data)
+    return response.data
+  },
+  
+  reactivateUser: async (userId: string) => {
+    const response = await api.post(`/admin/users/${userId}/reactivate`)
+    return response.data
+  },
+  
+  resetUserPassword: async (userId: string) => {
+    const response = await api.post(`/admin/users/${userId}/reset-password`)
+    return response.data
+  },
+  
+  getUserDetails: async (userId: string) => {
+    const response = await api.get(`/admin/users/${userId}/details`)
+    return response.data
+  },
+  
+  getAuditLogs: async (params?: {
+    action?: string
+    entity_type?: string
+    user_email?: string
+    limit?: number
+    offset?: number
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.action) searchParams.append('action', params.action)
+    if (params?.entity_type) searchParams.append('entity_type', params.entity_type)
+    if (params?.user_email) searchParams.append('user_email', params.user_email)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    const response = await api.get(`/admin/audit-logs?${searchParams}`)
+    return response.data
+  },
+  
+  getVoiceAnalyses: async (params?: {
+    user_id?: string
+    risk_level?: string
+    limit?: number
+    offset?: number
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.user_id) searchParams.append('user_id', params.user_id)
+    if (params?.risk_level) searchParams.append('risk_level', params.risk_level)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    const response = await api.get(`/admin/voice-analyses?${searchParams}`)
+    return response.data
+  },
+  
+  getVoiceSamples: async (params?: {
+    user_id?: string
+    limit?: number
+    offset?: number
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.user_id) searchParams.append('user_id', params.user_id)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    const response = await api.get(`/admin/voice-samples?${searchParams}`)
+    return response.data
+  },
+  
+  getAllPsychologists: async () => {
+    const response = await api.get('/admin/psychologists')
     return response.data
   }
 }

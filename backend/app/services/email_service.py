@@ -355,6 +355,126 @@ class EmailService:
         """
         
         return self._send_email(to_email, subject, html_content)
+    
+    def send_password_reset_notification(self, to_email: str, full_name: Optional[str] = None, temp_password: str = None) -> bool:
+        """Send notification when admin resets a user's password"""
+        name = full_name or "there"
+        subject = "Your Password Has Been Reset - Cittaa Vocalysis"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Inter', Arial, sans-serif; line-height: 1.6; color: #2C3E50; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #8B5A96, #7BB3A8); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+                .header h1 {{ color: white; margin: 0; font-size: 24px; }}
+                .content {{ background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; }}
+                .password-box {{ background: #f3e8ff; border: 2px solid #8B5A96; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }}
+                .password {{ font-size: 24px; font-weight: bold; color: #8B5A96; letter-spacing: 2px; }}
+                .button {{ display: inline-block; background: linear-gradient(135deg, #8B5A96, #7BB3A8); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }}
+                .warning {{ background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 20px 0; }}
+                .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 10px 10px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Password Reset</h1>
+                </div>
+                <div class="content">
+                    <h2>Hello {name}!</h2>
+                    <p>Your password for Cittaa Vocalysis has been reset by an administrator.</p>
+                    
+                    <div class="password-box">
+                        <p>Your new temporary password:</p>
+                        <p class="password">{temp_password}</p>
+                    </div>
+                    
+                    <div class="warning">
+                        <strong>Important:</strong> Please change your password after logging in for security purposes.
+                    </div>
+                    
+                    <center>
+                        <a href="{self.frontend_url}/login" class="button">Login Now</a>
+                    </center>
+                    
+                    <p>If you did not expect this password reset, please contact our support team immediately.</p>
+                    
+                    <p>Best regards,<br>The Cittaa Health Team</p>
+                </div>
+                <div class="footer">
+                    <p>Cittaa Health Services Private Limited</p>
+                    <p>&copy; 2024 Cittaa. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self._send_email(to_email, subject, html_content)
+    
+    def send_admin_created_account_email(self, to_email: str, full_name: Optional[str] = None, temp_password: str = None, role: str = "patient") -> bool:
+        """Send email when admin creates a new account"""
+        name = full_name or "there"
+        subject = "Your Cittaa Vocalysis Account Has Been Created"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Inter', Arial, sans-serif; line-height: 1.6; color: #2C3E50; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #8B5A96, #7BB3A8); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+                .header h1 {{ color: white; margin: 0; font-size: 24px; }}
+                .content {{ background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; }}
+                .credentials-box {{ background: #f3e8ff; border: 2px solid #8B5A96; border-radius: 8px; padding: 20px; margin: 20px 0; }}
+                .password {{ font-size: 18px; font-weight: bold; color: #8B5A96; }}
+                .button {{ display: inline-block; background: linear-gradient(135deg, #8B5A96, #7BB3A8); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }}
+                .warning {{ background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 20px 0; }}
+                .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 10px 10px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Welcome to Cittaa Vocalysis</h1>
+                </div>
+                <div class="content">
+                    <h2>Hello {name}!</h2>
+                    <p>An account has been created for you on Cittaa Vocalysis, your AI-powered mental health companion.</p>
+                    
+                    <div class="credentials-box">
+                        <p><strong>Your Login Credentials:</strong></p>
+                        <p>Email: <strong>{to_email}</strong></p>
+                        <p>Password: <span class="password">{temp_password}</span></p>
+                        <p>Role: <strong>{role.title()}</strong></p>
+                    </div>
+                    
+                    <div class="warning">
+                        <strong>Important:</strong> Please change your password after your first login for security purposes.
+                    </div>
+                    
+                    <center>
+                        <a href="{self.frontend_url}/login" class="button">Login Now</a>
+                    </center>
+                    
+                    <p>If you have any questions, please contact our support team.</p>
+                    
+                    <p>Best regards,<br>The Cittaa Health Team</p>
+                </div>
+                <div class="footer">
+                    <p>Cittaa Health Services Private Limited</p>
+                    <p>&copy; 2024 Cittaa. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self._send_email(to_email, subject, html_content)
 
 
 # Singleton instance

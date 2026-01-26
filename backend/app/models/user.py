@@ -2,7 +2,7 @@
 User model for Vocalysis
 """
 
-from sqlalchemy import Column, String, Boolean, DateTime, Enum, Text, Integer
+from sqlalchemy import Column, String, Boolean, DateTime, Enum, Text, Integer, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -28,7 +28,8 @@ class User(Base):
     # Profile information
     full_name = Column(String(255), nullable=True)
     phone = Column(String(20), nullable=True)
-    age_range = Column(String(20), nullable=True)
+    age = Column(Integer, nullable=True)  # Exact age for psychologist view
+    age_range = Column(String(20), nullable=True)  # Age range for privacy
     gender = Column(String(20), nullable=True)
     language_preference = Column(String(20), default="english")
     
@@ -59,14 +60,18 @@ class User(Base):
     assigned_psychologist_id = Column(String(36), nullable=True)
     assignment_date = Column(DateTime, nullable=True)
     
+    # Password reset
+    reset_token = Column(String(100), nullable=True)
+    reset_token_expires_at = Column(DateTime, nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     
-    # Relationships
+    # Relationships - specify foreign_keys to disambiguate multiple FKs from Prediction table
     voice_samples = relationship("VoiceSample", back_populates="user")
-    predictions = relationship("Prediction", back_populates="user")
+    predictions = relationship("Prediction", foreign_keys="[Prediction.user_id]", back_populates="user")
     clinical_assessments = relationship("ClinicalAssessment", back_populates="user")
     
     def __repr__(self):

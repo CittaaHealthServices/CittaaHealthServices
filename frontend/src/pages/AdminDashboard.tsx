@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { adminService } from '../services/api'
 import { 
@@ -30,6 +30,7 @@ interface Statistics {
 
 export default function AdminDashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [statistics, setStatistics] = useState<Statistics | null>(null)
   const [loading, setLoading] = useState(true)
   const [, setError] = useState('')
@@ -230,7 +231,10 @@ export default function AdminDashboard() {
             <ChevronRight className="w-5 h-5 text-gray-400 ml-auto" />
           </Link>
 
-          <div className="flex items-center p-4 rounded-lg border-2 border-dashed border-secondary-200 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-200 cursor-pointer">
+          <div 
+            onClick={() => navigate('/settings')}
+            className="flex items-center p-4 rounded-lg border-2 border-dashed border-secondary-200 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-200 cursor-pointer"
+          >
             <div className="w-12 h-12 bg-secondary-100 rounded-lg flex items-center justify-center mr-4">
               <Shield className="w-6 h-6 text-secondary-500" />
             </div>

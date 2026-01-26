@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     BRAND_WARNING: str = "#F39C12"
     BRAND_ERROR: str = "#E74C3C"
     
+    # Gemini API settings for voice analysis
+    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY", None)
+    GEMINI_MODEL_NAME: str = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash")
+    
     # Email settings
     SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))

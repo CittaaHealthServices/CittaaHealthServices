@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { 
   Home, Mic, FileText, Users, Settings, LogOut, Menu, X, 
-  Activity, UserCheck, ChevronDown
+  Activity, UserCheck, ChevronDown, ClipboardList, BarChart3, UserCog
 } from 'lucide-react'
 
 interface LayoutProps {
@@ -42,11 +42,14 @@ export default function Layout({ children }: LayoutProps) {
       ]
     }
 
-    if (user?.role === 'super_admin' || user?.role === 'hr_admin') {
+    if (user?.role === 'super_admin' || user?.role === 'hr_admin' || user?.role === 'admin') {
       return [
         { path: '/admin/dashboard', icon: Home, label: 'Dashboard' },
         { path: '/admin/users', icon: Users, label: 'User Management' },
         { path: '/admin/approvals', icon: UserCheck, label: 'Pending Approvals' },
+        { path: '/admin/assignments', icon: UserCog, label: 'Psychologist Assignments' },
+        { path: '/admin/analyses', icon: BarChart3, label: 'Voice Analyses' },
+        { path: '/admin/audit-logs', icon: ClipboardList, label: 'Audit Logs' },
       ]
     }
 
@@ -179,7 +182,7 @@ export default function Layout({ children }: LayoutProps) {
                     className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     onClick={() => {
                       setUserMenuOpen(false)
-                      // Navigate to settings
+                      navigate('/settings')
                     }}
                   >
                     <Settings className="w-4 h-4" />
