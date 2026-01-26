@@ -22,7 +22,7 @@ from contextlib import asynccontextmanager
 import logging
 import os
 
-from app.models.database import init_db
+from app.models.mongodb import init_mongodb, close_mongodb
 from app.routers import (
     auth_router, reports_router, escalation_router,
     admin_router, students_router, institutions_router
@@ -41,11 +41,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
     logger.info("Starting CITTAA Escalation Engine...")
-    init_db()
-    logger.info("Database initialized successfully")
+    init_mongodb()
+    logger.info("MongoDB initialized successfully")
     yield
     # Shutdown
     logger.info("Shutting down CITTAA Escalation Engine...")
+    close_mongodb()
 
 
 # Create FastAPI application
