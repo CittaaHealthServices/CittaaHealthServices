@@ -5,13 +5,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// CITTAA Brand Colors
+// CITTAA Brand Colors (from official website)
 export const CITTAA_COLORS = {
-  purple: '#8B5A96',
-  teal: '#7BB3A8',
+  purple: '#9B8AA8',
+  lavender: '#E8E0ED',
+  lavenderLight: '#F5F0F8',
+  green: '#7A9E7E',
+  greenLight: '#A8C5AB',
+  teal: '#7A9E7E',
+  darkButton: '#4A4A4A',
   warmGray: '#6B7280',
   darkText: '#1F2937',
-  lightBg: '#F9FAFB',
+  lightBg: '#FAF8FC',
+  white: '#FFFFFF',
 };
 
 // Escalation level colors

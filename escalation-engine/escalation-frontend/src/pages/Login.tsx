@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Shield } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { CITTAA_COLORS } from '@/lib/utils';
 
 export default function Login() {
@@ -34,33 +34,29 @@ export default function Login() {
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: CITTAA_COLORS.lightBg }}
+      style={{ backgroundColor: CITTAA_COLORS.lavenderLight }}
     >
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div 
-            className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4"
-            style={{ backgroundColor: CITTAA_COLORS.purple }}
-          >
-            <Shield className="w-8 h-8 text-white" />
-          </div>
           <h1 
-            className="text-3xl font-bold"
+            className="text-4xl font-serif italic"
             style={{ color: CITTAA_COLORS.purple }}
           >
-            CITTAA
+            Cittaa
           </h1>
           <p 
-            className="text-sm mt-1"
+            className="text-sm mt-2"
             style={{ color: CITTAA_COLORS.warmGray }}
           >
             Internal Escalation AI Engine
           </p>
         </div>
 
-        <Card className="shadow-lg border-0">
+        <Card className="shadow-lg border-0" style={{ backgroundColor: CITTAA_COLORS.white }}>
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Sign In</CardTitle>
+            <CardTitle className="text-2xl text-center" style={{ color: CITTAA_COLORS.darkText }}>
+              Sign In
+            </CardTitle>
             <CardDescription className="text-center">
               Enter your credentials to access the escalation portal
             </CardDescription>
@@ -89,6 +85,7 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className="h-11"
+                  style={{ borderColor: CITTAA_COLORS.lavender }}
                 />
               </div>
 
@@ -108,13 +105,14 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className="h-11"
+                  style={{ borderColor: CITTAA_COLORS.lavender }}
                 />
               </div>
 
               <Button
                 type="submit"
                 className="w-full h-11 text-white transition-all duration-200 hover:opacity-90"
-                style={{ backgroundColor: CITTAA_COLORS.purple }}
+                style={{ backgroundColor: CITTAA_COLORS.darkButton }}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -128,7 +126,7 @@ export default function Login() {
               </Button>
             </form>
 
-            <div className="mt-6 pt-6 border-t text-center">
+            <div className="mt-6 pt-6 border-t text-center" style={{ borderColor: CITTAA_COLORS.lavender }}>
               <p 
                 className="text-xs"
                 style={{ color: CITTAA_COLORS.warmGray }}
@@ -136,10 +134,10 @@ export default function Login() {
                 CITTAA Health Services Private Limited
               </p>
               <p 
-                className="text-xs mt-1"
-                style={{ color: CITTAA_COLORS.warmGray }}
+                className="text-xs mt-1 italic"
+                style={{ color: CITTAA_COLORS.purple }}
               >
-                Bridging Mental Health Gaps Through Intelligent Wellness Solutions
+                Healing is a journey. We will walk beside you.
               </p>
             </div>
           </CardContent>
