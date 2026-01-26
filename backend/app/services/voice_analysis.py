@@ -539,12 +539,13 @@ class VoiceAnalysisService:
             print(f"[VoiceAnalysis] Failed to load model: {e}")
             self.model_loaded = False
     
-    def analyze_audio(self, file_path: str) -> Dict[str, Any]:
+    def analyze_audio(self, file_path: str, use_gemini: bool = True) -> Dict[str, Any]:
         """
         Analyze audio file and return mental health predictions
         
         Args:
             file_path: Path to the audio file
+            use_gemini: Whether to use Gemini 3 for enhanced authentic scoring (default: True)
             
         Returns:
             Dictionary containing predictions and features
@@ -553,6 +554,7 @@ class VoiceAnalysisService:
             # Try to import audio processing libraries
             import librosa
             import soundfile as sf
+            import asyncio
             
             # Load audio
             audio, sr = librosa.load(file_path, sr=16000)
@@ -567,8 +569,41 @@ class VoiceAnalysisService:
             # Extract features
             features = self._extract_features(audio, sr)
             
-            # Run prediction
-            probabilities = self._predict(features)
+            # Try Gemini-enhanced scoring for authentic results
+            gemini_result = None
+            analysis_method = "model"
+            
+            if use_gemini:
+                try:
+                    gemini_service = get_gemini_service()
+                    if gemini_service.is_available():
+                        # Run async Gemini analysis
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        try:
+                            gemini_result = loop.run_until_complete(
+                                gemini_service.analyze_voice_features(features)
+                            )
+                        finally:
+                            loop.close()
+                        
+                        if gemini_result and gemini_result.get("success"):
+                            probabilities = gemini_result["probabilities"]
+                            analysis_method = "gemini-3-pro"
+                            print(f"[VoiceAnalysis] Using Gemini 3 Pro for authentic scoring")
+                        else:
+                            # Fallback to model/heuristic
+                            probabilities = self._predict(features)
+                            print(f"[VoiceAnalysis] Gemini failed, using model fallback")
+                    else:
+                        probabilities = self._predict(features)
+                        print(f"[VoiceAnalysis] Gemini not available, using model")
+                except Exception as e:
+                    print(f"[VoiceAnalysis] Gemini error: {e}, using model fallback")
+                    probabilities = self._predict(features)
+            else:
+                # Use model/heuristic prediction
+                probabilities = self._predict(features)
             
             # Map to clinical scales
             scale_mappings = self._map_to_clinical_scales(probabilities)
@@ -585,7 +620,7 @@ class VoiceAnalysisService:
             # Remove numpy array from features before returning (not JSON serializable)
             features_clean = {k: v for k, v in features.items() if k != "_feature_array"}
             
-            return {
+            result = {
                 "probabilities": probabilities,
                 "risk_level": risk_level,
                 "mental_health_score": mental_health_score,
@@ -593,8 +628,15 @@ class VoiceAnalysisService:
                 "features": features_clean,
                 "scale_mappings": scale_mappings,
                 "interpretations": interpretations,
-                "recommendations": recommendations
+                "recommendations": recommendations,
+                "analysis_method": analysis_method
             }
+            
+            # Add Gemini clinical notes if available
+            if gemini_result and gemini_result.get("clinical_notes"):
+                result["gemini_clinical_notes"] = gemini_result["clinical_notes"]
+            
+            return result
             
         except ImportError:
             # Fallback to demo mode if libraries not available
