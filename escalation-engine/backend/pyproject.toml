@@ -7,9 +7,8 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = {extras = ["standard"], version = "^0.109.0"}
-fastapi-cli = "^0.0.2"
-uvicorn = {extras = ["standard"], version = "^0.29.0"}
+fastapi = {extras = ["all"], version = "^0.115.0"}
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
 python-multipart = "^0.0.6"
 sqlalchemy = "^2.0.25"
 psycopg2-binary = "^2.9.9"
