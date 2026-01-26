@@ -257,6 +257,117 @@ class ApiClient {
   async getInstitutionStats(institutionId: string) {
     return this.request(`/api/v1/institutions/${institutionId}/stats`);
   }
+
+  // User management endpoints (admin)
+  async createUser(userData: {
+    email: string;
+    password: string;
+    full_name: string;
+    role: string;
+    phone?: string;
+    rci_registration?: string;
+    institution_id?: string;
+  }) {
+    return this.request('/api/v1/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async changeUserRole(userId: string, role: string) {
+    return this.request(`/api/v1/admin/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  // Role management endpoints (admin)
+  async getRoles() {
+    return this.request('/api/v1/admin/roles');
+  }
+
+  async createRole(roleData: {
+    name: string;
+    display_name: string;
+    description?: string;
+    permissions?: Record<string, string[]>;
+  }) {
+    return this.request('/api/v1/admin/roles', {
+      method: 'POST',
+      body: JSON.stringify(roleData),
+    });
+  }
+
+  async updateRole(roleName: string, updateData: {
+    display_name?: string;
+    description?: string;
+    permissions?: Record<string, string[]>;
+    is_active?: boolean;
+  }) {
+    return this.request(`/api/v1/admin/roles/${roleName}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  // Manager data viewing endpoints
+  async getManagerReports(params?: {
+    report_type?: string;
+    psychologist_id?: string;
+    institution_id?: string;
+    days?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.report_type) queryParams.append('report_type', params.report_type);
+    if (params?.psychologist_id) queryParams.append('psychologist_id', params.psychologist_id);
+    if (params?.institution_id) queryParams.append('institution_id', params.institution_id);
+    if (params?.days) queryParams.append('days', params.days.toString());
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    return this.request(`/api/v1/admin/manager/reports${query}`);
+  }
+
+  async getManagerEscalations(params?: {
+    status?: string;
+    level?: string;
+    psychologist_id?: string;
+    institution_id?: string;
+    days?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.level) queryParams.append('level', params.level);
+    if (params?.psychologist_id) queryParams.append('psychologist_id', params.psychologist_id);
+    if (params?.institution_id) queryParams.append('institution_id', params.institution_id);
+    if (params?.days) queryParams.append('days', params.days.toString());
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    return this.request(`/api/v1/admin/manager/escalations${query}`);
+  }
+
+  async getManagerSessions(params?: {
+    psychologist_id?: string;
+    institution_id?: string;
+    session_type?: string;
+    days?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.psychologist_id) queryParams.append('psychologist_id', params.psychologist_id);
+    if (params?.institution_id) queryParams.append('institution_id', params.institution_id);
+    if (params?.session_type) queryParams.append('session_type', params.session_type);
+    if (params?.days) queryParams.append('days', params.days.toString());
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    return this.request(`/api/v1/admin/manager/sessions${query}`);
+  }
+
+  async getPsychologistPerformance(params?: {
+    psychologist_id?: string;
+    days?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.psychologist_id) queryParams.append('psychologist_id', params.psychologist_id);
+    if (params?.days) queryParams.append('days', params.days.toString());
+    const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    return this.request(`/api/v1/admin/manager/psychologist-performance${query}`);
+  }
 }
 
 export const api = new ApiClient(API_URL);
