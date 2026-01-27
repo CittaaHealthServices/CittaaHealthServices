@@ -12,7 +12,7 @@ import uuid
 
 # MongoDB connection string - configure via environment variable
 # Format: mongodb+srv://username:password@cluster.mongodb.net/database?retryWrites=true&w=majority
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017/cittaa_escalation")
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://sairam_db_user:Pratya%402026@cluster0.ao9qmj.mongodb.net/cittaa_escalation?retryWrites=true&w=majority&appName=Cluster0")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "cittaa_escalation")
 
 # Global MongoDB client and database
