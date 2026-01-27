@@ -155,6 +155,55 @@ async def get_dashboard_overview(
     }
 
 
+@router.get("/dashboard/trends")
+async def get_dashboard_trends(
+    days: int = 30,
+    institution_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get activity trends for dashboard charts"""
+    if current_user["role"] not in ["admin", "school_admin", "manager", "quality_manager"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    db = get_mongodb()
+    
+    inst_filter = {}
+    if current_user["role"] == "school_admin":
+        inst_filter = {"institution_id": current_user.get("institution_id")}
+    elif institution_id:
+        inst_filter = {"institution_id": institution_id}
+    
+    trends = []
+    for i in range(days):
+        day = datetime.utcnow() - timedelta(days=days - 1 - i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        
+        sessions_count = db.counseling_sessions.count_documents({
+            **inst_filter,
+            "session_date": {"$gte": day_start, "$lt": day_end}
+        })
+        
+        reports_count = db.daily_reports.count_documents({
+            **inst_filter,
+            "created_at": {"$gte": day_start, "$lt": day_end}
+        })
+        
+        escalations_count = db.escalation_cases.count_documents({
+            **inst_filter,
+            "created_at": {"$gte": day_start, "$lt": day_end}
+        })
+        
+        trends.append({
+            "date": str(day_start.date()),
+            "sessions": sessions_count,
+            "reports": reports_count,
+            "escalations": escalations_count
+        })
+    
+    return trends
+
+
 @router.post("/users", response_model=UserResponse)
 async def create_user(
     user_data: UserCreate,
