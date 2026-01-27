@@ -31,7 +31,14 @@ interface Report {
   submitted_at: string;
   sessions_conducted?: number;
   total_sessions?: number;
+  total_students?: number;
   crisis_interventions?: number;
+  key_highlights?: string;
+  notes_and_observations?: string;
+  summary?: string;
+  challenges?: string;
+  executive_summary?: string;
+  recommendations?: string;
 }
 
 export default function Reports() {
@@ -67,15 +74,25 @@ export default function Reports() {
     challenges: ''
   });
   
-  const [monthlyFormData, setMonthlyFormData] = useState({
-    report_month: new Date().toISOString().slice(0, 7),
-    executive_summary: '',
-    recommendations: ''
-  });
+    const [monthlyFormData, setMonthlyFormData] = useState({
+      report_month: new Date().toISOString().slice(0, 7),
+      executive_summary: '',
+      recommendations: ''
+    });
 
-  useEffect(() => {
-    loadReports();
-  }, []);
+    const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+    const [viewingReport, setViewingReport] = useState<Report | null>(null);
+    const [viewingReportType, setViewingReportType] = useState<string>('daily');
+
+    const openViewDialog = (report: Report, type: string) => {
+      setViewingReport(report);
+      setViewingReportType(type);
+      setIsViewDialogOpen(true);
+    };
+
+    useEffect(() => {
+      loadReports();
+    }, []);
 
     const loadReports = async () => {
       setIsLoading(true);
@@ -235,14 +252,15 @@ export default function Reports() {
             )}
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              style={{ borderColor: CITTAA_COLORS.purple, color: CITTAA_COLORS.purple }}
-            >
-              <Eye className="h-4 w-4 mr-1" />
-              View
-            </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          style={{ borderColor: CITTAA_COLORS.purple, color: CITTAA_COLORS.purple }}
+                          onClick={() => openViewDialog(report, type)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
             <Button 
               variant="outline" 
               size="sm"
@@ -568,6 +586,140 @@ export default function Reports() {
               style={{ backgroundColor: CITTAA_COLORS.purple }}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Report'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle style={{ color: CITTAA_COLORS.purple }}>
+              {viewingReportType.charAt(0).toUpperCase() + viewingReportType.slice(1)} Report Details
+            </DialogTitle>
+            <DialogDescription>
+              View the details of this {viewingReportType} activity report.
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewingReport && (
+            <div className="space-y-4 py-4">
+              {viewingReportType === 'daily' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Date</Label>
+                      <p className="mt-1">{viewingReport.report_date ? formatDate(viewingReport.report_date) : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Status</Label>
+                      <div className="mt-1">{getStatusBadge(viewingReport.status)}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Sessions Conducted</Label>
+                      <p className="mt-1">{viewingReport.sessions_conducted || 0}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Crisis Interventions</Label>
+                      <p className="mt-1">{viewingReport.crisis_interventions || 0}</p>
+                    </div>
+                  </div>
+                  {viewingReport.key_highlights && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Key Highlights</Label>
+                      <p className="mt-1 p-3 bg-gray-50 rounded-md">{viewingReport.key_highlights}</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {viewingReportType === 'weekly' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Week Period</Label>
+                      <p className="mt-1">
+                        {viewingReport.week_start_date && viewingReport.week_end_date 
+                          ? `${formatDate(viewingReport.week_start_date)} - ${formatDate(viewingReport.week_end_date)}`
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Status</Label>
+                      <div className="mt-1">{getStatusBadge(viewingReport.status)}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Total Sessions</Label>
+                      <p className="mt-1">{viewingReport.total_sessions || 0}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Total Students</Label>
+                      <p className="mt-1">{viewingReport.total_students || 0}</p>
+                    </div>
+                  </div>
+                  {viewingReport.summary && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Summary</Label>
+                      <p className="mt-1 p-3 bg-gray-50 rounded-md">{viewingReport.summary}</p>
+                    </div>
+                  )}
+                  {viewingReport.challenges && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Challenges</Label>
+                      <p className="mt-1 p-3 bg-gray-50 rounded-md">{viewingReport.challenges}</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {viewingReportType === 'monthly' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Month</Label>
+                      <p className="mt-1">
+                        {viewingReport.report_month 
+                          ? new Date(viewingReport.report_month).toLocaleDateString('en-IN', { year: 'numeric', month: 'long' })
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Status</Label>
+                      <div className="mt-1">{getStatusBadge(viewingReport.status)}</div>
+                    </div>
+                  </div>
+                  {viewingReport.executive_summary && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Executive Summary</Label>
+                      <p className="mt-1 p-3 bg-gray-50 rounded-md">{viewingReport.executive_summary}</p>
+                    </div>
+                  )}
+                  {viewingReport.recommendations && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Recommendations</Label>
+                      <p className="mt-1 p-3 bg-gray-50 rounded-md">{viewingReport.recommendations}</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+              Close
+            </Button>
+            <Button 
+              onClick={() => viewingReport && downloadPdf(viewingReportType, viewingReport.report_id)}
+              className="text-white"
+              style={{ backgroundColor: CITTAA_COLORS.teal }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download PDF
             </Button>
           </DialogFooter>
         </DialogContent>
