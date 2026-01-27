@@ -5,6 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { 
   FileText, Download, Calendar, Plus, Eye,
   Clock, CheckCircle, AlertCircle
 } from 'lucide-react';
@@ -29,30 +40,115 @@ export default function Reports() {
   const [monthlyReports, setMonthlyReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('daily');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  
+  const [dailyFormData, setDailyFormData] = useState({
+    report_date: new Date().toISOString().split('T')[0],
+    key_highlights: '',
+    notes_and_observations: '',
+    sessions_details: [] as Array<{
+      student_code: string;
+      session_type: string;
+      duration_minutes: number;
+      presenting_issue: string;
+      notes: string;
+      follow_up_needed: boolean;
+    }>
+  });
+  
+  const [weeklyFormData, setWeeklyFormData] = useState({
+    week_start_date: '',
+    week_end_date: '',
+    total_sessions: 0,
+    total_students: 0,
+    summary: '',
+    challenges: ''
+  });
+  
+  const [monthlyFormData, setMonthlyFormData] = useState({
+    report_month: new Date().toISOString().slice(0, 7),
+    executive_summary: '',
+    recommendations: ''
+  });
 
   useEffect(() => {
     loadReports();
   }, []);
 
-  const loadReports = async () => {
-    setIsLoading(true);
-    try {
-      const [daily, weekly, monthly] = await Promise.all([
-        api.getDailyReports().catch(() => []),
-        api.getWeeklyReports().catch(() => []),
-        api.getMonthlyReports().catch(() => []),
-      ]);
-      setDailyReports(daily as Report[]);
-      setWeeklyReports(weekly as Report[]);
-      setMonthlyReports(monthly as Report[]);
-    } catch (error) {
-      console.error('Failed to load reports:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const loadReports = async () => {
+      setIsLoading(true);
+      try {
+        const [daily, weekly, monthly] = await Promise.all([
+          api.getDailyReports().catch(() => []),
+          api.getWeeklyReports().catch(() => []),
+          api.getMonthlyReports().catch(() => []),
+        ]);
+        setDailyReports(daily as Report[]);
+        setWeeklyReports(weekly as Report[]);
+        setMonthlyReports(monthly as Report[]);
+      } catch (error) {
+        console.error('Failed to load reports:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const downloadPdf = async (reportType: string, reportId: string) => {
+    const openNewReportDialog = (type: 'daily' | 'weekly' | 'monthly') => {
+      setReportType(type);
+      if (type === 'daily') {
+        setDailyFormData({
+          report_date: new Date().toISOString().split('T')[0],
+          key_highlights: '',
+          notes_and_observations: '',
+          sessions_details: []
+        });
+      } else if (type === 'weekly') {
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        setWeeklyFormData({
+          week_start_date: startOfWeek.toISOString().split('T')[0],
+          week_end_date: endOfWeek.toISOString().split('T')[0],
+          total_sessions: 0,
+          total_students: 0,
+          summary: '',
+          challenges: ''
+        });
+      } else {
+        setMonthlyFormData({
+          report_month: new Date().toISOString().slice(0, 7),
+          executive_summary: '',
+          recommendations: ''
+        });
+      }
+      setIsDialogOpen(true);
+    };
+
+    const handleSubmitReport = async () => {
+      setIsSubmitting(true);
+      try {
+        if (reportType === 'daily') {
+          await api.submitDailyReport(dailyFormData);
+        } else if (reportType === 'weekly') {
+          await api.submitWeeklyReport(weeklyFormData);
+        } else {
+          await api.submitMonthlyReport(monthlyFormData);
+        }
+        setIsDialogOpen(false);
+        loadReports();
+      } catch (error) {
+        console.error('Failed to submit report:', error);
+        alert('Failed to submit report. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    const downloadPdf= async (reportType: string, reportId: string) => {
     try {
       const blob = await api.downloadReportPdf(reportType, reportId);
       const url = window.URL.createObjectURL(blob);
@@ -162,20 +258,21 @@ export default function Reports() {
     );
   };
 
-  const EmptyState = ({ type }: { type: string }) => (
-    <div className="text-center py-12">
-      <FileText className="h-12 w-12 mx-auto mb-4" style={{ color: CITTAA_COLORS.warmGray }} />
-      <h3 className="text-lg font-medium text-gray-900 mb-2">No {type} reports yet</h3>
-      <p className="text-gray-500 mb-4">Start by creating your first {type} report</p>
-      <Button 
-        className="text-white"
-        style={{ backgroundColor: CITTAA_COLORS.purple }}
-      >
-        <Plus className="h-4 w-4 mr-2" />
-        Create {type.charAt(0).toUpperCase() + type.slice(1)} Report
-      </Button>
-    </div>
-  );
+    const EmptyState = ({ type }: { type: string }) => (
+      <div className="text-center py-12">
+        <FileText className="h-12 w-12 mx-auto mb-4" style={{ color: CITTAA_COLORS.warmGray }} />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No {type} reports yet</h3>
+        <p className="text-gray-500 mb-4">Start by creating your first {type} report</p>
+        <Button 
+          className="text-white"
+          style={{ backgroundColor: CITTAA_COLORS.purple }}
+          onClick={() => openNewReportDialog(type as 'daily' | 'weekly' | 'monthly')}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Create {type.charAt(0).toUpperCase() + type.slice(1)} Report
+        </Button>
+      </div>
+    );
 
   return (
     <div className="space-y-6">
@@ -188,14 +285,15 @@ export default function Reports() {
             View and manage your activity reports
           </p>
         </div>
-        <Button 
-          className="text-white"
-          style={{ backgroundColor: CITTAA_COLORS.purple }}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Report
-        </Button>
-      </div>
+              <Button 
+                className="text-white"
+                style={{ backgroundColor: CITTAA_COLORS.purple }}
+                onClick={() => openNewReportDialog(activeTab as 'daily' | 'weekly' | 'monthly')}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Report
+              </Button>
+            </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 max-w-md">
@@ -306,6 +404,174 @@ export default function Reports() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle style={{ color: CITTAA_COLORS.purple }}>
+              Create {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report
+            </DialogTitle>
+            <DialogDescription>
+              Fill in the details for your {reportType} activity report.
+            </DialogDescription>
+          </DialogHeader>
+
+          {reportType === 'daily' && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="report_date" className="text-right">Date</Label>
+                <Input
+                  id="report_date"
+                  type="date"
+                  value={dailyFormData.report_date}
+                  onChange={(e) => setDailyFormData({ ...dailyFormData, report_date: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="key_highlights" className="text-right">Key Highlights</Label>
+                <Textarea
+                  id="key_highlights"
+                  placeholder="Enter key highlights from today's sessions..."
+                  value={dailyFormData.key_highlights}
+                  onChange={(e) => setDailyFormData({ ...dailyFormData, key_highlights: e.target.value })}
+                  className="col-span-3"
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="notes" className="text-right">Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Additional notes and observations..."
+                  value={dailyFormData.notes_and_observations}
+                  onChange={(e) => setDailyFormData({ ...dailyFormData, notes_and_observations: e.target.value })}
+                  className="col-span-3"
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          {reportType === 'weekly' && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="week_start" className="text-right">Week Start</Label>
+                <Input
+                  id="week_start"
+                  type="date"
+                  value={weeklyFormData.week_start_date}
+                  onChange={(e) => setWeeklyFormData({ ...weeklyFormData, week_start_date: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="week_end" className="text-right">Week End</Label>
+                <Input
+                  id="week_end"
+                  type="date"
+                  value={weeklyFormData.week_end_date}
+                  onChange={(e) => setWeeklyFormData({ ...weeklyFormData, week_end_date: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="total_sessions" className="text-right">Total Sessions</Label>
+                <Input
+                  id="total_sessions"
+                  type="number"
+                  value={weeklyFormData.total_sessions}
+                  onChange={(e) => setWeeklyFormData({ ...weeklyFormData, total_sessions: parseInt(e.target.value) || 0 })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="total_students" className="text-right">Total Students</Label>
+                <Input
+                  id="total_students"
+                  type="number"
+                  value={weeklyFormData.total_students}
+                  onChange={(e) => setWeeklyFormData({ ...weeklyFormData, total_students: parseInt(e.target.value) || 0 })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="summary" className="text-right">Summary</Label>
+                <Textarea
+                  id="summary"
+                  placeholder="Weekly summary..."
+                  value={weeklyFormData.summary}
+                  onChange={(e) => setWeeklyFormData({ ...weeklyFormData, summary: e.target.value })}
+                  className="col-span-3"
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="challenges" className="text-right">Challenges</Label>
+                <Textarea
+                  id="challenges"
+                  placeholder="Challenges faced this week..."
+                  value={weeklyFormData.challenges}
+                  onChange={(e) => setWeeklyFormData({ ...weeklyFormData, challenges: e.target.value })}
+                  className="col-span-3"
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          {reportType === 'monthly' && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="report_month" className="text-right">Month</Label>
+                <Input
+                  id="report_month"
+                  type="month"
+                  value={monthlyFormData.report_month}
+                  onChange={(e) => setMonthlyFormData({ ...monthlyFormData, report_month: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="executive_summary" className="text-right">Executive Summary</Label>
+                <Textarea
+                  id="executive_summary"
+                  placeholder="Monthly executive summary..."
+                  value={monthlyFormData.executive_summary}
+                  onChange={(e) => setMonthlyFormData({ ...monthlyFormData, executive_summary: e.target.value })}
+                  className="col-span-3"
+                  rows={4}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="recommendations" className="text-right">Recommendations</Label>
+                <Textarea
+                  id="recommendations"
+                  placeholder="Recommendations for next month..."
+                  value={monthlyFormData.recommendations}
+                  onChange={(e) => setMonthlyFormData({ ...monthlyFormData, recommendations: e.target.value })}
+                  className="col-span-3"
+                  rows={4}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitReport}
+              disabled={isSubmitting}
+              className="text-white"
+              style={{ backgroundColor: CITTAA_COLORS.purple }}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Report'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
