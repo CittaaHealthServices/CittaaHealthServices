@@ -127,9 +127,40 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     return user
 
 
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordReset(BaseModel):
+    token: str
+    new_password: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+def validate_cittaa_email(email: str) -> bool:
+    """Validate that email is from @cittaa.in domain"""
+    return email.lower().endswith("@cittaa.in")
+
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register_user(user_data: UserCreate):
-    """Register a new user"""
+async def register_user(user_data: UserCreate, current_user: dict = Depends(get_current_user)):
+    """Register a new user - Admin only, @cittaa.in emails only"""
+    if current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can create new accounts"
+        )
+    
+    if not validate_cittaa_email(user_data.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only @cittaa.in email addresses are allowed"
+        )
+    
     db = get_mongodb()
     
     existing_user = db.users.find_one({"email": user_data.email})
@@ -169,7 +200,7 @@ async def register_user(user_data: UserCreate):
     
     db.users.insert_one(user_doc)
     
-    logger.info(f"New user registered: {user_data.email} with role {user_data.role}")
+    logger.info(f"New user registered by admin {current_user['email']}: {user_data.email} with role {user_data.role}")
     
     return UserResponse(
         id=user_doc["_id"],
@@ -304,3 +335,78 @@ async def logout(current_user: dict = Depends(get_current_user)):
     """Logout current user"""
     logger.info(f"User logged out: {current_user['email']}")
     return {"message": "Successfully logged out"}
+
+
+@router.post("/change-password")
+async def change_password(password_data: PasswordChange, current_user: dict = Depends(get_current_user)):
+    """Change password for current user (psychologists and other users can reset their own password)"""
+    db = get_mongodb()
+    
+    if not verify_password(password_data.current_password, current_user["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    
+    if len(password_data.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 8 characters long"
+        )
+    
+    new_hash = hash_password(password_data.new_password)
+    
+    db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {
+            "password_hash": new_hash,
+            "updated_at": datetime.utcnow()
+        }}
+    )
+    
+    logger.info(f"Password changed for user: {current_user['email']}")
+    
+    return {"message": "Password changed successfully"}
+
+
+@router.post("/admin/reset-user-password")
+async def admin_reset_user_password(
+    email: EmailStr,
+    new_password: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Admin can reset any user's password"""
+    if current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can reset user passwords"
+        )
+    
+    db = get_mongodb()
+    
+    user = db.users.find_one({"email": email})
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 8 characters long"
+        )
+    
+    new_hash = hash_password(new_password)
+    
+    db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {
+            "password_hash": new_hash,
+            "updated_at": datetime.utcnow()
+        }}
+    )
+    
+    logger.info(f"Password reset by admin {current_user['email']} for user: {email}")
+    
+    return {"message": f"Password reset successfully for {email}"}
