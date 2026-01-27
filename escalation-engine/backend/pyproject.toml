@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cittaa-escalation-engine"
-version = "1.0.0"
+version = "1.0.1"
 description = "CITTAA Internal Escalation AI Engine System for Mental Health Case Management"
 authors = ["CITTAA Health Services <info@cittaa.in>"]
 readme = "README.md"
